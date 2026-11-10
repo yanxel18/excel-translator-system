@@ -12,7 +12,7 @@ export class JobManagementController {
   @Post(':id/start') start(@Param('id') id: string, @Req() req: Request) { return this.service.startJob(id, this.owner(req)); }
   @Post(':id/retry') retry(@Param('id') id: string, @Req() req: Request) { return this.service.retryJob(id, this.owner(req)); }
   @Get(':id') get(@Param('id') id: string, @Req() req: Request) { return this.service.getJob(id, this.owner(req)); }
-  @Patch(':id/settings') updateSettings(@Param('id') id: string, @Req() req: Request, @Body() body: { selectedSheets?: unknown; sourceLanguage?: unknown; targetLanguage?: unknown }) { return this.service.updateJobSettings(id, this.owner(req), body); }
+  @Patch(':id/settings') updateSettings(@Param('id') id: string, @Req() req: Request, @Body() body: { selectedSheets?: unknown; sourceLanguage?: unknown; targetLanguage?: unknown; vocabularyGroupId?: unknown }) { return this.service.updateJobSettings(id, this.owner(req), body); }
   @Get() list(@Req() req: Request) { return this.service.getJobList(this.owner(req)); }
   @Put(':id/cancel') cancel(@Param('id') id: string, @Req() req: Request) { return this.service.cancelJob(id, this.owner(req)); }
 

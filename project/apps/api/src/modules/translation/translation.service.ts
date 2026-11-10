@@ -1,15 +1,47 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Language } from '../../generated/prisma/client';
 import { ExtractedText, replaceVisibleText, TextExtractionService } from '../text-extraction/text-extraction.service';
 
 export interface Translation { id: string; translated: string; }
+export interface ProtectedTerm { source: string; target: string; }
 const LANGUAGE_NAMES: Record<Language, string> = { ENGLISH: 'English', JAPANESE: 'Japanese', CHINESE: 'Chinese' };
+
+function createVocabularyProtector(terms: ProtectedTerm[]): (value: string) => { text: string; markers: Map<string, string> } {
+  const normalized = terms.filter(({ source, target }) => source && target).slice()
+    .sort((left, right) => right.source.length - left.source.length);
+  if (!normalized.length) return (value) => ({ text: value, markers: new Map() });
+  const bySource = new Map(normalized.map(({ source, target }) => [source, target]));
+  const pattern = new RegExp(normalized.map(({ source }) => source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gu');
+  return (value) => {
+    let nonce = randomUUID().replace(/-/g, '');
+    while (value.includes(nonce) || normalized.some(({ target }) => target.includes(nonce))) nonce = randomUUID().replace(/-/g, '');
+    const markers = new Map<string, string>();
+    let index = 0;
+    pattern.lastIndex = 0;
+    const text = value.replace(pattern, (source) => {
+      const marker = `XLT_PROTECTED_${nonce}_${index++}_ENDXLT`;
+      markers.set(marker, bySource.get(source)!);
+      return marker;
+    });
+    return { text, markers };
+  };
+}
+
+function restoreVocabulary(value: string, markers: Map<string, string>): string {
+  let result = value;
+  for (const [marker, target] of markers) {
+    if (result.split(marker).length - 1 !== 1) throw new ServiceUnavailableException('Ollama did not preserve protected vocabulary markers.');
+    result = result.replace(marker, target);
+  }
+  return result;
+}
 
 @Injectable()
 export class TranslationService {
   constructor(private readonly extraction: TextExtractionService) {}
 
-  async sendTextForTranslation(textBatch: ExtractedText[], onProgress?: (completed: number, total: number) => void, signal?: AbortSignal, languages: { sourceLanguage: Language; targetLanguage: Language } = { sourceLanguage: Language.JAPANESE, targetLanguage: Language.ENGLISH }): Promise<Translation[]> {
+  async sendTextForTranslation(textBatch: ExtractedText[], onProgress?: (completed: number, total: number) => void, signal?: AbortSignal, languages: { sourceLanguage: Language; targetLanguage: Language } = { sourceLanguage: Language.JAPANESE, targetLanguage: Language.ENGLISH }, vocabulary: ProtectedTerm[] = []): Promise<Translation[]> {
     if (!Array.isArray(textBatch)) throw new Error('textBatch must be an array.');
     const maxBatchItems = 32;
     const maxBatchBytes = 64 * 1024;
@@ -26,7 +58,9 @@ export class TranslationService {
     }
     if (current.length) batches.push(current);
     const translations: Translation[] = [];
+    const protect = createVocabularyProtector(vocabulary);
     for (const [batchIndex, batch] of batches.entries()) {
+      const protectedItems = batch.map(({ id, value }) => ({ id, ...protect(value) }));
       const model = process.env.OLLAMA_MODEL || 'gemma4:latest';
       const endpoint = (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, '') + '/api/chat';
       let response: Response;
@@ -35,8 +69,8 @@ export class TranslationService {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model, stream: false, format: 'json',
             messages: [
-              { role: 'system', content: `Translate each ${LANGUAGE_NAMES[languages.sourceLanguage]} string to ${LANGUAGE_NAMES[languages.targetLanguage]}. Return only JSON as {"translations":[{"id":"...","translated":"..."}]}. Preserve IDs exactly. Keep text that is not in the source language unchanged.` },
-              { role: 'user', content: JSON.stringify({ translations: batch.map(({ id, value }) => ({ id, text: value })) }) },
+              { role: 'system', content: `Translate each ${LANGUAGE_NAMES[languages.sourceLanguage]} string to ${LANGUAGE_NAMES[languages.targetLanguage]}. Return only JSON as {"translations":[{"id":"...","translated":"..."}]}. Preserve IDs exactly. Keep text that is not in the source language unchanged. Preserve each XLT_PROTECTED token exactly once; the application will replace those tokens with protected vocabulary.` },
+              { role: 'user', content: JSON.stringify({ translations: protectedItems.map(({ id, text }) => ({ id, text })) }) },
             ], options: { temperature: 0 } }),
           signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(180000)]) : AbortSignal.timeout(180000),
         });
@@ -59,7 +93,7 @@ export class TranslationService {
         returned.set(row.id, row.translated);
       }
       if (returned.size !== expected.size) throw new ServiceUnavailableException('Ollama omitted one or more translation IDs.');
-      translations.push(...batch.map(({ id }) => ({ id, translated: returned.get(id)! })));
+      translations.push(...protectedItems.map(({ id, markers }) => ({ id, translated: restoreVocabulary(returned.get(id)!, markers) })));
       onProgress?.(batchIndex + 1, batches.length);
     }
     return translations;

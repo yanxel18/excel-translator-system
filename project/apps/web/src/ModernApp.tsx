@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActionIcon, AppShell, Avatar, Badge, Box, Breadcrumbs, Burger, Button, Center, Divider, Group,
-  Modal, MultiSelect, NavLink, Paper, Progress, ScrollArea, Select, Skeleton, Stack, Text, ThemeIcon, Tooltip,
+  Modal, MultiSelect, NavLink, Paper, Progress, ScrollArea, Select, Skeleton, Stack, Text, Textarea, TextInput, ThemeIcon, Tooltip,
   useMantineColorScheme,
 } from '@mantine/core';
 import {
@@ -11,13 +11,20 @@ import {
 import type { FormEvent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useDisclosure } from '@mantine/hooks';
-import ApiService, { Job } from './api';
+import ApiService, { Job, Language, VocabularyEntry, VocabularyGroup } from './api';
 import NotificationsPage from './NotificationsPage';
 import './ModernApp.css';
 
 type View = 'workspace' | 'history' | 'vocabulary' | 'notifications' | 'changelog' | 'profile';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const LANGUAGE_OPTIONS: { value: Language; label: string }[] = [
+  { value: 'JAPANESE', label: 'Japanese' }, { value: 'ENGLISH', label: 'English' }, { value: 'CHINESE', label: 'Chinese' },
+];
+
+function languageName(language: Language): string {
+  return LANGUAGE_OPTIONS.find((option) => option.value === language)?.label ?? language;
+}
 
 function formatFileSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
@@ -33,7 +40,7 @@ function LoadingJobs() {
 }
 
 function JobList({ jobs, busy, onStart, onRetry, onCancel, onDownload, onConfigure }: {
-  jobs: Job[]; busy: boolean; onStart: (id: string) => void; onRetry: (id: string) => void;
+  jobs: Job[]; busy: boolean; onStart: (job: Job) => void; onRetry: (id: string) => void;
   onCancel: (id: string) => void; onDownload: (job: Job) => void; onConfigure: (job: Job) => void;
 }) {
   if (!jobs.length) return <Paper withBorder radius="md" p="xl"><Center><Stack align="center" gap="xs"><ThemeIcon size={46} variant="light" color="gray"><FolderClock size={23} /></ThemeIcon><Text fw={600}>No translations yet</Text><Text c="dimmed" size="sm" ta="center">Upload a workbook to start its translation.</Text></Stack></Center></Paper>;
@@ -47,7 +54,7 @@ function JobList({ jobs, busy, onStart, onRetry, onCancel, onDownload, onConfigu
         {job.error && <Text c="red" size="xs" mt={6}>{job.error}</Text>}
         {(job.status === 'PROCESSING' || job.status === 'COMPLETED') && <Progress value={job.progress} mt="sm" size="sm" radius="xl" aria-label={`Translation progress: ${job.progress}%`} />}
       </Box>
-      <Box className="job-action">{job.status === 'PENDING' && <><Button size="xs" variant="default" onClick={() => onConfigure(job)}>Settings</Button><Button size="xs" loading={busy} onClick={() => onStart(job.id)}>Start</Button></>}
+      <Box className="job-action">{job.status === 'PENDING' && <><Button size="xs" variant="default" onClick={() => onConfigure(job)}>Settings</Button><Button size="xs" loading={busy} onClick={() => onStart(job)}>Start</Button></>}
         {job.status === 'PROCESSING' && <Button size="xs" variant="default" loading={busy} onClick={() => onCancel(job.id)}>Cancel</Button>}
         {job.status === 'FAILED' && <Button size="xs" loading={busy} onClick={() => onRetry(job.id)}>Retry</Button>}
         {job.status === 'COMPLETED' && <Button size="xs" variant="light" onClick={() => onDownload(job)}>Download</Button>}</Box>
@@ -55,16 +62,107 @@ function JobList({ jobs, busy, onStart, onRetry, onCancel, onDownload, onConfigu
   </Paper>)}</Stack>;
 }
 
-function PlaceholderPage({ view }: { view: Exclude<View, 'workspace'> }) {
-  const descriptions: Record<Exclude<View, 'workspace'>, string> = {
+function PlaceholderPage({ view }: { view: Exclude<View, 'workspace' | 'vocabulary' | 'notifications'> }) {
+  const descriptions: Record<Exclude<View, 'workspace' | 'vocabulary' | 'notifications'>, string> = {
     history: 'Searchable completed-workbook history and spreadsheet previews are the next data slice.',
-    vocabulary: 'Create controlled translation terms and assign them to each language pair.',
-    notifications: 'Translation status updates and the notification feed will appear here.',
     changelog: 'Product updates and release notes will be published here.',
     profile: 'Profile fields and identity provider details will appear here.',
   };
-  const titles: Record<Exclude<View, 'workspace'>, string> = { history: 'Translation history', vocabulary: 'Vocabulary', notifications: 'Notifications', changelog: 'Changelog', profile: 'Profile' };
+  const titles: Record<Exclude<View, 'workspace' | 'vocabulary' | 'notifications'>, string> = { history: 'Translation history', changelog: 'Changelog', profile: 'Profile' };
   return <Stack gap="lg"><Breadcrumbs separator={<ChevronRight size={14} />}>{[<Text key="home" size="sm" c="dimmed">Workspace</Text>, <Text key="current" size="sm">{titles[view]}</Text>]}</Breadcrumbs><Paper withBorder radius="md" p="xl"><Stack align="center" gap="sm"><ThemeIcon size={52} radius="xl" variant="light" color="teal"><BookOpen size={25} /></ThemeIcon><Text fz="h2" fw={700}>{titles[view]}</Text><Text c="dimmed" ta="center" maw={420}>{descriptions[view]}</Text></Stack></Paper></Stack>;
+}
+
+function VocabularyPage({ token }: { token: string }) {
+  const [groups, setGroups] = useState<VocabularyGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [groupDraft, setGroupDraft] = useState<{
+    id?: string; name: string; description: string; sourceLanguage: Language; targetLanguage: Language;
+  } | null>(null);
+  const [entryDraft, setEntryDraft] = useState<{ groupId: string; entry?: VocabularyEntry; source: string; target: string } | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try { setGroups(await ApiService.getVocabularyGroups(token)); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load vocabulary.'); }
+    finally { setLoading(false); }
+  }, [token]);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const saveGroup = async () => {
+    if (!groupDraft) return;
+    setBusy(true); setError('');
+    try {
+      const details = { name: groupDraft.name.trim(), description: groupDraft.description.trim() || null, sourceLanguage: groupDraft.sourceLanguage, targetLanguage: groupDraft.targetLanguage };
+      if (groupDraft.id) await ApiService.updateVocabularyGroup(groupDraft.id, details, token);
+      else await ApiService.createVocabularyGroup(details, token);
+      setGroupDraft(null); await refresh();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save vocabulary group.'); }
+    finally { setBusy(false); }
+  };
+
+  const removeGroup = async (group: VocabularyGroup) => {
+    if (!window.confirm(`Delete “${group.name}” and its ${group.entries.length} terms?`)) return;
+    setBusy(true); setError('');
+    try { await ApiService.deleteVocabularyGroup(group.id, token); await refresh(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not delete vocabulary group.'); }
+    finally { setBusy(false); }
+  };
+
+  const saveEntry = async () => {
+    if (!entryDraft) return;
+    setBusy(true); setError('');
+    try {
+      const term = { source: entryDraft.source.trim(), target: entryDraft.target.trim() };
+      if (entryDraft.entry) await ApiService.updateVocabularyEntry(entryDraft.groupId, entryDraft.entry.id, term, token);
+      else await ApiService.createVocabularyEntry(entryDraft.groupId, term, token);
+      setEntryDraft(null); await refresh();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save vocabulary term.'); }
+    finally { setBusy(false); }
+  };
+
+  const removeEntry = async (group: VocabularyGroup, entry: VocabularyEntry) => {
+    if (!window.confirm(`Delete “${entry.source} → ${entry.target}”?`)) return;
+    setBusy(true); setError('');
+    try { await ApiService.deleteVocabularyEntry(group.id, entry.id, token); await refresh(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not delete vocabulary term.'); }
+    finally { setBusy(false); }
+  };
+
+  return <Stack gap="lg">
+    <Breadcrumbs separator={<ChevronRight size={14} />}><Text size="sm" c="dimmed">Workspace</Text><Text size="sm">Vocabulary</Text></Breadcrumbs>
+    <Group justify="space-between" align="end"><Box><Text fz="h1" fw={700}>Vocabulary</Text><Text c="dimmed" mt={4}>Keep product names and specialist terms consistent in translation.</Text></Box><Button onClick={() => setGroupDraft({ name: '', description: '', sourceLanguage: 'JAPANESE', targetLanguage: 'ENGLISH' })}>New group</Button></Group>
+    {error && <Paper withBorder radius="md" p="sm" bg="red.0"><Text c="red" size="sm" role="alert">{error}</Text></Paper>}
+    {loading ? <Stack gap="sm">{[1, 2].map((item) => <Paper key={item} withBorder p="md"><Skeleton height={18} width="45%" /><Skeleton height={12} mt="sm" width="75%" /></Paper>)}</Stack>
+      : groups.length ? <Stack gap="sm">{groups.map((group) => <Paper key={group.id} withBorder radius="md" p="md">
+        <Stack gap="sm"><Group justify="space-between" align="flex-start"><Box><Group gap="xs"><Text fw={650}>{group.name}</Text><Badge variant="light" color="teal">{languageName(group.sourceLanguage)} → {languageName(group.targetLanguage)}</Badge></Group>{group.description && <Text size="sm" c="dimmed" mt={4}>{group.description}</Text>}</Box>
+          <Group gap="xs"><Button size="xs" variant="default" disabled={busy} onClick={() => setGroupDraft({ id: group.id, name: group.name, description: group.description ?? '', sourceLanguage: group.sourceLanguage, targetLanguage: group.targetLanguage })}>Edit group</Button><Button size="xs" color="red" variant="subtle" disabled={busy} onClick={() => void removeGroup(group)}>Delete</Button></Group></Group>
+          <Divider />
+          {group.entries.length ? <Stack gap={4}>{group.entries.map((entry) => <Group key={entry.id} justify="space-between" wrap="nowrap" className="vocabulary-entry">
+            <Group gap="xs" wrap="wrap"><Text size="sm" fw={550}>{entry.source}</Text><Text size="sm" c="dimmed">→</Text><Text size="sm">{entry.target}</Text></Group>
+            <Group gap={4} wrap="nowrap"><Button size="xs" variant="subtle" disabled={busy} onClick={() => setEntryDraft({ groupId: group.id, entry, source: entry.source, target: entry.target })}>Edit</Button><Button size="xs" variant="subtle" color="red" disabled={busy} onClick={() => void removeEntry(group, entry)}>Remove</Button></Group>
+          </Group>)}</Stack> : <Text size="sm" c="dimmed">No protected terms yet.</Text>}
+          <Button size="xs" variant="light" onClick={() => setEntryDraft({ groupId: group.id, source: '', target: '' })}>Add term</Button>
+        </Stack>
+      </Paper>)}</Stack> : <Paper withBorder radius="md" p="xl"><Center><Stack align="center" gap="xs"><ThemeIcon size={46} variant="light" color="gray"><BookOpen size={23} /></ThemeIcon><Text fw={600}>No vocabulary groups</Text><Text c="dimmed" size="sm" ta="center">Create a language pair group, then add terms to protect them during translation.</Text><Button onClick={() => setGroupDraft({ name: '', description: '', sourceLanguage: 'JAPANESE', targetLanguage: 'ENGLISH' })}>Create vocabulary group</Button></Stack></Center></Paper>}
+
+    <Modal opened={Boolean(groupDraft)} onClose={() => setGroupDraft(null)} title={groupDraft?.id ? 'Edit vocabulary group' : 'New vocabulary group'} centered>
+      {groupDraft && <Stack gap="md"><TextInput label="Group name" value={groupDraft.name} maxLength={100} onChange={(event) => setGroupDraft({ ...groupDraft, name: event.currentTarget.value })} required />
+        <Textarea label="Description" value={groupDraft.description} maxLength={1000} autosize minRows={2} maxRows={4} onChange={(event) => setGroupDraft({ ...groupDraft, description: event.currentTarget.value })} />
+        <Select label="Source language" data={LANGUAGE_OPTIONS} value={groupDraft.sourceLanguage} onChange={(value) => value && setGroupDraft({ ...groupDraft, sourceLanguage: value as Language })} />
+        <Select label="Target language" data={LANGUAGE_OPTIONS} value={groupDraft.targetLanguage} onChange={(value) => value && setGroupDraft({ ...groupDraft, targetLanguage: value as Language })} />
+        {groupDraft.sourceLanguage === groupDraft.targetLanguage && <Text c="red" size="sm" role="alert">Choose two different languages.</Text>}
+        <Group justify="flex-end"><Button variant="default" onClick={() => setGroupDraft(null)}>Cancel</Button><Button onClick={() => void saveGroup()} loading={busy} disabled={!groupDraft.name.trim() || groupDraft.sourceLanguage === groupDraft.targetLanguage}>Save group</Button></Group>
+      </Stack>}
+    </Modal>
+    <Modal opened={Boolean(entryDraft)} onClose={() => setEntryDraft(null)} title={entryDraft?.entry ? 'Edit protected term' : 'Add protected term'} centered>
+      {entryDraft && <Stack gap="md"><TextInput label="Source term" value={entryDraft.source} maxLength={200} onChange={(event) => setEntryDraft({ ...entryDraft, source: event.currentTarget.value })} required />
+        <TextInput label="Translation" value={entryDraft.target} maxLength={200} onChange={(event) => setEntryDraft({ ...entryDraft, target: event.currentTarget.value })} required />
+        <Group justify="flex-end"><Button variant="default" onClick={() => setEntryDraft(null)}>Cancel</Button><Button onClick={() => void saveEntry()} loading={busy} disabled={!entryDraft.source.trim() || !entryDraft.target.trim()}>{entryDraft.entry ? 'Save term' : 'Add term'}</Button></Group>
+      </Stack>}
+    </Modal>
+  </Stack>;
 }
 
 function LoginScreen({ onLogin }: { onLogin: (username: string, password: string) => Promise<void> }) {
@@ -95,6 +193,7 @@ export default function ModernApp() {
   const [view, setView] = useState<View>('workspace');
   const [helpOpen, setHelpOpen] = useState(false);
   const [settingsJob, setSettingsJob] = useState<Job | null>(null);
+  const [vocabularyGroups, setVocabularyGroups] = useState<VocabularyGroup[]>([]);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
@@ -133,14 +232,23 @@ export default function ModernApp() {
   }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Download failed.'));
   const openSettings = async (job: Job) => {
     setSettingsBusy(true); setSettingsError('');
-    try { setSettingsJob(await ApiService.getJob(job.id, token)); }
+    try {
+      const [details, groups] = await Promise.all([ApiService.getJob(job.id, token), ApiService.getVocabularyGroups(token)]);
+      setVocabularyGroups(groups);
+      const selectedGroupIsCompatible = groups.some((group) => group.id === details.vocabularyGroupId && group.sourceLanguage === details.sourceLanguage && group.targetLanguage === details.targetLanguage);
+      setSettingsJob({ ...details, vocabularyGroupId: selectedGroupIsCompatible ? details.vocabularyGroupId : null });
+    }
     catch (reason) { setSettingsError(reason instanceof Error ? reason.message : 'Could not load workbook settings.'); }
     finally { setSettingsBusy(false); }
   };
-  const saveSettings = async () => {
+  const saveSettings = async (startAfterSave = false) => {
     if (!settingsJob) return;
     setSettingsBusy(true); setSettingsError('');
-    try { await ApiService.updateJobSettings(settingsJob.id, settingsJob, token); setSettingsJob(null); await refresh(); }
+    try {
+      await ApiService.updateJobSettings(settingsJob.id, settingsJob, token);
+      if (startAfterSave) await ApiService.startTranslation(settingsJob.id, token);
+      setSettingsJob(null); await refresh();
+    }
     catch (reason) { setSettingsError(reason instanceof Error ? reason.message : 'Could not save workbook settings.'); }
     finally { setSettingsBusy(false); }
   };
@@ -152,6 +260,8 @@ export default function ModernApp() {
     { view: 'workspace', label: 'Workspace', icon: LayoutDashboard }, { view: 'history', label: 'History', icon: History },
     { view: 'vocabulary', label: 'Vocabulary', icon: BookOpen }, { view: 'notifications', label: 'Notifications', icon: Bell },
   ];
+  const compatibleVocabularyGroups = settingsJob ? vocabularyGroups.filter((group) => group.sourceLanguage === settingsJob.sourceLanguage && group.targetLanguage === settingsJob.targetLanguage) : [];
+  const settingsValid = Boolean(settingsJob?.selectedSheets.length && settingsJob.sourceLanguage !== settingsJob.targetLanguage && (!settingsJob.vocabularyGroupId || compatibleVocabularyGroups.some((group) => group.id === settingsJob.vocabularyGroupId)));
 
   return <AppShell header={{ height: 64 }} navbar={{ width: 248, breakpoint: 'sm', collapsed: { mobile: !mobileNavigationOpen } }} padding="md">
     <AppShell.Header><Group h="100%" px="lg" justify="space-between"><Group gap="sm"><Burger hiddenFrom="sm" opened={mobileNavigationOpen} onClick={toggleMobileNavigation} aria-label="Toggle navigation" size="sm" /><ThemeIcon size={34} radius="md" color="teal"><Languages size={19} /></ThemeIcon><Box><Text fw={700}>Sheetling</Text><Text size="xs" c="dimmed">Workbook translation</Text></Box></Group><Group gap="xs"><Tooltip label="Notifications"><ActionIcon variant="subtle" color="gray" aria-label="Open notifications" onClick={() => { setView('notifications'); closeMobileNavigation(); }}><Bell size={18} /></ActionIcon></Tooltip><Tooltip label={colorScheme === 'dark' ? 'Use light theme' : 'Use dark theme'}><ActionIcon variant="subtle" color="gray" aria-label="Toggle color theme" onClick={() => toggleColorScheme()}>{colorScheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</ActionIcon></Tooltip><Avatar color="teal" radius="xl" size="sm">U</Avatar></Group></Group>{jobsLoading && <Progress className="top-loader" size={2} value={100} animated />}</AppShell.Header>
@@ -163,8 +273,8 @@ export default function ModernApp() {
           <Stack align="center" gap="sm"><ThemeIcon size={52} radius="xl" color="teal" variant="light"><CloudUpload size={25} /></ThemeIcon><Box ta="center"><Text fw={600}>Drop your workbook here</Text><Text c="dimmed" size="sm">or click to browse from your computer</Text></Box>{file ? <Group gap="xs"><CheckCircle2 size={17} color="var(--mantine-color-teal-6)" /><Text size="sm" fw={500}>{file.name}</Text><Text size="xs" c="dimmed">{formatFileSize(file.size)}</Text></Group> : <Button variant="light" size="sm" leftSection={<FileSpreadsheet size={16} />}>Browse files</Button>}</Stack>
         </Paper>
         {file && <Group justify="flex-end"><Button onClick={upload} loading={busy} leftSection={<CloudUpload size={16} />}>Upload workbook</Button></Group>}
-        <Group justify="space-between"><Box><Text fz="h2" fw={700}>Recent translations</Text><Text size="sm" c="dimmed">Check progress and download completed files.</Text></Box><Button variant="default" size="xs" onClick={() => void refresh()} loading={jobsLoading}>Refresh</Button></Group>{jobsLoading ? <LoadingJobs /> : <JobList jobs={jobs} busy={busy} onStart={(id) => void run(() => ApiService.startTranslation(id, token))} onRetry={(id) => void run(() => ApiService.retryJob(id, token))} onCancel={(id) => void run(() => ApiService.cancelJob(id, token))} onDownload={download} onConfigure={(job) => void openSettings(job)} />}
-      </Stack> : view === 'notifications' ? <NotificationsPage token={token} /> : <PlaceholderPage view={view} />}
+        <Group justify="space-between"><Box><Text fz="h2" fw={700}>Recent translations</Text><Text size="sm" c="dimmed">Check progress and download completed files.</Text></Box><Button variant="default" size="xs" onClick={() => void refresh()} loading={jobsLoading}>Refresh</Button></Group>{jobsLoading ? <LoadingJobs /> : <JobList jobs={jobs} busy={busy} onStart={(job) => void openSettings(job)} onRetry={(id) => void run(() => ApiService.retryJob(id, token))} onCancel={(id) => void run(() => ApiService.cancelJob(id, token))} onDownload={download} onConfigure={(job) => void openSettings(job)} />}
+      </Stack> : view === 'notifications' ? <NotificationsPage token={token} /> : view === 'vocabulary' ? <VocabularyPage token={token} /> : <PlaceholderPage view={view} />}
       <footer className="app-footer"><Text size="xs" c="dimmed">Sheetling keeps workbook text private to your session.</Text></footer></Box>
     </AppShell.Main>
     <Modal opened={helpOpen} onClose={() => setHelpOpen(false)} title="Settings" centered><Text size="sm" c="dimmed">Language, identity, and service settings will be connected as the persistent platform modules are delivered.</Text></Modal>
@@ -172,10 +282,29 @@ export default function ModernApp() {
       {settingsJob && <Stack gap="md">
         <Text size="sm" c="dimmed">Choose worksheets and languages before starting this job.</Text>
         <MultiSelect label="Worksheets" data={settingsJob.availableSheets} value={settingsJob.selectedSheets} onChange={(selectedSheets) => setSettingsJob({ ...settingsJob, selectedSheets })} searchable clearable={false} />
-        <Select label="Source language" data={[{ value: 'JAPANESE', label: 'Japanese' }, { value: 'ENGLISH', label: 'English' }, { value: 'CHINESE', label: 'Chinese' }]} value={settingsJob.sourceLanguage} onChange={(value) => value && setSettingsJob({ ...settingsJob, sourceLanguage: value as Job['sourceLanguage'] })} />
-        <Select label="Target language" data={[{ value: 'ENGLISH', label: 'English' }, { value: 'JAPANESE', label: 'Japanese' }, { value: 'CHINESE', label: 'Chinese' }]} value={settingsJob.targetLanguage} onChange={(value) => value && setSettingsJob({ ...settingsJob, targetLanguage: value as Job['targetLanguage'] })} />
+        <Select label="Source language" data={LANGUAGE_OPTIONS} value={settingsJob.sourceLanguage} onChange={(value) => {
+          if (!value) return;
+          setSettingsJob((current) => {
+            if (!current) return current;
+            const next = { ...current, sourceLanguage: value as Language };
+            if (!vocabularyGroups.some((group) => group.id === next.vocabularyGroupId && group.sourceLanguage === next.sourceLanguage && group.targetLanguage === next.targetLanguage)) next.vocabularyGroupId = null;
+            return next;
+          });
+        }} />
+        <Select label="Target language" data={LANGUAGE_OPTIONS} value={settingsJob.targetLanguage} onChange={(value) => {
+          if (!value) return;
+          setSettingsJob((current) => {
+            if (!current) return current;
+            const next = { ...current, targetLanguage: value as Language };
+            if (!vocabularyGroups.some((group) => group.id === next.vocabularyGroupId && group.sourceLanguage === next.sourceLanguage && group.targetLanguage === next.targetLanguage)) next.vocabularyGroupId = null;
+            return next;
+          });
+        }} />
+        <Select label="Protected vocabulary" description="Optional. Terms in a compatible group are preserved exactly." data={compatibleVocabularyGroups.map((group) => ({ value: group.id, label: `${group.name} · ${group.entries.length} terms` }))} value={settingsJob.vocabularyGroupId} onChange={(value) => setSettingsJob({ ...settingsJob, vocabularyGroupId: value })} clearable searchable />
+        {!compatibleVocabularyGroups.length && <Text size="xs" c="dimmed">No groups for this language pair yet. Create one in Vocabulary, or continue without protected terms.</Text>}
+        {settingsJob.sourceLanguage === settingsJob.targetLanguage && <Text c="red" size="sm" role="alert">Choose two different languages.</Text>}
         {settingsError && <Text c="red" size="sm" role="alert">{settingsError}</Text>}
-        <Group justify="flex-end"><Button variant="default" onClick={() => setSettingsJob(null)}>Cancel</Button><Button onClick={() => void saveSettings()} loading={settingsBusy}>Save settings</Button></Group>
+        <Group justify="flex-end"><Button variant="default" onClick={() => setSettingsJob(null)}>Cancel</Button><Button onClick={() => void saveSettings()} loading={settingsBusy} disabled={!settingsValid}>Save settings</Button><Button onClick={() => void saveSettings(true)} loading={settingsBusy} disabled={!settingsValid}>Save and start</Button></Group>
       </Stack>}
     </Modal>
   </AppShell>;

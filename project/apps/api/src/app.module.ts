@@ -6,6 +6,7 @@ import { JobManagementModule } from './modules/job-management/job-management.mod
 import { AuthenticationModule } from './modules/authentication/authentication.module';
 import { ProgressTrackingModule } from './modules/progress-tracking/progress-tracking.module';
 import { PersistenceModule } from './modules/persistence/persistence.module';
+import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PersistenceModule } from './modules/persistence/persistence.module';
     JobManagementModule,
     AuthenticationModule,
     ProgressTrackingModule,
+    VocabularyModule,
   ],
   controllers: [],
   providers: [],
