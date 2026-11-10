@@ -32,7 +32,7 @@
 - [x] Task 6: Deliver history, preview, download/delete, profile, notification, and changelog APIs plus GraphQL query/mutation surfaces.
   - Progress: History, notifications, and changelog use owner-scoped cursor pagination. Workbook preview is authorized and bounded; completed workbooks can be downloaded; history deletion removes stored workbook files. Profile read/update, notification read, and changelog APIs are available over REST and GraphQL query/mutation surfaces. Frontend APIs and history, profile, and changelog views are split into focused feature modules.
   - Acceptance: Lists are paginated and owner-scoped; preview is authorized; notification pagination works; frontend and backend surfaces are organized into modules that can be exercised independently.
-  - Verify: Task 6 API route integration test, GraphQL schema generation, API TypeScript compilation, and frontend production build pass.
+  - Verify: Task 6 API route integration test, GraphQL HTTP query smoke check and schema generation, API TypeScript compilation, and frontend production build pass.
 
 - [ ] Task 7: Complete the Mantine frontend views for workspace setup, history, vocabulary, notifications, profile, changelog, localization, and dialogs.
   - Acceptance: All navigation destinations are functional, responsive, localized, themed, and use skeleton loaders.
