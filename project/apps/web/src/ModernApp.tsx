@@ -6,9 +6,11 @@ import { useDisclosure } from '@mantine/hooks';
 import ApiService, { Job, VocabularyGroup } from './api';
 import NotificationsPage from './NotificationsPage';
 import LoginScreen from './features/auth/LoginScreen';
-import PlaceholderPage from './features/app-shell/PlaceholderPage';
 import { View } from './features/app-shell/types';
 import VocabularyPage from './features/vocabulary/VocabularyPage';
+import HistoryPage from './features/history/HistoryPage';
+import ProfilePage from './features/profile/ProfilePage';
+import ChangelogPage from './features/changelog/ChangelogPage';
 import TranslationSettingsModal from './features/workspace/TranslationSettingsModal';
 import WorkspacePage from './features/workspace/WorkspacePage';
 import './ModernApp.css';
@@ -135,7 +137,7 @@ export default function ModernApp() {
         onDismissError={() => setError('')} onSelectFile={selectFile} onUpload={upload} onRefresh={() => void refresh()}
         onStart={(job) => void openSettings(job)} onRetry={(id) => void run(() => ApiService.retryJob(id, token))}
         onCancel={(id) => void run(() => ApiService.cancelJob(id, token))} onDownload={download} onConfigure={(job) => void openSettings(job)}
-      /> : view === 'notifications' ? <NotificationsPage token={token} /> : view === 'vocabulary' ? <VocabularyPage token={token} /> : <PlaceholderPage view={view} />}
+      /> : view === 'notifications' ? <NotificationsPage token={token} /> : view === 'vocabulary' ? <VocabularyPage token={token} /> : view === 'history' ? <HistoryPage token={token} /> : view === 'profile' ? <ProfilePage token={token} /> : <ChangelogPage token={token} />}
       <footer className="app-footer"><Text size="xs" c="dimmed">Sheetling keeps workbook text private to your session.</Text></footer>
     </Box></AppShell.Main>
     <Modal opened={helpOpen} onClose={() => setHelpOpen(false)} title="Settings" centered><Text size="sm" c="dimmed">Language, identity, and service settings will be connected as the persistent platform modules are delivered.</Text></Modal>
