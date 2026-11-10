@@ -15,7 +15,7 @@ const { VocabularyService } = require('../dist/modules/vocabulary/vocabulary.ser
 async function makeWorkbook() {
   const zip = new JSZip();
   zip.file('xl/workbook.xml', '<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="First" r:id="rId1"/><sheet name="Second" r:id="rId2"/></sheets></workbook>');
-  zip.file('xl/_rels/workbook.xml.rels', '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>');
+  zip.file('xl/_rels/workbook.xml.rels', '<Relationships><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>');
   zip.file('xl/sharedStrings.xml', '<sst><si><t>Shared selected</t></si><si><t>Shared unselected</t></si></sst>');
   zip.file('xl/worksheets/sheet1.xml', '<worksheet><sheetData><row><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>Inline selected</t></is></c></row></sheetData></worksheet>');
   zip.file('xl/worksheets/sheet2.xml', '<worksheet><sheetData><row><c r="A1" t="s"><v>1</v></c></row></sheetData></worksheet>');
