@@ -1,0 +1,25 @@
+{
+  "name": "excel-translator",
+  "version": "1.0.0",
+  "description": "Japanese-to-English XLSX translation application",
+  "scripts": {
+    "dev": "docker-compose up",
+    "build": "npm --prefix project/apps/api run build && npm --prefix project/apps/web run build",
+    "test": "npx playwright test tests/api.test.ts",
+    "test:setup": "node test-setup.js",
+    "test:playwright": "npx playwright test"
+  },
+  "keywords": [
+    "excel",
+    "translation",
+    "xlsx",
+    " japanese",
+    "english"
+  ],
+  "author": "Excel Translator Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "playwright": "^1.65.0"
+  }
+}

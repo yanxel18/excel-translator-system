@@ -1,0 +1,27 @@
+# Ignore node_modules - it will be copied from the builder stage
+node_modules
+
+# Ignore dist (build output)
+dist
+
+# Ignore environment files
+.env
+.env.local
+.env.*.local
+
+# Ignore git directory
+.git
+
+# Ignore IDE files
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Ignore test files
+test/
+tests/
+__tests__/
+*.test.ts
+*.spec.ts

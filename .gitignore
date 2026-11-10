@@ -1,0 +1,7 @@
+node_modules/
+**/node_modules/
+**/dist/
+project/apps/api/data/
+project/apps/api/uploads/
+test-results/
+playwright-report/

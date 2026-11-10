@@ -1,0 +1,28 @@
+services:
+  api:
+    build: ./project/apps/api
+    command: sh -c "npm run build && npm run start"
+    volumes:
+      - ./project/apps/api:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=gemma4:latest
+      - DATA_DIR=/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3000:3000"
+
+  web:
+    build: ./project/apps/web
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./project/apps/web:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:3000
+
