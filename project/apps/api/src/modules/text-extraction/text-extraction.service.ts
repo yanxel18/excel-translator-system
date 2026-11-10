@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { posix } from 'node:path';
 import JSZip = require('jszip');
 
 export interface ExtractedText {
@@ -66,6 +67,33 @@ export function replaceVisibleText(fragment: string, value: string): string {
 
 @Injectable()
 export class TextExtractionService {
+  async getWorksheetParts(zip: JSZip): Promise<Array<{ name: string; part: string }>> {
+    const workbook = await zip.file('xl/workbook.xml')!.async('string');
+    const relsFile = zip.file('xl/_rels/workbook.xml.rels');
+    if (!relsFile) throw new BadRequestException('The workbook is missing worksheet relationships.');
+    const rels = await relsFile.async('string');
+    const targets = new Map<string, string>();
+    for (const [, attrs] of rels.matchAll(/<Relationship\b([^>]*)\/?\s*>/g)) {
+      const id = /\bId=(['"])(.*?)\1/.exec(attrs)?.[2];
+      const target = /\bTarget=(['"])(.*?)\1/.exec(attrs)?.[2];
+      if (id && target) {
+        const part = target.startsWith('/') ? posix.normalize(target.slice(1)) : posix.normalize(posix.join('xl', target));
+        if (part.startsWith('xl/')) targets.set(id, part);
+      }
+    }
+    return [...workbook.matchAll(/<sheet\b([^>]*)\/?\s*>/g)].flatMap(([, attrs]) => {
+      const name = /\bname=(['"])(.*?)\1/.exec(attrs)?.[2];
+      const relationshipId = /\br:id=(['"])(.*?)\1/.exec(attrs)?.[2];
+      const part = relationshipId ? targets.get(relationshipId) : undefined;
+      return name && part && zip.file(part) ? [{ name: xmlText(name), part }] : [];
+    });
+  }
+
+  async getSheetNames(fileBuffer: Buffer): Promise<string[]> {
+    const zip = await this.openWorkbook(fileBuffer);
+    return (await this.getWorksheetParts(zip)).map(({ name }) => name);
+  }
+
   async openWorkbook(buffer: Buffer): Promise<JSZip> {
     if (!Buffer.isBuffer(buffer) || buffer.length < 22 || buffer.readUInt32LE(0) !== 0x04034b50) {
       throw new BadRequestException('The upload is not a valid XLSX ZIP archive.');
@@ -105,21 +133,35 @@ export class TextExtractionService {
     }
   }
 
-  async extractTextFromXlsx(fileBuffer: Buffer): Promise<ExtractedText[]> {
+  async extractTextFromXlsx(fileBuffer: Buffer, selectedSheets?: string[]): Promise<ExtractedText[]> {
     const zip = await this.openWorkbook(fileBuffer);
     const result: ExtractedText[] = [];
+    const worksheets = await this.getWorksheetParts(zip);
+    const selected = selectedSheets ? new Set(selectedSheets) : new Set(worksheets.map(({ name }) => name));
+    const chosen = worksheets.filter(({ name }) => selected.has(name));
+    const sheetXml = new Map<string, string>();
+    const sharedIndexes = new Set<number>();
+    for (const { part } of chosen) {
+      const xml = await zip.file(part)!.async('string');
+      sheetXml.set(part, xml);
+      for (const cellMatch of xml.matchAll(/<c\b([^>]*)>[\s\S]*?<\/c>/g)) {
+        if (!/\bt=(['"])s\1/.test(cellMatch[1])) continue;
+        const index = /<v>(\d+)<\/v>/.exec(cellMatch[0])?.[1];
+        if (index !== undefined) sharedIndexes.add(Number(index));
+      }
+    }
     const sharedFile = zip.file('xl/sharedStrings.xml');
     if (sharedFile) {
       const xml = await sharedFile.async('string');
       const items = [...xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)];
       items.forEach((match, index) => {
+        if (!sharedIndexes.has(index)) return;
         const value = visibleText(match[1]);
         if (value.trim()) result.push({ id: `shared:${index}`, value, source: 'shared', part: 'xl/sharedStrings.xml', index });
       });
     }
-    const sheets = Object.keys(zip.files).filter((name) => /^xl\/worksheets\/[^/]+\.xml$/.test(name));
-    for (const part of sheets) {
-      const xml = await zip.file(part)!.async('string');
+    for (const { part } of chosen) {
+      const xml = sheetXml.get(part)!;
       let index = 0;
       for (const cell of xml.matchAll(/<c\b[^>]*>([\s\S]*?)<\/c>/g)) {
         const inline = /<is(?:\s[^>]*)?>([\s\S]*?)<\/is>/.exec(cell[1]);

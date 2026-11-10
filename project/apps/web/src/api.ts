@@ -2,8 +2,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/exce
 
 export interface Job {
   id: string; status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
-  fileName: string; progress: number; createdAt: string; updatedAt: string; error?: string; textCount?: number;
+  fileName: string; fileSize: number; progress: number; createdAt: string; updatedAt: string; completedAt?: string; elapsedMs?: number; error?: string; textCount?: number;
+  selectedSheets: string[]; availableSheets: string[]; sourceLanguage: 'ENGLISH' | 'JAPANESE' | 'CHINESE'; targetLanguage: 'ENGLISH' | 'JAPANESE' | 'CHINESE';
 }
+
+export interface JobNotification {
+  id: string; jobId: string | null; type: string; title: string; message: string; isRead: boolean; createdAt: string;
+}
+export interface NotificationPage { data: JobNotification[]; nextCursor: string | null; }
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
@@ -22,6 +28,10 @@ export const ApiService = {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }),
   }),
   getJobs: (token: string) => request<Job[]>('/jobs', {}, token),
+  getJob: (id: string, token: string) => request<Job>(`/jobs/${encodeURIComponent(id)}`, {}, token),
+  updateJobSettings: (id: string, settings: Pick<Job, 'selectedSheets' | 'sourceLanguage' | 'targetLanguage'>, token: string) => request<Job>(`/jobs/${encodeURIComponent(id)}/settings`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }, token),
+  getNotifications: (token: string, cursor?: string) => request<NotificationPage>(`/notifications${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, {}, token),
+  markNotificationRead: (id: string, token: string) => request<{ ok: boolean }>(`/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' }, token),
   uploadFile: async (file: File, token: string) => {
     const form = new FormData(); form.append('file', file);
     return request<Job>('/upload', { method: 'POST', body: form }, token);

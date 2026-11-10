@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActionIcon, AppShell, Avatar, Badge, Box, Breadcrumbs, Burger, Button, Center, Divider, Group,
-  Modal, NavLink, Paper, Progress, ScrollArea, Skeleton, Stack, Text, ThemeIcon, Tooltip,
+  Modal, MultiSelect, NavLink, Paper, Progress, ScrollArea, Select, Skeleton, Stack, Text, ThemeIcon, Tooltip,
   useMantineColorScheme,
 } from '@mantine/core';
 import {
@@ -12,6 +12,7 @@ import type { FormEvent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useDisclosure } from '@mantine/hooks';
 import ApiService, { Job } from './api';
+import NotificationsPage from './NotificationsPage';
 import './ModernApp.css';
 
 type View = 'workspace' | 'history' | 'vocabulary' | 'notifications' | 'changelog' | 'profile';
@@ -31,9 +32,9 @@ function LoadingJobs() {
   return <Stack gap="sm">{[1, 2, 3].map((item) => <Paper key={item} withBorder p="md" radius="md"><Group wrap="nowrap"><Skeleton circle height={38} /><Box style={{ flex: 1 }}><Skeleton height={14} width="45%" /><Skeleton height={11} mt={8} width="28%" /></Box><Skeleton height={28} width={76} /></Group></Paper>)}</Stack>;
 }
 
-function JobList({ jobs, busy, onStart, onRetry, onCancel, onDownload }: {
+function JobList({ jobs, busy, onStart, onRetry, onCancel, onDownload, onConfigure }: {
   jobs: Job[]; busy: boolean; onStart: (id: string) => void; onRetry: (id: string) => void;
-  onCancel: (id: string) => void; onDownload: (job: Job) => void;
+  onCancel: (id: string) => void; onDownload: (job: Job) => void; onConfigure: (job: Job) => void;
 }) {
   if (!jobs.length) return <Paper withBorder radius="md" p="xl"><Center><Stack align="center" gap="xs"><ThemeIcon size={46} variant="light" color="gray"><FolderClock size={23} /></ThemeIcon><Text fw={600}>No translations yet</Text><Text c="dimmed" size="sm" ta="center">Upload a workbook to start its translation.</Text></Stack></Center></Paper>;
 
@@ -46,7 +47,7 @@ function JobList({ jobs, busy, onStart, onRetry, onCancel, onDownload }: {
         {job.error && <Text c="red" size="xs" mt={6}>{job.error}</Text>}
         {(job.status === 'PROCESSING' || job.status === 'COMPLETED') && <Progress value={job.progress} mt="sm" size="sm" radius="xl" aria-label={`Translation progress: ${job.progress}%`} />}
       </Box>
-      <Box className="job-action">{job.status === 'PENDING' && <Button size="xs" loading={busy} onClick={() => onStart(job.id)}>Start</Button>}
+      <Box className="job-action">{job.status === 'PENDING' && <><Button size="xs" variant="default" onClick={() => onConfigure(job)}>Settings</Button><Button size="xs" loading={busy} onClick={() => onStart(job.id)}>Start</Button></>}
         {job.status === 'PROCESSING' && <Button size="xs" variant="default" loading={busy} onClick={() => onCancel(job.id)}>Cancel</Button>}
         {job.status === 'FAILED' && <Button size="xs" loading={busy} onClick={() => onRetry(job.id)}>Retry</Button>}
         {job.status === 'COMPLETED' && <Button size="xs" variant="light" onClick={() => onDownload(job)}>Download</Button>}</Box>
@@ -93,6 +94,9 @@ export default function ModernApp() {
   const [file, setFile] = useState<File | null>(null);
   const [view, setView] = useState<View>('workspace');
   const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsJob, setSettingsJob] = useState<Job | null>(null);
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const [mobileNavigationOpen, { toggle: toggleMobileNavigation, close: closeMobileNavigation }] = useDisclosure(false);
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
@@ -127,6 +131,19 @@ export default function ModernApp() {
     if (!response.ok) throw new Error('Download failed.'); const blob = await response.blob(); const url = URL.createObjectURL(blob); const link = document.createElement('a');
     link.href = url; link.download = `${job.fileName.replace(/\.xlsx$/i, '')}-translated.xlsx`; link.click(); URL.revokeObjectURL(url);
   }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Download failed.'));
+  const openSettings = async (job: Job) => {
+    setSettingsBusy(true); setSettingsError('');
+    try { setSettingsJob(await ApiService.getJob(job.id, token)); }
+    catch (reason) { setSettingsError(reason instanceof Error ? reason.message : 'Could not load workbook settings.'); }
+    finally { setSettingsBusy(false); }
+  };
+  const saveSettings = async () => {
+    if (!settingsJob) return;
+    setSettingsBusy(true); setSettingsError('');
+    try { await ApiService.updateJobSettings(settingsJob.id, settingsJob, token); setSettingsJob(null); await refresh(); }
+    catch (reason) { setSettingsError(reason instanceof Error ? reason.message : 'Could not save workbook settings.'); }
+    finally { setSettingsBusy(false); }
+  };
   const login = async (username: string, password: string) => { const result = await ApiService.login(username, password); localStorage.setItem('excel-translator-token', result.access_token); setToken(result.access_token); };
   const logout = () => { localStorage.removeItem('excel-translator-token'); setToken(''); setJobs([]); setError(''); };
 
@@ -146,10 +163,20 @@ export default function ModernApp() {
           <Stack align="center" gap="sm"><ThemeIcon size={52} radius="xl" color="teal" variant="light"><CloudUpload size={25} /></ThemeIcon><Box ta="center"><Text fw={600}>Drop your workbook here</Text><Text c="dimmed" size="sm">or click to browse from your computer</Text></Box>{file ? <Group gap="xs"><CheckCircle2 size={17} color="var(--mantine-color-teal-6)" /><Text size="sm" fw={500}>{file.name}</Text><Text size="xs" c="dimmed">{formatFileSize(file.size)}</Text></Group> : <Button variant="light" size="sm" leftSection={<FileSpreadsheet size={16} />}>Browse files</Button>}</Stack>
         </Paper>
         {file && <Group justify="flex-end"><Button onClick={upload} loading={busy} leftSection={<CloudUpload size={16} />}>Upload workbook</Button></Group>}
-        <Group justify="space-between"><Box><Text fz="h2" fw={700}>Recent translations</Text><Text size="sm" c="dimmed">Check progress and download completed files.</Text></Box><Button variant="default" size="xs" onClick={() => void refresh()} loading={jobsLoading}>Refresh</Button></Group>{jobsLoading ? <LoadingJobs /> : <JobList jobs={jobs} busy={busy} onStart={(id) => void run(() => ApiService.startTranslation(id, token))} onRetry={(id) => void run(() => ApiService.retryJob(id, token))} onCancel={(id) => void run(() => ApiService.cancelJob(id, token))} onDownload={download} />}
-      </Stack> : <PlaceholderPage view={view} />}
+        <Group justify="space-between"><Box><Text fz="h2" fw={700}>Recent translations</Text><Text size="sm" c="dimmed">Check progress and download completed files.</Text></Box><Button variant="default" size="xs" onClick={() => void refresh()} loading={jobsLoading}>Refresh</Button></Group>{jobsLoading ? <LoadingJobs /> : <JobList jobs={jobs} busy={busy} onStart={(id) => void run(() => ApiService.startTranslation(id, token))} onRetry={(id) => void run(() => ApiService.retryJob(id, token))} onCancel={(id) => void run(() => ApiService.cancelJob(id, token))} onDownload={download} onConfigure={(job) => void openSettings(job)} />}
+      </Stack> : view === 'notifications' ? <NotificationsPage token={token} /> : <PlaceholderPage view={view} />}
       <footer className="app-footer"><Text size="xs" c="dimmed">Sheetling keeps workbook text private to your session.</Text></footer></Box>
     </AppShell.Main>
     <Modal opened={helpOpen} onClose={() => setHelpOpen(false)} title="Settings" centered><Text size="sm" c="dimmed">Language, identity, and service settings will be connected as the persistent platform modules are delivered.</Text></Modal>
+    <Modal opened={Boolean(settingsJob)} onClose={() => setSettingsJob(null)} title="Translation settings" centered>
+      {settingsJob && <Stack gap="md">
+        <Text size="sm" c="dimmed">Choose worksheets and languages before starting this job.</Text>
+        <MultiSelect label="Worksheets" data={settingsJob.availableSheets} value={settingsJob.selectedSheets} onChange={(selectedSheets) => setSettingsJob({ ...settingsJob, selectedSheets })} searchable clearable={false} />
+        <Select label="Source language" data={[{ value: 'JAPANESE', label: 'Japanese' }, { value: 'ENGLISH', label: 'English' }, { value: 'CHINESE', label: 'Chinese' }]} value={settingsJob.sourceLanguage} onChange={(value) => value && setSettingsJob({ ...settingsJob, sourceLanguage: value as Job['sourceLanguage'] })} />
+        <Select label="Target language" data={[{ value: 'ENGLISH', label: 'English' }, { value: 'JAPANESE', label: 'Japanese' }, { value: 'CHINESE', label: 'Chinese' }]} value={settingsJob.targetLanguage} onChange={(value) => value && setSettingsJob({ ...settingsJob, targetLanguage: value as Job['targetLanguage'] })} />
+        {settingsError && <Text c="red" size="sm" role="alert">{settingsError}</Text>}
+        <Group justify="flex-end"><Button variant="default" onClick={() => setSettingsJob(null)}>Cancel</Button><Button onClick={() => void saveSettings()} loading={settingsBusy}>Save settings</Button></Group>
+      </Stack>}
+    </Modal>
   </AppShell>;
 }

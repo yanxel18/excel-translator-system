@@ -12,8 +12,8 @@
 
 ## Translation workflow
 
-- [~] Task 3: Persist translation jobs, source/output files, sheet selections, language choices, and status notifications.
-  - Progress: Job metadata and private source/output paths now persist in PostgreSQL; sheet configuration and lifecycle notifications remain.
+- [x] Task 3: Persist translation jobs, source/output files, sheet selections, language choices, and status notifications.
+  - Progress: Job settings are owner-scoped and persisted; worksheet selection is honored during extraction and patching, including shared strings referenced by unselected sheets. Language choices drive translation prompts. Starts and retries are claimed atomically, lifecycle notifications are stored and shown in a paginated feed, and jobs interrupted by an API restart become retryable failures.
   - Acceptance: Jobs are owner-scoped, retry-safe, durable across restarts, and visible in history.
   - Verify: Job lifecycle tests and API build pass.
 
@@ -28,6 +28,7 @@
 ## Product surfaces
 
 - [ ] Task 6: Deliver history, preview, download/delete, profile, notification, and changelog APIs plus GraphQL query/mutation surfaces.
+  - Progress: Owner-scoped notification listing and mark-as-read endpoints are available; the other surfaces remain.
   - Acceptance: Lists are paginated and owner-scoped; preview is authorized; notification pagination works.
   - Verify: API integration tests and schema generation pass.
 
