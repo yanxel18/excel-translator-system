@@ -1,0 +1,62 @@
+const assert = require('node:assert/strict');
+const { after, before, test } = require('node:test');
+const { Test } = require('@nestjs/testing');
+const { JwtAuthGuard } = require('../dist/modules/authentication/jwt-auth.guard');
+const { ProductSurfacesController } = require('../dist/modules/product-surfaces/product-surfaces.controller');
+const { ProductSurfacesService } = require('../dist/modules/product-surfaces/product-surfaces.service');
+
+let app;
+let service;
+let baseUrl;
+const calls = [];
+
+before(async () => {
+  service = {
+    history: async (...args) => { calls.push(['history', ...args]); return { data: [{ id: 'job-1', fileName: 'report.xlsx' }], nextCursor: 'job-1' }; },
+    preview: async (...args) => { calls.push(['preview', ...args]); return { fileName: 'report.xlsx', version: args[2], sheets: [{ name: 'Sheet1', rows: [['A']]}] }; },
+    deleteHistoryItem: async (...args) => { calls.push(['delete', ...args]); return { ok: true }; },
+    getProfile: async (...args) => { calls.push(['profile', ...args]); return { id: 'user-1', username: 'test' }; },
+    updateProfile: async (...args) => { calls.push(['updateProfile', ...args]); return { id: 'user-1', username: 'test', fullName: args[1].fullName }; },
+    changelog: async (...args) => { calls.push(['changelog', ...args]); return { data: [], nextCursor: null }; },
+  };
+  const moduleRef = await Test.createTestingModule({
+    controllers: [ProductSurfacesController],
+    providers: [{ provide: ProductSurfacesService, useValue: service }],
+  }).overrideGuard(JwtAuthGuard).useValue({
+    canActivate: (context) => {
+      const req = context.switchToHttp().getRequest();
+      if (req.headers.authorization !== 'Bearer test-token') return false;
+      req.user = { userId: 'user-1' };
+      return true;
+    },
+  }).compile();
+  app = moduleRef.createNestApplication();
+  await app.listen(0);
+  baseUrl = `http://127.0.0.1:${app.getHttpServer().address().port}`;
+});
+
+after(async () => { await app?.close(); });
+
+test('product surface routes enforce authentication and pass the authenticated owner to services', async () => {
+  const denied = await fetch(`${baseUrl}/jobs/history`);
+  assert.equal(denied.status, 403);
+
+  const headers = { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' };
+  const history = await fetch(`${baseUrl}/jobs/history?cursor=previous`, { headers });
+  assert.equal(history.status, 200);
+  assert.deepEqual(await history.json(), { data: [{ id: 'job-1', fileName: 'report.xlsx' }], nextCursor: 'job-1' });
+
+  const preview = await fetch(`${baseUrl}/jobs/job-1/preview?version=source`, { headers });
+  assert.equal(preview.status, 200);
+  assert.equal((await preview.json()).sheets[0].rows[0][0], 'A');
+
+  const deleted = await fetch(`${baseUrl}/jobs/job-1`, { method: 'DELETE', headers });
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(await deleted.json(), { ok: true });
+
+  assert.deepEqual(calls, [
+    ['history', 'user-1', 'previous'],
+    ['preview', 'job-1', 'user-1', 'source'],
+    ['delete', 'job-1', 'user-1'],
+  ]);
+});

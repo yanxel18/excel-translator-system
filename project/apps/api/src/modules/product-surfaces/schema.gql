@@ -1,0 +1,89 @@
+type JobRecord {
+  id: ID!
+  status: String!
+  fileName: String!
+  fileSize: Int!
+  progress: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  completedAt: DateTime
+  elapsedMs: Int
+  selectedSheets: [String!]!
+  sourceLanguage: String!
+  targetLanguage: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type NotificationRecord {
+  id: ID!
+  jobId: String
+  type: String!
+  title: String!
+  message: String!
+  isRead: Boolean!
+  createdAt: DateTime!
+}
+
+type ProfileRecord {
+  id: ID!
+  username: String!
+  email: String
+  fullName: String
+  createdAt: DateTime!
+}
+
+type ChangelogRecord {
+  id: ID!
+  title: String!
+  details: String!
+  publishedAt: DateTime!
+}
+
+type JobPage {
+  data: [JobRecord!]!
+  nextCursor: String
+}
+
+type NotificationPage {
+  data: [NotificationRecord!]!
+  nextCursor: String
+}
+
+type ChangelogPage {
+  data: [ChangelogRecord!]!
+  nextCursor: String
+}
+
+type MutationResult {
+  ok: Boolean!
+}
+
+type PreviewSheet {
+  name: String!
+  rows: [[String!]!]!
+}
+
+type WorkbookPreview {
+  fileName: String!
+  version: String!
+  sheets: [PreviewSheet!]!
+}
+
+type Query {
+  history(cursor: String): JobPage!
+  profile: ProfileRecord!
+  notifications(cursor: String): NotificationPage!
+  changelog(cursor: String): ChangelogPage!
+  preview(jobId: ID!, version: String): WorkbookPreview!
+  downloadUrl(jobId: ID!): String!
+}
+
+type Mutation {
+  deleteHistoryItem(id: ID!): MutationResult!
+  updateProfile(fullName: String, email: String): ProfileRecord!
+  markNotificationRead(id: ID!): MutationResult!
+}

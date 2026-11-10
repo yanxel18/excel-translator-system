@@ -53,3 +53,34 @@ export interface NotificationPage {
   data: JobNotification[];
   nextCursor: string | null;
 }
+
+export interface HistoryPage {
+  data: Job[];
+  nextCursor: string | null;
+}
+
+export interface WorkbookPreview {
+  fileName: string;
+  version: 'source' | 'translated';
+  sheets: { name: string; rows: string[][] }[];
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  email: string | null;
+  fullName: string | null;
+  createdAt: string;
+}
+
+export interface ChangelogEntry {
+  id: string;
+  title: string;
+  details: string;
+  publishedAt: string;
+}
+
+export interface ChangelogPage {
+  data: ChangelogEntry[];
+  nextCursor: string | null;
+}
