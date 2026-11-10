@@ -8,7 +8,7 @@ export class FileUploadService {
   async validateFile(file?: Express.Multer.File): Promise<boolean> {
     if (!file || !Buffer.isBuffer(file.buffer) || !file.originalname?.toLowerCase().endsWith('.xlsx')) return false;
     if (file.size > 50 * 1024 * 1024) return false;
-    await this.extraction.openWorkbook(file.buffer);
+    await this.extraction.openWorkbook(file.buffer, true);
     return true;
   }
 

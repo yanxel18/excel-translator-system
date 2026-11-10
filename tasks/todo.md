@@ -22,9 +22,10 @@
   - Acceptance: A user selects sheets, language pair, and a compatible vocabulary group before starting translation.
   - Verify: Focused extraction, vocabulary, protected-term, and language-pair tests pass.
 
-- [ ] Task 5: Harden OOXML patching and output validation.
-  - Acceptance: Shared/inline rich text, number formats, formulas, and selected sheets are preserved; generated archives pass OOXML structural checks before publication.
-  - Verify: XLSX fixture tests and API build pass.
+- [x] Task 5: Harden OOXML patching and output validation; split translation code into testable frontend and backend modules.
+  - Progress: ZIP safety, workbook relationships, text extraction, OOXML patching, and output checks live in focused backend modules. Formula results are excluded from translation, shared strings are cloned when selected text shares a string with another sheet or a formula, and generated archives are structurally validated before publication. Frontend API domains and workspace, settings, login, and vocabulary views are split into feature modules.
+  - Acceptance: Shared/inline rich text, number formats, formulas, and selected sheets are preserved; generated archives pass OOXML structural checks before publication; frontend and backend translation code is organized into isolated, testable modules.
+  - Verify: XLSX fixture and Task 4 regression tests pass; API and frontend builds pass.
 
 ## Product surfaces
 

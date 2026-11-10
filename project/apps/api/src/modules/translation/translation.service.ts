@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Language } from '../../generated/prisma/client';
-import { ExtractedText, replaceVisibleText, TextExtractionService } from '../text-extraction/text-extraction.service';
+import { ExtractedText, TextExtractionService } from '../text-extraction/text-extraction.service';
+import { patchWorkbook } from '../workbook-ooxml/patcher';
+import { validateWorkbookOutput } from '../workbook-ooxml/validator';
 
 export interface Translation { id: string; translated: string; }
 export interface ProtectedTerm { source: string; target: string; }
@@ -106,66 +108,10 @@ export class TranslationService {
 
   async patchOOXML(originalFileBuffer: Buffer, translations: Translation[], selectedSheets?: string[]): Promise<Buffer> {
     if (!(await this.validateTranslation(translations))) throw new Error('Translation result is invalid.');
-    const values = new Map(translations.map(({ id, translated }) => [id, translated]));
     const zip = await this.extraction.openWorkbook(originalFileBuffer);
     const worksheets = await this.extraction.getWorksheetParts(zip);
-    const requestedSheets = selectedSheets?.length ? new Set(selectedSheets) : new Set(worksheets.map(({ name }) => name));
-    const chosenParts = new Set(worksheets.filter(({ name }) => requestedSheets.has(name)).map(({ part }) => part));
-    const selectedShared = new Set<number>();
-    const unselectedShared = new Set<number>();
-    for (const { name, part } of worksheets) {
-      const xml = await zip.file(part)!.async('string');
-      const selected = requestedSheets.has(name);
-      for (const match of xml.matchAll(/<c\b([^>]*)>[\s\S]*?<\/c>/g)) {
-        if (!/\bt=(['"])s\1/.test(match[1])) continue;
-        const index = /<v>(\d+)<\/v>/.exec(match[0])?.[1];
-        if (index === undefined) continue;
-        (selected ? selectedShared : unselectedShared).add(Number(index));
-      }
-    }
-    const clonedShared = new Map<number, number>();
-    const shared = zip.file('xl/sharedStrings.xml');
-    if (shared) {
-      let xml = await shared.async('string');
-      const items = [...xml.matchAll(/<si(?:\s[^>]*)?>[\s\S]*?<\/si>/g)];
-      const clones: string[] = [];
-      let sharedIndex = 0;
-      xml = xml.replace(/<si(?:\s[^>]*)?>[\s\S]*?<\/si>/g, (item) => {
-        const index = sharedIndex++;
-        const id = `shared:${index}`;
-        const translated = values.get(id);
-        if (translated === undefined || !selectedShared.has(index)) return item;
-        if (unselectedShared.has(index)) {
-          const nextIndex = items.length + clones.length;
-          clonedShared.set(index, nextIndex);
-          clones.push(replaceVisibleText(item, translated));
-          return item;
-        }
-        return replaceVisibleText(item, translated);
-      });
-      if (clones.length) {
-        xml = xml.replace('</sst>', `${clones.join('')}</sst>`);
-        xml = xml.replace(/\buniqueCount=(['"])(\d+)\1/, (_all, quote, count) => `uniqueCount=${quote}${Number(count) + clones.length}${quote}`);
-      }
-      zip.file('xl/sharedStrings.xml', xml);
-    }
-    for (const part of chosenParts) {
-      let xml = await zip.file(part)!.async('string');
-      xml = xml.replace(/<c\b([^>]*)>[\s\S]*?<\/c>/g, (cell, attrs) => {
-        if (!/\bt=(['"])s\1/.test(attrs)) return cell;
-        const index = /<v>(\d+)<\/v>/.exec(cell)?.[1];
-        const replacement = index === undefined ? undefined : clonedShared.get(Number(index));
-        return replacement === undefined ? cell : cell.replace(/<v>\d+<\/v>/, `<v>${replacement}</v>`);
-      });
-      let inlineIndex = 0;
-      xml = xml.replace(/<c\b[^>]*>[\s\S]*?<\/c>/g, (cell) => {
-        if (!/<is(?:\s[^>]*)?>/.test(cell)) return cell;
-        const id = `inline:${part}:${inlineIndex++}`;
-        if (!values.has(id)) return cell;
-        return cell.replace(/(<is(?:\s[^>]*)?>)([\s\S]*?)(<\/is>)/, (_all, open, content, close) => open + replaceVisibleText(content, values.get(id)!) + close);
-      });
-      zip.file(part, xml);
-    }
-    return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    const output = await patchWorkbook(zip, worksheets, translations, selectedSheets);
+    await validateWorkbookOutput(originalFileBuffer, output, selectedSheets);
+    return output;
   }
 }
