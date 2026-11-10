@@ -5,9 +5,11 @@ import { TranslationModule } from './modules/translation/translation.module';
 import { JobManagementModule } from './modules/job-management/job-management.module';
 import { AuthenticationModule } from './modules/authentication/authentication.module';
 import { ProgressTrackingModule } from './modules/progress-tracking/progress-tracking.module';
+import { PersistenceModule } from './modules/persistence/persistence.module';
 
 @Module({
   imports: [
+    PersistenceModule,
     FileUploadModule,
     TextExtractionModule,
     TranslationModule,

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { escapeXml, ExtractedText, TextExtractionService } from '../text-extraction/text-extraction.service';
+import { ExtractedText, replaceVisibleText, TextExtractionService } from '../text-extraction/text-extraction.service';
 
 export interface Translation { id: string; translated: string; }
 
@@ -79,8 +79,7 @@ export class TranslationService {
       xml = xml.replace(/<si(?:\s[^>]*)?>[\s\S]*?<\/si>/g, (item) => {
         const id = `shared:${index++}`;
         if (!values.has(id)) return item;
-        let replaced = false;
-        return item.replace(/(<t(?:\s[^>]*)?>)[\s\S]*?(<\/t>)/, (_all, open, close) => { replaced = true; return open + escapeXml(values.get(id)!) + close; });
+        return replaceVisibleText(item, values.get(id)!);
       });
       if ([...values.keys()].some((id) => id.startsWith('shared:') && !xml)) throw new Error('Shared strings could not be patched.');
       zip.file('xl/sharedStrings.xml', xml);
@@ -93,7 +92,7 @@ export class TranslationService {
         if (!/<is(?:\s[^>]*)?>/.test(cell)) return cell;
         const id = `inline:${part}:${inlineIndex++}`;
         if (!values.has(id)) return cell;
-        return cell.replace(/(<is(?:\s[^>]*)?>\s*<t(?:\s[^>]*)?>)[\s\S]*?(<\/t>\s*<\/is>)/, (_all, open, close) => open + escapeXml(values.get(id)!) + close);
+        return cell.replace(/(<is(?:\s[^>]*)?>)([\s\S]*?)(<\/is>)/, (_all, open, content, close) => open + replaceVisibleText(content, values.get(id)!) + close);
       });
       zip.file(part, xml);
     }

@@ -1,12 +1,12 @@
 import { Controller, Post, Get, Param, Put, Req, Res, HttpStatus, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { JobManagementService } from './job-management.service';
+import { DatabaseJobManagementService } from './database-job-management.service';
 import { JwtAuthGuard } from '../authentication/jwt-auth.guard';
 
 @Controller('jobs')
 @UseGuards(JwtAuthGuard)
 export class JobManagementController {
-  constructor(private readonly service: JobManagementService) {}
+  constructor(private readonly service: DatabaseJobManagementService) {}
   private owner(req: Request): string { return String((req as any).user?.userId ?? 'local-user'); }
 
   @Post(':id/start') start(@Param('id') id: string, @Req() req: Request) { return this.service.startJob(id, this.owner(req)); }

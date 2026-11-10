@@ -13,7 +13,7 @@ This document outlines the architecture of the Japanese-to-English XLSX translat
    - Provides user interface for uploading XLSX files.
 
 2. **TextExtractionModule**
-   - Extracts plain shared strings and inline strings from XLSX files.
+   - Extracts shared strings and inline strings, including rich text runs, from XLSX files.
    - Sends extracted text to the translation adapter.
 
 3. **TranslationModule**
@@ -39,7 +39,7 @@ This document outlines the architecture of the Japanese-to-English XLSX translat
    - Stores original uploads and enforces ZIP expansion limits.
 
 2. **TextExtractionService**
-   - Extracts plain shared strings and inline strings from XLSX files.
+   - Extracts shared strings and inline strings, including rich text runs, from XLSX files.
    - Sends extracted text to the translation adapter.
 
 3. **TranslationService**
@@ -68,7 +68,7 @@ This document outlines the architecture of the Japanese-to-English XLSX translat
 
 2. **TextExtractionInterface**
    - Methods: `extractText`
-   - Description: Extracts plain shared strings and inline strings from XLSX files.
+   - Description: Extracts shared strings and inline strings, including rich text runs, from XLSX files.
 
 3. **TranslationInterface**
    - Methods: `sendTextForTranslation`, `validateTranslation`, `patchOOXML`
@@ -105,8 +105,8 @@ This document outlines the architecture of the Japanese-to-English XLSX translat
 
 ## OOXML Limitations
 
-1. **Unsupported Rich Text**
-   - Description: The application detects unsupported rich text and clearly reports limitations.
+1. **Rich Text Formatting**
+   - Description: Translated rich-text content is placed in the first non-empty run because formatting cannot be mapped reliably to translated word boundaries.
 
 2. **Unsupported Comments**
    - Description: The application detects unsupported comments and clearly reports limitations.

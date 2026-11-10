@@ -23,6 +23,47 @@ export function escapeXml(value: string): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
+function visibleTextNodes(fragment: string): string[] {
+  return [...fragment.matchAll(/<rPh\b[^>]*>[\s\S]*?<\/rPh>|<t(?:\s[^>]*)?>[\s\S]*?<\/t>/g)]
+    .map(([element]) => element)
+    .filter((element) => element.startsWith('<t'));
+}
+
+export function visibleText(fragment: string): string {
+  return visibleTextNodes(fragment).map((element) => {
+    const match = /^<t(?:\s[^>]*)?>([\s\S]*?)<\/t>$/.exec(element);
+    return match ? xmlText(match[1]) : '';
+  }).join('');
+}
+
+export function replaceVisibleText(fragment: string, value: string): string {
+  const nodes = visibleTextNodes(fragment);
+  if (!nodes.length) return fragment;
+
+  const nonEmptyIndex = nodes.findIndex((element) => {
+    const match = /^<t(?:\s[^>]*)?>([\s\S]*?)<\/t>$/.exec(element);
+    return match ? xmlText(match[1]).length > 0 : false;
+  });
+  const targetIndex = nonEmptyIndex < 0 ? 0 : nonEmptyIndex;
+  let textIndex = 0;
+  return fragment.replace(/<rPh\b[^>]*>[\s\S]*?<\/rPh>|<t(?:\s[^>]*)?>[\s\S]*?<\/t>/g, (element) => {
+    if (element.startsWith('<rPh')) return element;
+    const index = textIndex++;
+    const match = /^(<t(?:\s[^>]*)?>)[\s\S]*?(<\/t>)$/.exec(element);
+    if (!match) return element;
+    let openTag = match[1];
+    const text = index === targetIndex ? escapeXml(value) : '';
+    if (index === targetIndex && /^\s|\s$/.test(value)) {
+      if (/\bxml:space\s*=/.test(openTag)) {
+        openTag = openTag.replace(/\bxml:space\s*=\s*(["'])[^"']*\1/, 'xml:space="preserve"');
+      } else {
+        openTag = openTag.replace(/>$/, ' xml:space="preserve">');
+      }
+    }
+    return openTag + text + match[2];
+  });
+}
+
 @Injectable()
 export class TextExtractionService {
   async openWorkbook(buffer: Buffer): Promise<JSZip> {
@@ -72,12 +113,8 @@ export class TextExtractionService {
       const xml = await sharedFile.async('string');
       const items = [...xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)];
       items.forEach((match, index) => {
-        const tags = [...match[1].matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)];
-        if (tags.length > 1) throw new BadRequestException(`Rich text in shared string ${index + 1} is not supported.`);
-        if (tags.length === 1) {
-          const value = xmlText(tags[0][1]);
-          if (value.trim()) result.push({ id: `shared:${index}`, value, source: 'shared', part: 'xl/sharedStrings.xml', index });
-        }
+        const value = visibleText(match[1]);
+        if (value.trim()) result.push({ id: `shared:${index}`, value, source: 'shared', part: 'xl/sharedStrings.xml', index });
       });
     }
     const sheets = Object.keys(zip.files).filter((name) => /^xl\/worksheets\/[^/]+\.xml$/.test(name));
@@ -85,13 +122,10 @@ export class TextExtractionService {
       const xml = await zip.file(part)!.async('string');
       let index = 0;
       for (const cell of xml.matchAll(/<c\b[^>]*>([\s\S]*?)<\/c>/g)) {
-        if (!/<is(?:\s[^>]*)?>/.test(cell[1])) continue;
-        const tags = [...cell[1].matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)];
-        if (tags.length > 1) throw new BadRequestException(`Rich inline text in ${part} is not supported.`);
-        if (tags.length === 1) {
-          const value = xmlText(tags[0][1]);
-          if (value.trim()) result.push({ id: `inline:${part}:${index}`, value, source: 'inline', part, index });
-        }
+        const inline = /<is(?:\s[^>]*)?>([\s\S]*?)<\/is>/.exec(cell[1]);
+        if (!inline) continue;
+        const value = visibleText(inline[1]);
+        if (value.trim()) result.push({ id: `inline:${part}:${index}`, value, source: 'inline', part, index });
         index++;
       }
     }

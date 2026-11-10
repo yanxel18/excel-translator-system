@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { TextExtractionService } from '../text-extraction/text-extraction.service';
 import { TranslationService } from '../translation/translation.service';
+import { normalizeUploadFilename } from '../../utils/filename';
 
 export enum JobStatus { PENDING = 'PENDING', PROCESSING = 'PROCESSING', COMPLETED = 'COMPLETED', CANCELLED = 'CANCELLED', FAILED = 'FAILED' }
 export interface Job {
@@ -31,7 +32,12 @@ export class JobManagementService {
     try {
       const persisted = JSON.parse(await readFile(this.stateFile, 'utf8')) as { jobs?: Job[] };
       for (const item of persisted.jobs || []) {
-        const job: Job = { ...item, createdAt: new Date(item.createdAt), updatedAt: new Date(item.updatedAt) };
+        const job: Job = {
+          ...item,
+          fileName: normalizeUploadFilename(item.fileName),
+          createdAt: new Date(item.createdAt),
+          updatedAt: new Date(item.updatedAt),
+        };
         this.jobs.set(job.id, job);
         const original = join(this.dataDir, `${job.id}.source.xlsx`);
         const output = join(this.dataDir, `${job.id}.translated.xlsx`);
@@ -67,7 +73,7 @@ export class JobManagementService {
     const original = join(this.dataDir, `${id}.source.xlsx`);
     await writeFile(original, file, { flag: 'wx' });
     const now = new Date();
-    const job: Job = { id, ownerId, status: JobStatus.PENDING, fileName, progress: 0, createdAt: now, updatedAt: now };
+    const job: Job = { id, ownerId, status: JobStatus.PENDING, fileName: normalizeUploadFilename(fileName), progress: 0, createdAt: now, updatedAt: now };
     this.jobs.set(id, job);
     this.originals.set(id, original);
     await this.persist();
