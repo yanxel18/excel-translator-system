@@ -17,9 +17,10 @@
   - Acceptance: Jobs are owner-scoped, retry-safe, durable across restarts, and visible in history.
   - Verify: Job lifecycle tests and API build pass.
 
-- [ ] Task 4: Add worksheet discovery/selection, supported language pairs, vocabulary CRUD, and protected-term translation.
+- [x] Task 4: Add worksheet discovery/selection, supported language pairs, vocabulary CRUD, and protected-term translation.
+  - Progress: Pending jobs can select sheets, any distinct supported language pair, and an owner-scoped compatible vocabulary group. Vocabulary groups and terms have authenticated CRUD endpoints and workspace forms; matching terms are protected through model translation and restored exactly in the output.
   - Acceptance: A user selects sheets, language pair, and a compatible vocabulary group before starting translation.
-  - Verify: Extraction, vocabulary, and language-validation tests pass.
+  - Verify: Focused extraction, vocabulary, protected-term, and language-pair tests pass.
 
 - [ ] Task 5: Harden OOXML patching and output validation.
   - Acceptance: Shared/inline rich text, number formats, formulas, and selected sheets are preserved; generated archives pass OOXML structural checks before publication.

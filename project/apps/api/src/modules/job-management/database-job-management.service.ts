@@ -7,9 +7,10 @@ import { PrismaService } from '../persistence/prisma.service';
 import { TextExtractionService } from '../text-extraction/text-extraction.service';
 import { TranslationService } from '../translation/translation.service';
 import { normalizeUploadFilename } from '../../utils/filename';
+import { isSupportedLanguagePair } from './language-pairs';
 
 export enum JobStatus { PENDING = 'PENDING', PROCESSING = 'PROCESSING', COMPLETED = 'COMPLETED', CANCELLED = 'CANCELLED', FAILED = 'FAILED' }
-export interface Job { id: string; ownerId: string; status: JobStatus; fileName: string; fileSize: number; progress: number; createdAt: Date; updatedAt: Date; completedAt?: Date; elapsedMs?: number; error?: string; textCount?: number; selectedSheets: string[]; availableSheets: string[]; sourceLanguage: Language; targetLanguage: Language; }
+export interface Job { id: string; ownerId: string; status: JobStatus; fileName: string; fileSize: number; progress: number; createdAt: Date; updatedAt: Date; completedAt?: Date; elapsedMs?: number; error?: string; textCount?: number; selectedSheets: string[]; availableSheets: string[]; sourceLanguage: Language; targetLanguage: Language; vocabularyGroupId: string | null; }
 
 @Injectable()
 export class DatabaseJobManagementService implements OnModuleInit {
@@ -41,7 +42,7 @@ export class DatabaseJobManagementService implements OnModuleInit {
       error: job.error ?? undefined, textCount: job.textCount ?? undefined,
       selectedSheets: Array.isArray(job.selectedSheets) ? job.selectedSheets : [],
       availableSheets: Array.isArray(job.availableSheets) ? job.availableSheets : [],
-      sourceLanguage: job.sourceLanguage, targetLanguage: job.targetLanguage };
+      sourceLanguage: job.sourceLanguage, targetLanguage: job.targetLanguage, vocabularyGroupId: job.vocabularyGroupId ?? null };
   }
   private sourcePath(id: string): string { return join(this.dataDir, `${id}.source.xlsx`); }
   private outputPath(id: string): string { return join(this.dataDir, `${id}.translated.xlsx`); }
@@ -78,23 +79,33 @@ export class DatabaseJobManagementService implements OnModuleInit {
   }
   async getJobList(ownerId: string): Promise<Job[]> { return (await this.prisma.translationJob.findMany({ where: { ownerId }, orderBy: { createdAt: 'desc' } })).map((job) => this.toJob(job)); }
 
-  async updateJobSettings(id: string, ownerId: string, input: { selectedSheets?: unknown; sourceLanguage?: unknown; targetLanguage?: unknown }): Promise<Job> {
+  async updateJobSettings(id: string, ownerId: string, input: { selectedSheets?: unknown; sourceLanguage?: unknown; targetLanguage?: unknown; vocabularyGroupId?: unknown }): Promise<Job> {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new BadRequestException('Job settings are required.');
     const job = await this.owned(id, ownerId);
     if (job.status !== DatabaseJobStatus.PENDING) throw new BadRequestException('Settings can only be changed while a job is pending.');
     const availableSheets = await this.extraction.getSheetNames(await readFile(job.sourcePath));
     const selectedSheets = input.selectedSheets === undefined ? (Array.isArray(job.selectedSheets) ? job.selectedSheets as string[] : []) : input.selectedSheets;
     const sourceLanguage = input.sourceLanguage === undefined ? job.sourceLanguage : input.sourceLanguage;
     const targetLanguage = input.targetLanguage === undefined ? job.targetLanguage : input.targetLanguage;
-    const languages = Object.values(Language);
     if (!Array.isArray(selectedSheets) || !selectedSheets.length || selectedSheets.some((sheet) => typeof sheet !== 'string' || !availableSheets.includes(sheet)) || new Set(selectedSheets).size !== selectedSheets.length) throw new BadRequestException('Select one or more valid worksheets.');
-    if (!languages.includes(sourceLanguage as Language) || !languages.includes(targetLanguage as Language) || sourceLanguage === targetLanguage) throw new BadRequestException('Choose two different supported languages.');
-    const updated = await this.prisma.translationJob.updateManyAndReturn({ where: { id, ownerId, status: DatabaseJobStatus.PENDING }, data: { selectedSheets: selectedSheets as string[], sourceLanguage: sourceLanguage as Language, targetLanguage: targetLanguage as Language } });
+    if (!isSupportedLanguagePair(sourceLanguage, targetLanguage)) throw new BadRequestException('Choose two different supported languages.');
+    let vocabularyGroupId = input.vocabularyGroupId === undefined ? job.vocabularyGroupId : input.vocabularyGroupId;
+    if (vocabularyGroupId !== null && typeof vocabularyGroupId !== 'string') throw new BadRequestException('Choose a compatible vocabulary group.');
+    if (typeof vocabularyGroupId === 'string') {
+      const group = await this.prisma.vocabularyGroup.findFirst({ where: { id: vocabularyGroupId, ownerId, sourceLanguage, targetLanguage }, select: { id: true } });
+      if (!group) {
+        if (input.vocabularyGroupId === undefined) vocabularyGroupId = null;
+        else throw new BadRequestException('Choose a vocabulary group for the selected language pair.');
+      }
+    }
+    const updated = await this.prisma.translationJob.updateManyAndReturn({ where: { id, ownerId, status: DatabaseJobStatus.PENDING }, data: { selectedSheets: selectedSheets as string[], sourceLanguage: sourceLanguage as Language, targetLanguage: targetLanguage as Language, vocabularyGroupId: vocabularyGroupId as string | null } });
     if (!updated.length) throw new BadRequestException('Job status changed. Refresh and try again.');
     return { ...this.toJob(updated[0]), availableSheets };
   }
 
   async startJob(id: string, ownerId: string): Promise<Job> {
-    await this.owned(id, ownerId);
+    const job = await this.owned(id, ownerId);
+    await this.assertCompatibleVocabulary(job);
     const claimed = await this.claimJob(id, ownerId, DatabaseJobStatus.PENDING);
     if (claimed.length !== 1) throw new BadRequestException('Only pending jobs can be started.');
     this.controllers.set(id, new AbortController());
@@ -103,7 +114,8 @@ export class DatabaseJobManagementService implements OnModuleInit {
   }
 
   async retryJob(id: string, ownerId: string): Promise<Job> {
-    await this.owned(id, ownerId);
+    const job = await this.owned(id, ownerId);
+    await this.assertCompatibleVocabulary(job);
     const claimed = await this.claimJob(id, ownerId, DatabaseJobStatus.FAILED);
     if (claimed.length !== 1) throw new BadRequestException('Only failed jobs can be retried.');
     this.controllers.set(id, new AbortController());
@@ -128,12 +140,17 @@ export class DatabaseJobManagementService implements OnModuleInit {
       const selectedSheets = Array.isArray(job.selectedSheets) && job.selectedSheets.length
         ? job.selectedSheets as string[]
         : await this.extraction.getSheetNames(original);
+      const vocabulary = job.vocabularyGroupId ? await this.prisma.vocabularyGroup.findFirst({
+        where: { id: job.vocabularyGroupId, ownerId: job.ownerId, sourceLanguage: job.sourceLanguage, targetLanguage: job.targetLanguage },
+        include: { entries: { select: { source: true, target: true } } },
+      }) : null;
+      if (job.vocabularyGroupId && !vocabulary) throw new Error('The selected vocabulary group is no longer compatible with this job.');
       const extracted = await this.extraction.extractTextFromXlsx(original, selectedSheets);
       this.ensureNotCancelled(id);
       await this.prisma.translationJob.updateMany({ where: { id, status: DatabaseJobStatus.PROCESSING }, data: { textCount: extracted.length, progress: 10 } });
       const translated = await this.translation.sendTextForTranslation(extracted, (completed, total) => {
         progressWrites = progressWrites.then(() => this.prisma.translationJob.updateMany({ where: { id, status: DatabaseJobStatus.PROCESSING }, data: { progress: 10 + Math.floor((completed / total) * 75) } })).catch(() => undefined);
-      }, this.controllers.get(id)?.signal, { sourceLanguage: job.sourceLanguage, targetLanguage: job.targetLanguage });
+      }, this.controllers.get(id)?.signal, { sourceLanguage: job.sourceLanguage, targetLanguage: job.targetLanguage }, vocabulary?.entries ?? []);
       await progressWrites;
       this.ensureNotCancelled(id);
       await this.prisma.translationJob.updateMany({ where: { id, status: DatabaseJobStatus.PROCESSING }, data: { progress: 90 } });
@@ -156,6 +173,11 @@ export class DatabaseJobManagementService implements OnModuleInit {
   }
 
   private ensureNotCancelled(id: string): void { if (this.cancelled.has(id)) throw new Error('Job cancelled.'); }
+  private async assertCompatibleVocabulary(job: any): Promise<void> {
+    if (!job.vocabularyGroupId) return;
+    const group = await this.prisma.vocabularyGroup.findFirst({ where: { id: job.vocabularyGroupId, ownerId: job.ownerId, sourceLanguage: job.sourceLanguage, targetLanguage: job.targetLanguage }, select: { id: true } });
+    if (!group) throw new BadRequestException('Choose a vocabulary group for the selected language pair before starting.');
+  }
   async cancelJob(id: string, ownerId: string): Promise<Job> {
     await this.owned(id, ownerId);
     const changed = await this.prisma.$transaction(async (tx) => {

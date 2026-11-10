@@ -6,6 +6,7 @@
   "scripts": {
     "prebuild": "npm run prisma:generate",
     "build": "tsc",
+    "test:task4": "npm run build && node --test test/task4.test.cjs",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
