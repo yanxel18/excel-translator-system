@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Language {
+  ENGLISH
+  JAPANESE
+  CHINESE
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum IdentityProvider {
+  LOCAL
+  KEYCLOAK
+}
+
+enum NotificationType {
+  JOB_QUEUED
+  JOB_PROGRESS
+  JOB_COMPLETED
+  JOB_FAILED
+  JOB_CANCELLED
+}
+
+model User {
+  id             String             @id @default(uuid())
+  username       String             @unique
+  email          String?            @unique
+  fullName       String?
+  gid            String?
+  passwordHash   String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  identities     UserIdentity[]
+  jobs           TranslationJob[]
+  vocabulary     VocabularyGroup[]
+  notifications  Notification[]
+
+  @@index([createdAt])
+}
+
+model UserIdentity {
+  id        String           @id @default(uuid())
+  provider  IdentityProvider
+  subject   String
+  userId    String
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([userId])
+}
+
+model TranslationJob {
+  id                String            @id @default(uuid())
+  ownerId           String
+  status            JobStatus         @default(PENDING)
+  fileName          String
+  fileSize          Int
+  mimeType          String
+  sourceLanguage    Language
+  targetLanguage    Language
+  selectedSheets    Json
+  sourcePath        String
+  outputPath        String?
+  vocabularyGroupId String?
+  progress          Int               @default(0)
+  textCount         Int?
+  error             String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  elapsedMs         Int?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  owner             User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vocabularyGroup   VocabularyGroup?  @relation(fields: [vocabularyGroupId], references: [id], onDelete: SetNull)
+  sheets            JobSheet[]
+  notifications     Notification[]
+
+  @@index([ownerId, createdAt])
+  @@index([ownerId, status, completedAt])
+  @@index([vocabularyGroupId])
+}
+
+model JobSheet {
+  id          String          @id @default(uuid())
+  jobId       String
+  sheetName   String
+  isSelected  Boolean         @default(true)
+  textCount   Int?
+  job         TranslationJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, sheetName])
+  @@index([jobId, isSelected])
+}
+
+model VocabularyGroup {
+  id             String             @id @default(uuid())
+  ownerId        String
+  name           String
+  description    String?
+  sourceLanguage Language
+  targetLanguage Language
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  owner          User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  entries        VocabularyEntry[]
+  jobs           TranslationJob[]
+
+  @@unique([ownerId, name, sourceLanguage, targetLanguage])
+  @@index([ownerId, sourceLanguage, targetLanguage])
+}
+
+model VocabularyEntry {
+  id        String           @id @default(uuid())
+  groupId   String
+  source    String
+  target    String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  group     VocabularyGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, source])
+  @@index([groupId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  jobId     String?
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job       TranslationJob?  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt])
+  @@index([jobId])
+}
+
+model ChangelogEntry {
+  id          String    @id @default(uuid())
+  title       String
+  details     String
+  publishedAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+
+  @@index([publishedAt])
+}

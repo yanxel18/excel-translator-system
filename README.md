@@ -20,7 +20,7 @@ Run `npm run build` for both applications and `npm test` for API checks. `npm ru
 ## Current behavior
 
 - Authenticated XLSX upload with a 50 MB file limit, archive expansion checks, and malformed archive rejection.
-- Extraction and translation of plain shared strings and inline strings. Rich text runs are rejected with an explicit unsupported-content message.
+- Extraction and translation of shared and inline strings, including rich text runs. A translated rich-text string is placed in its first non-empty run; run-specific formatting cannot be mapped to translated word boundaries.
 - Translation is sent to Ollama in bounded batches and translation IDs are checked before the workbook is patched.
 - Jobs are persisted to `project/apps/api/data`, scoped to the authenticated user, and support progress refresh, cancellation, retry after failure, and download after successful patching.
 - A failed or incomplete translation never produces a downloadable completed job.

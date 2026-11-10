@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ApiService, { Job } from './api';
 import './App.css';
+import ModernApp from './ModernApp';
 
-function App() {
+function LegacyApp() {
   const [token, setToken] = useState(() => localStorage.getItem('excel-translator-token') || '');
   const [username, setUsername] = useState('user');
   const [password, setPassword] = useState('password');
@@ -76,6 +77,11 @@ function App() {
       <footer>Translation uses your configured Ollama model. Uploaded workbooks are held temporarily while the API process is running.</footer>
     </main>
   </div>;
+}
+
+function App() {
+  void LegacyApp;
+  return <ModernApp />;
 }
 
 export default App;
