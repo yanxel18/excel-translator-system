@@ -41,6 +41,7 @@
 
 ## Deployment and quality
 
-- [ ] Task 8: Add source-mirrored backend/frontend tests, root deployment files, ibis preview service, base-path support, and production documentation.
-  - Acceptance: Services run from `/excel-convert`, example environment files are complete, and all tests/builds pass.
-  - Verify: Docker Compose config, API/frontend builds, and test suites pass.
+- [x] Task 8: Add source-mirrored backend/frontend tests, modular code layout, root deployment files, ibis preview service, base-path support, and production documentation.
+  - Progress: The frontend workspace controller and API GraphQL HTTP bootstrap are isolated under feature modules, with pure path/bootstrap helpers covered by focused tests. Production Compose deploys the web and API under `/excel-convert`, persists PostgreSQL and workbook data in named volumes, and can start a checksum-pinned ibisOffice browser preview service. Production setup and license notes are documented.
+  - Acceptance: Frontend and backend responsibilities live in focused, independently testable modules; services run from `/excel-convert`; example environment files are complete; and the tests and builds pass.
+  - Verify: Docker Compose config and service image builds, API and frontend builds, backend module and API route tests, and the narrow-screen frontend flow pass.
