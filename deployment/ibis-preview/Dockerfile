@@ -11,4 +11,5 @@ RUN curl -fsSLO "https://github.com/ibisjp/ibis-office/releases/download/v${IBIS
 FROM nginx:1.29-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=download /www/ /usr/share/nginx/html/
+COPY bridge.html /usr/share/nginx/html/bridge.html
 EXPOSE 80

@@ -63,6 +63,17 @@ model UserIdentity {
   @@index([userId])
 }
 
+model OidcSettings {
+  id            String   @id @default("default")
+  enabled       Boolean  @default(false)
+  keycloakUrl   String?
+  realm         String?
+  clientId      String?
+  issuerUrl     String?
+  requiredGroup String?
+  updatedAt     DateTime @updatedAt
+}
+
 model TranslationJob {
   id                String            @id @default(uuid())
   ownerId           String

@@ -5,6 +5,8 @@ RUN npm ci
 COPY . .
 ARG VITE_API_URL=http://localhost:3000/excel-convert
 ARG VITE_BASE_PATH=/excel-convert/
+ARG VITE_PREVIEW_URL=http://localhost:8081/
+ENV VITE_PREVIEW_URL=$VITE_PREVIEW_URL
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_BASE_PATH=$VITE_BASE_PATH
 RUN npm run build

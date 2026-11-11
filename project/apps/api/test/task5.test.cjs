@@ -138,3 +138,50 @@ test('rejects a generated workbook missing its package relationships', async () 
     /OOXML|relationship/i,
   );
 });
+
+
+test('preserves empty cells and places cloned shared strings before extension lists', async () => {
+  const sourceZip = await readZip(await makeWorkbook());
+  const sheetPath = 'xl/worksheets/sheet1.xml';
+  const sheet = await sourceZip.file(sheetPath).async('string');
+  sourceZip.file(sheetPath, sheet.replace('<c r="A1"', '<c r="Z1" s="0"/><c r="A1"'));
+  const shared = await sourceZip.file('xl/sharedStrings.xml').async('string');
+  sourceZip.file('xl/sharedStrings.xml', shared.replace('</sst>', '<extLst></extLst></sst>'));
+  const source = await sourceZip.generateAsync({ type: 'nodebuffer' });
+  const { extraction, translation } = services();
+  const extracted = await extraction.extractTextFromXlsx(source, ['Selected']);
+  assert.ok(extracted.some((item) => item.id === 'shared:0'));
+  const result = await translation.patchOOXML(source, [{ id: 'shared:0', translated: 'Translated' }], ['Selected']);
+  const output = await readZip(result);
+  const outputSheet = await output.file(sheetPath).async('string');
+  const outputShared = await output.file('xl/sharedStrings.xml').async('string');
+  assert.match(outputSheet, /<c r="Z1" s="0"\/><c r="A1" s="0" t="s"><v>2<\/v><\/c>/);
+  assert.ok(outputShared.indexOf('Translated') < outputShared.indexOf('<extLst>'));
+});
+
+
+test('translates grouped shape paragraphs while isolating drawings shared with unselected sheets', async () => {
+  const zip = await readZip(await makeWorkbook());
+  const drawing = `<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:twoCellAnchor><xdr:grpSp><xdr:sp><xdr:spPr><a:xfrm rot="120"><a:off x="100" y="200"/></a:xfrm><a:prstGeom prst="rightArrow"/></xdr:spPr><xdr:txBody><a:bodyPr/><a:lstStyle/><a:p/><a:p><a:r><a:rPr b="1"/><a:t>Shape</a:t></a:r><a:r><a:rPr i="1"/><a:t> text</a:t></a:r></a:p><a:p><a:r><a:t>Second paragraph</a:t></a:r></a:p></xdr:txBody></xdr:sp></xdr:grpSp><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`;
+  zip.file('xl/drawings/drawing1.xml', drawing);
+  for (const index of [1, 2]) {
+    const path = `xl/worksheets/sheet${index}.xml`;
+    zip.file(path, (await zip.file(path).async('string')).replace('<worksheet ', '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ').replace('</worksheet>', '<drawing r:id="draw1"/></worksheet>'));
+    zip.file(`xl/worksheets/_rels/sheet${index}.xml.rels`, '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="draw1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>');
+  }
+  zip.file('[Content_Types].xml', contentTypes.replace('</Types>', '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>'));
+  const source = await zip.generateAsync({ type: 'nodebuffer' });
+  const { extraction, translation } = services();
+  const texts = (await extraction.extractTextFromXlsx(source, ['Selected'])).filter((item) => item.source === 'drawing');
+  assert.deepEqual(texts.map((item) => item.value), ['Shape text', 'Second paragraph']);
+  const result = await translation.patchOOXML(source, texts.map((item, index) => ({ id: item.id, translated: `Translated ${index}` })), ['Selected']);
+  const output = await readZip(result);
+  assert.equal(await output.file('xl/drawings/drawing1.xml').async('string'), drawing);
+  const revised = await output.file('xl/drawings/drawing1-translated-1.xml').async('string');
+  assert.match(revised, /Translated 0/);
+  assert.match(revised, /Translated 1/);
+  assert.match(revised, /<a:rPr b="1"\/>/);
+  assert.match(revised, /<a:xfrm rot="120"><a:off x="100" y="200"\/><\/a:xfrm>/);
+  assert.match(await output.file('xl/worksheets/_rels/sheet1.xml.rels').async('string'), /drawing1-translated-1.xml/);
+  assert.doesNotMatch(await output.file('xl/worksheets/_rels/sheet2.xml.rels').async('string'), /translated/);
+});

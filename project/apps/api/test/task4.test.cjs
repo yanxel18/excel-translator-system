@@ -136,3 +136,12 @@ test('protected terms are restored exactly after model translation', async (cont
   assert.match(submittedText, /XLT_PROTECTED_/);
   assert.equal(result[0].translated, 'Translated Tokyo MetropolisでTokyoへ');
 });
+
+test('model runtime failures surface actionable diagnostics without exposing server output', async (context) => {
+  const originalFetch = global.fetch;
+  context.after(() => { global.fetch = originalFetch; });
+  global.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: 'CUDA error: shared object initialization failed' }) });
+  const service = new TranslationService({});
+  await assert.rejects(service.sendTextForTranslation([{ id: 'row-1', value: 'hello' }]), (error) =>
+    error.status === 503 && /GPU/.test(error.message) && !error.message.includes('shared object'));
+});

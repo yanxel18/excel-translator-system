@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ApiService, { type Job } from '../../api';
+import { trackedFetch } from '../../api/client';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -16,11 +17,12 @@ export function useWorkspaceController(token: string, translate: (message: strin
   const [error, setError] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const hasLoaded = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (silent = false) => {
     if (!token) return;
-    setJobsLoading(true);
-    try { setJobs(await ApiService.getJobs(token)); }
+    if (!hasLoaded.current) setJobsLoading(true);
+    try { setJobs(await ApiService.getJobs(token, silent)); hasLoaded.current = true; }
     catch (reason) { setError(reason instanceof Error ? reason.message : translate('Could not load jobs.')); }
     finally { setJobsLoading(false); }
   }, [token, translate]);
@@ -28,7 +30,7 @@ export function useWorkspaceController(token: string, translate: (message: strin
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     if (!jobs.some((job) => job.status === 'PROCESSING')) return;
-    const timer = window.setInterval(() => void refresh(), 1200);
+    const timer = window.setInterval(() => void refresh(true), 1200);
     return () => window.clearInterval(timer);
   }, [jobs, refresh]);
 
@@ -40,7 +42,11 @@ export function useWorkspaceController(token: string, translate: (message: strin
   };
 
   const selectFile = (nextFile: File | null) => {
-    if (!nextFile) return;
+    if (!nextFile) {
+      setFile(null);
+      if (fileInput.current) fileInput.current.value = '';
+      return;
+    }
     const validationError = validateWorkbook(nextFile);
     if (validationError) { setError(translate(validationError)); return; }
     setError(''); setFile(nextFile);
@@ -55,7 +61,7 @@ export function useWorkspaceController(token: string, translate: (message: strin
     });
   };
 
-  const download = (job: Job) => void fetch(ApiService.downloadUrl(job.id), {
+  const download = (job: Job) => void trackedFetch(ApiService.downloadUrl(job.id), {
     headers: { Authorization: `Bearer ${token}` },
   }).then(async (response) => {
     if (!response.ok) throw new Error('Download failed.');
@@ -66,7 +72,7 @@ export function useWorkspaceController(token: string, translate: (message: strin
   }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Download failed.'));
 
   const reset = () => {
-    setJobs([]); setError(''); setFile(null);
+    setJobs([]); setError(''); setFile(null); hasLoaded.current = false;
     if (fileInput.current) fileInput.current.value = '';
   };
 

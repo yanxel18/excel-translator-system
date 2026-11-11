@@ -5,6 +5,7 @@ import { AuthenticationController } from './authentication.controller';
 import { LocalStrategy } from './local.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { KeycloakVerifierService } from './keycloak-verifier.service';
+import { AdminAuthGuard } from './admin-auth.guard';
 import { PersistenceModule } from '../persistence/persistence.module';
 
 @Module({
@@ -16,7 +17,7 @@ import { PersistenceModule } from '../persistence/persistence.module';
     }),
   ],
   controllers: [AuthenticationController],
-  providers: [AuthenticationService, LocalStrategy, JwtAuthGuard, KeycloakVerifierService],
+  providers: [AuthenticationService, LocalStrategy, JwtAuthGuard, AdminAuthGuard, KeycloakVerifierService],
   exports: [AuthenticationService, JwtAuthGuard, JwtModule],
 })
 export class AuthenticationModule {}

@@ -6,5 +6,5 @@ import { HistoryApi } from './history';
 import { AccountApi } from './account';
 
 export const ApiService = { ...AuthenticationApi, ...JobsApi, ...VocabularyApi, ...NotificationsApi, ...HistoryApi, ...AccountApi };
-export type { ChangelogEntry, ChangelogPage, HistoryPage, Job, JobNotification, Language, NotificationPage, UserProfile, VocabularyEntry, VocabularyGroup, WorkbookPreview } from './types';
+export type { ChangelogEntry, ChangelogPage, HistoryPage, Job, JobNotification, Language, NotificationPage, OidcAdminSettings, OidcPublicConfig, UserProfile, VocabularyEntry, VocabularyGroup, WorkbookPreview } from './types';
 export default ApiService;

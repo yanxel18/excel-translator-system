@@ -32,7 +32,10 @@ services:
       AUTH_PASSWORD: ${AUTH_PASSWORD:?Set AUTH_PASSWORD in .env}
       LOCAL_AUTH_ENABLED: ${LOCAL_AUTH_ENABLED:-true}
       AUTH_BOOTSTRAP_ENABLED: ${AUTH_BOOTSTRAP_ENABLED:-true}
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
       KEYCLOAK_ENABLED: ${KEYCLOAK_ENABLED:-false}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-excel-translator}
       KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
       KEYCLOAK_REQUIRED_GROUP: ${KEYCLOAK_REQUIRED_GROUP:-}
@@ -59,6 +62,7 @@ services:
       context: ./project/apps/web
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/excel-convert}
+        VITE_PREVIEW_URL: ${VITE_PREVIEW_URL:-http://localhost:8081/}
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/excel-convert/}
     restart: unless-stopped
     ports:

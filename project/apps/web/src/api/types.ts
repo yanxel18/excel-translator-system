@@ -57,6 +57,9 @@ export interface NotificationPage {
 export interface HistoryPage {
   data: Job[];
   nextCursor: string | null;
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface WorkbookPreview {
@@ -71,6 +74,20 @@ export interface UserProfile {
   email: string | null;
   fullName: string | null;
   createdAt: string;
+  isAdmin: boolean;
+}
+
+export interface OidcPublicConfig {
+  enabled: boolean;
+  url: string;
+  realm: string;
+  clientId: string;
+}
+
+export interface OidcAdminSettings extends Omit<OidcPublicConfig, 'url'> {
+  keycloakUrl: string;
+  issuerUrl: string;
+  requiredGroup: string;
 }
 
 export interface ChangelogEntry {

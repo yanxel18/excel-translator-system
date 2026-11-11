@@ -29,3 +29,10 @@ test('mark read updates only the selected owner notification and returns not fou
   await assert.rejects(() => new NotificationsService(prisma).markRead('user-1', 'notification-1'), NotFoundException);
   assert.deepEqual(updates[0], { where: { id: 'notification-1', userId: 'user-1' }, data: { isRead: true } });
 });
+
+test('unread count is scoped to the signed-in owner', async () => {
+  const calls = [];
+  const prisma = { notification: { count: async (query) => { calls.push(query); return 3; } } };
+  assert.deepEqual(await new NotificationsService(prisma).countUnread('user-1'), { count: 3 });
+  assert.deepEqual(calls[0], { where: { userId: 'user-1', isRead: false } });
+});

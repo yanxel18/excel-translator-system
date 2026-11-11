@@ -1,1 +1,1 @@
-export type View = 'workspace' | 'history' | 'vocabulary' | 'notifications' | 'changelog' | 'profile';
+export type View = 'dashboard' | 'workspace' | 'history' | 'vocabulary' | 'notifications' | 'changelog' | 'profile';

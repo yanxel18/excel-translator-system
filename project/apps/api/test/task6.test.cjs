@@ -13,6 +13,7 @@ const calls = [];
 before(async () => {
   service = {
     history: async (...args) => { calls.push(['history', ...args]); return { data: [{ id: 'job-1', fileName: 'report.xlsx' }], nextCursor: 'job-1' }; },
+    previewFile: async (...args) => { calls.push(['previewFile', ...args]); return Buffer.from('PK-preview-bytes'); },
     preview: async (...args) => { calls.push(['preview', ...args]); return { fileName: 'report.xlsx', version: args[2], sheets: [{ name: 'Sheet1', rows: [['A']]}] }; },
     deleteHistoryItem: async (...args) => { calls.push(['delete', ...args]); return { ok: true }; },
     getProfile: async (...args) => { calls.push(['profile', ...args]); return { id: 'user-1', username: 'test' }; },
@@ -38,11 +39,11 @@ before(async () => {
 after(async () => { await app?.close(); });
 
 test('product surface routes enforce authentication and pass the authenticated owner to services', async () => {
-  const denied = await fetch(`${baseUrl}/jobs/history`);
+  const denied = await fetch(`${baseUrl}/history`);
   assert.equal(denied.status, 403);
 
   const headers = { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' };
-  const history = await fetch(`${baseUrl}/jobs/history?cursor=previous`, { headers });
+  const history = await fetch(`${baseUrl}/history?cursor=previous`, { headers });
   assert.equal(history.status, 200);
   assert.deepEqual(await history.json(), { data: [{ id: 'job-1', fileName: 'report.xlsx' }], nextCursor: 'job-1' });
 
@@ -59,4 +60,14 @@ test('product surface routes enforce authentication and pass the authenticated o
     ['preview', 'job-1', 'user-1', 'source'],
     ['delete', 'job-1', 'user-1'],
   ]);
+});
+
+test('binary preview requires authentication and forwards owner and selected version', async () => {
+  const denied = await fetch(`${baseUrl}/jobs/job-1/preview-file?version=source`);
+  assert.equal(denied.status, 403);
+  const response = await fetch(`${baseUrl}/jobs/job-1/preview-file?version=source`, { headers: { Authorization: 'Bearer test-token' } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  assert.equal(await response.text(), 'PK-preview-bytes');
+  assert.deepEqual(calls.at(-1), ['previewFile', 'job-1', 'user-1', 'source']);
 });

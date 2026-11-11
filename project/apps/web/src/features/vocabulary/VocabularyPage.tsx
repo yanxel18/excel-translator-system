@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Box, Breadcrumbs, Button, Center, Divider, Group, Modal, Paper, Select, Skeleton, Stack, Text, Textarea, TextInput, ThemeIcon } from '@mantine/core';
-import { BookOpen, ChevronRight } from 'lucide-react';
+import { Badge, Box, Breadcrumbs, Button, Center, Divider, Group, Modal, Paper, Select, Skeleton, Stack, Table, Text, Textarea, TextInput, ThemeIcon } from '@mantine/core';
+import { ArrowRight, BookOpen, ChevronRight, Languages, Plus } from 'lucide-react';
 import ApiService, { Language, VocabularyEntry, VocabularyGroup } from '../../api';
 import { LANGUAGE_OPTIONS, languageName } from '../shared/language-options';
 import { useLocale } from '../shared/LocaleProvider';
@@ -67,20 +67,22 @@ export default function VocabularyPage({ token }: { token: string }) {
     } });
   };
 
-  return <Stack gap="lg">
+  return <Stack gap="lg" className="vocabulary-page">
     <Breadcrumbs separator={<ChevronRight size={14} />}><Text size="sm" c="dimmed">{t('Workspace')}</Text><Text size="sm">{t('Vocabulary')}</Text></Breadcrumbs>
-    <Group justify="space-between" align="end"><Box><Text component="h1" fz="h1" fw={700}>{t('Vocabulary')}</Text><Text c="dimmed" mt={4}>{t('Keep product names and specialist terms consistent in translation.')}</Text></Box><Button onClick={() => setGroupDraft({ name: '', description: '', sourceLanguage: 'JAPANESE', targetLanguage: 'ENGLISH' })}>{t('New group')}</Button></Group>
+    <Group justify="space-between" align="end" className="vocabulary-heading"><Box><Text component="h1" fz="h1" fw={700}>{t('Vocabulary')}</Text><Text c="dimmed" mt={4}>{t('Keep product names and specialist terms consistent in translation.')}</Text></Box><Button leftSection={<Plus size={16} />} onClick={() => setGroupDraft({ name: '', description: '', sourceLanguage: 'JAPANESE', targetLanguage: 'ENGLISH' })}>{t('New group')}</Button></Group>
     {error && <Paper withBorder radius="md" p="sm" bg="red.0"><Text c="red" size="sm" role="alert">{error}</Text></Paper>}
     {loading ? <Stack gap="sm">{[1, 2].map((item) => <Paper key={item} withBorder p="md"><Skeleton height={18} width="45%" /><Skeleton height={12} mt="sm" width="75%" /></Paper>)}</Stack>
-      : groups.length ? <Stack gap="sm">{groups.map((group) => <Paper key={group.id} withBorder radius="md" p="md">
-        <Stack gap="sm"><Group justify="space-between" align="flex-start"><Box><Group gap="xs"><Text fw={650}>{group.name}</Text><Badge variant="light" color="teal">{languageName(group.sourceLanguage)} → {languageName(group.targetLanguage)}</Badge></Group>{group.description && <Text size="sm" c="dimmed" mt={4}>{group.description}</Text>}</Box>
-          <Group gap="xs"><Button size="xs" variant="default" disabled={busy} onClick={() => setGroupDraft({ id: group.id, name: group.name, description: group.description ?? '', sourceLanguage: group.sourceLanguage, targetLanguage: group.targetLanguage })}>{t('Edit group')}</Button><Button size="xs" color="red" variant="subtle" disabled={busy} onClick={() => void removeGroup(group)}>{t('Delete')}</Button></Group></Group>
+      : groups.length ? <Stack gap="md" className="vocabulary-groups">{groups.map((group) => <Paper key={group.id} withBorder radius="md" p="md" className="vocabulary-group">
+        <Stack gap="sm"><Group justify="space-between" align="center" className="vocabulary-group-header"><Group gap="sm" wrap="nowrap" className="vocabulary-group-identity"><ThemeIcon size={38} radius="md" variant="light" color="blue"><Languages size={19} /></ThemeIcon><Box><Text fw={650}>{group.name}</Text><Group gap={6} mt={4} wrap="nowrap" className="vocabulary-language-pair"><Text size="xs" c="dimmed">{languageName(group.sourceLanguage)}</Text><ArrowRight size={13} /><Text size="xs" c="dimmed">{languageName(group.targetLanguage)}</Text><Badge variant="light" color="blue" size="xs">{group.entries.length} {t('terms')}</Badge></Group></Box></Group>
+          <Group gap="xs" className="vocabulary-group-actions"><Button size="xs" variant="default" disabled={busy} onClick={() => setGroupDraft({ id: group.id, name: group.name, description: group.description ?? '', sourceLanguage: group.sourceLanguage, targetLanguage: group.targetLanguage })}>{t('Edit group')}</Button><Button size="xs" color="red" variant="subtle" disabled={busy} onClick={() => void removeGroup(group)}>{t('Delete')}</Button></Group></Group>
+          {group.description && <Text size="sm" c="dimmed" className="vocabulary-description">{group.description}</Text>}
           <Divider />
-          {group.entries.length ? <Stack gap={4}>{group.entries.map((entry) => <Group key={entry.id} justify="space-between" wrap="nowrap" className="vocabulary-entry">
-            <Group gap="xs" wrap="wrap"><Text size="sm" fw={550}>{entry.source}</Text><Text size="sm" c="dimmed">→</Text><Text size="sm">{entry.target}</Text></Group>
-            <Group gap={4} wrap="nowrap"><Button size="xs" variant="subtle" disabled={busy} onClick={() => setEntryDraft({ groupId: group.id, entry, source: entry.source, target: entry.target })}>{t('Edit')}</Button><Button size="xs" variant="subtle" color="red" disabled={busy} onClick={() => void removeEntry(group, entry)}>{t('Remove')}</Button></Group>
-          </Group>)}</Stack> : <Text size="sm" c="dimmed">{t('No protected terms yet.')}</Text>}
-          <Button size="xs" variant="light" onClick={() => setEntryDraft({ groupId: group.id, source: '', target: '' })}>{t('Add term')}</Button>
+          {group.entries.length ? <div className="vocabulary-terms"><Table className="vocabulary-term-table" verticalSpacing="xs" horizontalSpacing="sm"><Table.Thead><Table.Tr><Table.Th>{t('Source word')}</Table.Th><Table.Th>{t('Equivalent word')}</Table.Th><Table.Th><span className="vocabulary-actions-heading">{t('Actions')}</span></Table.Th></Table.Tr></Table.Thead><Table.Tbody>{group.entries.map((entry) => <Table.Tr key={entry.id} className="vocabulary-entry">
+            <Table.Td><Badge variant="light" color="gray" size="lg" className="vocabulary-word-badge">{entry.source}</Badge></Table.Td>
+            <Table.Td><Badge variant="light" color="blue" size="lg" className="vocabulary-word-badge">{entry.target}</Badge></Table.Td>
+            <Table.Td><Group gap={4} wrap="nowrap" justify="flex-end"><Button size="xs" variant="subtle" disabled={busy} onClick={() => setEntryDraft({ groupId: group.id, entry, source: entry.source, target: entry.target })}>{t('Edit')}</Button><Button size="xs" variant="subtle" color="red" disabled={busy} onClick={() => void removeEntry(group, entry)}>{t('Remove')}</Button></Group></Table.Td>
+          </Table.Tr>)}</Table.Tbody></Table></div> : <Text size="sm" c="dimmed">{t('No protected terms yet.')}</Text>}
+          <Button size="xs" variant="light" leftSection={<Plus size={14} />} className="vocabulary-add-term" onClick={() => setEntryDraft({ groupId: group.id, source: '', target: '' })}>{t('Add term')}</Button>
         </Stack>
       </Paper>)}</Stack> : <Paper withBorder radius="md" p="xl"><Center><Stack align="center" gap="xs"><ThemeIcon size={46} variant="light" color="gray"><BookOpen size={23} /></ThemeIcon><Text fw={600}>{t('No vocabulary groups')}</Text><Text c="dimmed" size="sm" ta="center">{t('Create a language pair group, then add terms to protect them during translation.')}</Text><Button onClick={() => setGroupDraft({ name: '', description: '', sourceLanguage: 'JAPANESE', targetLanguage: 'ENGLISH' })}>{t('Create vocabulary group')}</Button></Stack></Center></Paper>}
 
