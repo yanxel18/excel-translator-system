@@ -5,6 +5,7 @@ import ApiService, { type ChangelogEntry } from '../../api';
 import { useLocale } from '../shared/LocaleProvider';
 
 const initialHistory: ChangelogEntry[] = [
+  { id: 'changelog-20261112-fix-text-count-separator', title: 'Fix the text count separator on ongoing translations', details: 'Replaced the stray question mark between the added date and text item count with a readable separator.', publishedAt: '2026-11-12T00:00:00.000Z' },
   { id: 'changelog-20261111-setup-guides', title: 'Add setup guides for the application', details: 'Updated the project, frontend and backend guides with local configuration, architecture and Docker Compose instructions.', publishedAt: '2026-11-11T17:10:00.000Z' },
   { id: 'changelog-20261111-sort-recent-by-completion', title: 'Sort recent translations by completion time', details: 'Recent translations are now ordered by when they finished, so the most recently completed workbook appears first.', publishedAt: '2026-11-11T17:00:00.000Z' },
   { id: 'changelog-20261111-notification-localization', title: 'Show notification controls in Japanese and Chinese', details: 'Fixed question mark placeholders and added Japanese and Chinese translations for notification search, filters, date labels, and actions.', publishedAt: '2026-11-11T16:40:00.000Z' },

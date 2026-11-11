@@ -59,7 +59,7 @@ export default function JobList({ jobs, busy, onStart, onRetry, onCancel, onDown
       <ThemeIcon variant="light" color="blue" size={40} radius="md"><FileSpreadsheet size={21} /></ThemeIcon>
       <Box className="job-main">
         <Group gap="xs" wrap="nowrap" className="job-title-row"><Text fw={600} size="sm" truncate className="job-file-name" title={job.fileName}>{job.fileName}</Text><JobBadge status={job.status} /></Group>
-        <Text c="dimmed" size="xs" mt={4}>Added {new Date(job.createdAt).toLocaleString()} {job.textCount !== undefined ? ` ? ${job.textCount} text items` : ''}</Text>
+        <Text c="dimmed" size="xs" mt={4}>Added {new Date(job.createdAt).toLocaleString()} {job.textCount !== undefined ? ` \u2022 ${job.textCount} text items` : ''}</Text>
         {job.error && <Text c="red" size="xs" mt={6} role="alert">{job.error}</Text>}
         {job.status === 'PROCESSING' && job.progress <= 0 && <Group gap="xs" mt="sm" role="status"><Loader size={14} color="blue" /><Text size="xs" c="dimmed">{t('processing')}</Text></Group>}
         {job.status === 'PROCESSING' && job.progress > 0 && <><Progress value={job.progress} animated mt="sm" size="sm" radius="xl" aria-label={`${t('processing')}: ${job.progress}%`} /><Text size="xs" c="dimmed" mt={4}>{`${t('processing')} - ${job.progress}%`}</Text></>}
