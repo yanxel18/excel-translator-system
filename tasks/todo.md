@@ -34,9 +34,10 @@
   - Acceptance: Lists are paginated and owner-scoped; preview is authorized; notification pagination works; frontend and backend surfaces are organized into modules that can be exercised independently.
   - Verify: Task 6 API route integration test, GraphQL HTTP query smoke check and schema generation, API TypeScript compilation, and frontend production build pass.
 
-- [ ] Task 7: Complete the Mantine frontend views for workspace setup, history, vocabulary, notifications, profile, changelog, localization, and dialogs.
+- [x] Task 7: Complete the Mantine frontend views for workspace setup, history, vocabulary, notifications, profile, changelog, localization, and dialogs.
+  - Progress: Navigation, header, frame, preferences, and page views live in focused frontend feature folders. Workspace, history, vocabulary, notifications, profile, and changelog destinations work on narrow layouts; English, Japanese, and Chinese can be selected and saved; light/dark theme switching works; loading views use skeletons; history, preview, vocabulary, and preference dialogs use Mantine components. Navigation controls use native buttons for keyboard access. REST notification list/read behavior is isolated under `modules/notifications` and shared by its controller and GraphQL resolver.
   - Acceptance: All navigation destinations are functional, responsive, localized, themed, and use skeleton loaders.
-  - Verify: Frontend typecheck, build, and Playwright flows pass.
+  - Verify: Frontend TypeScript check and production build pass; Playwright narrow-screen navigation, localization, and theme flow passes with Microsoft Edge; API Tasks 4–6 and notification service tests pass.
 
 ## Deployment and quality
 

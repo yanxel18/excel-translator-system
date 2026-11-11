@@ -1,6 +1,7 @@
 import { Badge, Box, Button, Center, Group, Paper, Progress, Skeleton, Stack, Text, ThemeIcon } from '@mantine/core';
 import { FileSpreadsheet, FolderClock } from 'lucide-react';
 import { Job } from '../../api';
+import { useLocale } from '../shared/LocaleProvider';
 
 export function LoadingJobs() {
   return <Stack gap="sm">{[1, 2, 3].map((item) => <Paper key={item} withBorder p="md" radius="md">
@@ -19,15 +20,17 @@ export interface JobListProps {
 }
 
 function JobBadge({ status }: { status: Job['status'] }) {
+  const { t } = useLocale();
   const color = status === 'COMPLETED' ? 'teal' : status === 'PROCESSING' ? 'blue' : status === 'PENDING' ? 'yellow' : 'red';
-  return <Badge color={color} variant="light" size="sm">{status.toLowerCase()}</Badge>;
+  return <Badge color={color} variant="light" size="sm">{t(status.toLowerCase())}</Badge>;
 }
 
 export default function JobList({ jobs, busy, onStart, onRetry, onCancel, onDownload, onConfigure }: JobListProps) {
+  const { t } = useLocale();
   if (!jobs.length) return <Paper withBorder radius="md" p="xl"><Center><Stack align="center" gap="xs">
     <ThemeIcon size={46} variant="light" color="gray"><FolderClock size={23} /></ThemeIcon>
-    <Text fw={600}>No translations yet</Text>
-    <Text c="dimmed" size="sm" ta="center">Upload a workbook to start its translation.</Text>
+    <Text fw={600}>{t('No translations yet')}</Text>
+    <Text c="dimmed" size="sm" ta="center">{t('Upload a workbook to start its translation.')}</Text>
   </Stack></Center></Paper>;
 
   return <Stack gap="sm">{jobs.map((job) => <Paper key={job.id} withBorder radius="md" p="md" className="job-card">
@@ -39,10 +42,10 @@ export default function JobList({ jobs, busy, onStart, onRetry, onCancel, onDown
         {job.error && <Text c="red" size="xs" mt={6} role="alert">{job.error}</Text>}
         {(job.status === 'PROCESSING' || job.status === 'COMPLETED') && <Progress value={job.progress} mt="sm" size="sm" radius="xl" aria-label={`Translation progress: ${job.progress}%`} />}
       </Box>
-      <Box className="job-action">{job.status === 'PENDING' && <><Button size="xs" variant="default" onClick={() => onConfigure(job)}>Settings</Button><Button size="xs" loading={busy} onClick={() => onStart(job)}>Start</Button></>}
-        {job.status === 'PROCESSING' && <Button size="xs" variant="default" loading={busy} onClick={() => onCancel(job.id)}>Cancel</Button>}
-        {job.status === 'FAILED' && <Button size="xs" loading={busy} onClick={() => onRetry(job.id)}>Retry</Button>}
-        {job.status === 'COMPLETED' && <Button size="xs" variant="light" onClick={() => onDownload(job)}>Download</Button>}</Box>
+      <Box className="job-action">{job.status === 'PENDING' && <><Button size="xs" variant="default" onClick={() => onConfigure(job)}>{t('Settings')}</Button><Button size="xs" loading={busy} onClick={() => onStart(job)}>{t('Start')}</Button></>}
+        {job.status === 'PROCESSING' && <Button size="xs" variant="default" loading={busy} onClick={() => onCancel(job.id)}>{t('Cancel')}</Button>}
+        {job.status === 'FAILED' && <Button size="xs" loading={busy} onClick={() => onRetry(job.id)}>{t('Retry')}</Button>}
+        {job.status === 'COMPLETED' && <Button size="xs" variant="light" onClick={() => onDownload(job)}>{t('Download')}</Button>}</Box>
     </Group>
   </Paper>)}</Stack>;
 }

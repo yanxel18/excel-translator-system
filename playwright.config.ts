@@ -16,6 +16,7 @@ export default defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('/')` */
     baseURL: 'http://localhost:5173',
+    launchOptions: process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {},
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',

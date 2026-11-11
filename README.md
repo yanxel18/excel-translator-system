@@ -17,6 +17,8 @@ To run with Docker Compose from this folder, use `docker compose up --build`. Th
 
 Run `npm run build` for both applications and `npm test` for API checks. `npm run test:playwright` also runs the browser sign-in check and requires Playwright Chromium. With both services and Ollama running, `npm --prefix project/apps/api run smoke` exercises upload, translation, patching, and download.
 
+Run `npm run test:frontend` for the mocked Playwright flow covering workspace navigation, localization, and theme switching on a narrow screen.
+
 ## Current behavior
 
 - Authenticated XLSX upload with a 50 MB file limit, archive expansion checks, and malformed archive rejection.
