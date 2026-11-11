@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-excel_translator}
       POSTGRES_USER: ${POSTGRES_USER:-excel_translator}
@@ -17,18 +18,32 @@ services:
 
   translator-api:
     build: ./project/apps/api
-    command: sh -c "npm run prisma:generate && npm run build && npm run start"
-    volumes:
-      - ./project/apps/api:/app
-      - /app/node_modules
+    restart: unless-stopped
+    command: sh -c "npm run db:deploy && npm run start"
     environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - BASE_PATH=/excel-convert
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-excel_translator}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-excel_translator}?schema=public
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL=gemma4:latest
-      - DATA_DIR=/app/data
+      NODE_ENV: production
+      PORT: 3000
+      BASE_PATH: ${BASE_PATH:-/excel-convert}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-excel_translator}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-excel_translator}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      AUTH_USERNAME: ${AUTH_USERNAME:-user}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:?Set AUTH_PASSWORD in .env}
+      LOCAL_AUTH_ENABLED: ${LOCAL_AUTH_ENABLED:-true}
+      AUTH_BOOTSTRAP_ENABLED: ${AUTH_BOOTSTRAP_ENABLED:-true}
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
+      KEYCLOAK_ENABLED: ${KEYCLOAK_ENABLED:-false}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-excel-translator}
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
+      KEYCLOAK_REQUIRED_GROUP: ${KEYCLOAK_REQUIRED_GROUP:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:latest}
+      DATA_DIR: /app/data
+    volumes:
+      - api-data:/app/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -36,18 +51,39 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/excel-convert').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   translator-web:
-    build: ./project/apps/web
-    volumes:
-      - ./project/apps/web:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_URL=http://localhost:${API_PORT:-3000}/excel-convert
-      - VITE_BASE_PATH=/excel-convert/
+    build:
+      context: ./project/apps/web
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/excel-convert}
+        VITE_PREVIEW_URL: ${VITE_PREVIEW_URL:-http://localhost:8081/}
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/excel-convert/}
+    restart: unless-stopped
     ports:
-      - "${WEB_PORT:-5173}:5173"
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      translator-api:
+        condition: service_healthy
+
+  ibis-preview:
+    profiles: ["preview"]
+    build:
+      context: ./deployment/ibis-preview
+    restart: unless-stopped
+    ports:
+      - "${PREVIEW_PORT:-8081}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres-data:
-
+  api-data:

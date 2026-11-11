@@ -76,10 +76,18 @@ export class TranslationService {
             ], options: { temperature: 0 } }),
           signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(180000)]) : AbortSignal.timeout(180000),
         });
-      } catch {
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        if (error instanceof Error && error.name === 'TimeoutError') throw new ServiceUnavailableException('Ollama timed out while translating. Check the model and available system resources.');
         throw new ServiceUnavailableException(`Cannot reach Ollama at ${endpoint}. Start Ollama and pull ${model}.`);
       }
-      if (!response.ok) throw new ServiceUnavailableException(`Ollama returned HTTP ${response.status}. Check the configured model.`);
+      if (!response.ok) {
+        let detail = '';
+        try { const body = await response.json(); if (typeof body?.error === 'string') detail = body.error; } catch { /* error response may not be JSON */ }
+        if (/cuda|gpu|vulkan|rocm/i.test(detail)) throw new ServiceUnavailableException(`Ollama could not initialize ${model} on the GPU. Check Ollama logs and GPU configuration, or select another installed model.`);
+        if (response.status === 404) throw new ServiceUnavailableException(`Ollama could not find ${model}. Pull the model or select an installed model.`);
+        throw new ServiceUnavailableException(`Ollama returned HTTP ${response.status} while running ${model}. Check Ollama logs for details.`);
+      }
       let body: any;
       try { body = await response.json(); } catch { throw new ServiceUnavailableException('Ollama returned invalid JSON.'); }
       let parsed: any;

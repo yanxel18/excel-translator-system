@@ -2,25 +2,30 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../persistence/prisma.service';
 import { readFile, unlink } from 'node:fs/promises';
 import * as XLSX from 'xlsx';
+import { normalizeBasePath, pathAtBase } from '../../config/base-path';
 
-const PAGE_SIZE = 20;
+const CHANGELOG_PAGE_SIZE = 10;
+const HISTORY_PAGE_SIZE = 5;
 
 @Injectable()
 export class ProductSurfacesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async history(ownerId: string, cursor?: string) {
+  async history(ownerId: string, cursor?: string, requestedPage = 1) {
+    if (!Number.isInteger(requestedPage) || requestedPage < 1) throw new BadRequestException('Invalid history page.');
     if (cursor && !(await this.prisma.translationJob.findFirst({ where: { id: cursor, ownerId }, select: { id: true } }))) {
       throw new BadRequestException('Invalid history cursor.');
     }
-    const rows = await this.prisma.translationJob.findMany({
-      where: { ownerId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: PAGE_SIZE + 1,
+    const where = { ownerId };
+    const page = cursor ? 1 : requestedPage;
+    const [rows, total] = await Promise.all([this.prisma.translationJob.findMany({
+      where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: HISTORY_PAGE_SIZE + (cursor ? 1 : 0),
       select: { id: true, status: true, fileName: true, fileSize: true, progress: true, createdAt: true, updatedAt: true, completedAt: true, elapsedMs: true, error: true, textCount: true, selectedSheets: true, sourceLanguage: true, targetLanguage: true, vocabularyGroupId: true },
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    });
-    const hasMore = rows.length > PAGE_SIZE;
-    const data = rows.slice(0, PAGE_SIZE);
-    return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : { skip: (page - 1) * HISTORY_PAGE_SIZE }),
+    }), this.prisma.translationJob.count({ where })]);
+    const hasMore = cursor ? rows.length > HISTORY_PAGE_SIZE : page * HISTORY_PAGE_SIZE < total;
+    const data = rows.slice(0, HISTORY_PAGE_SIZE);
+    return { data, total, page, pageSize: HISTORY_PAGE_SIZE, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null };
   }
 
   async preview(id: string, ownerId: string, version: string) {
@@ -43,12 +48,22 @@ export class ProductSurfacesService {
     };
   }
 
+  async previewFile(id: string, ownerId: string, version: string) {
+    if (version !== 'source' && version !== 'translated') throw new BadRequestException('Preview version must be source or translated.');
+    const job = await this.prisma.translationJob.findFirst({ where: { id, ownerId } });
+    if (!job) throw new NotFoundException('Job not found.');
+    const path = version === 'source' ? job.sourcePath : job.outputPath;
+    if (!path || (version === 'translated' && job.status !== 'COMPLETED')) throw new BadRequestException('The requested workbook is not ready to preview.');
+    try { return await readFile(path); }
+    catch { throw new BadRequestException('The workbook preview is unavailable.'); }
+  }
+
   async downloadUrl(id: string, ownerId: string) {
     const job = await this.prisma.translationJob.findFirst({ where: { id, ownerId }, select: { id: true, status: true, outputPath: true } });
     if (!job) throw new NotFoundException('Job not found.');
     if (job.status !== 'COMPLETED' || !job.outputPath) throw new BadRequestException('The translated workbook is not ready.');
-    const basePath = (process.env.BASE_PATH || '/excel-convert').replace(/^\/+|\/+$/g, '');
-    return `${basePath ? `/${basePath}` : ''}/jobs/${encodeURIComponent(id)}/download`;
+    const basePath = normalizeBasePath(process.env.BASE_PATH);
+    return pathAtBase(basePath, `jobs/${encodeURIComponent(id)}/download`);
   }
 
   async deleteHistoryItem(id: string, ownerId: string) {
@@ -60,10 +75,10 @@ export class ProductSurfacesService {
     return { ok: true };
   }
 
-  async getProfile(ownerId: string) {
+  async getProfile(ownerId: string, isAdmin = false) {
     const user = await this.prisma.user.findUnique({ where: { id: ownerId }, select: { id: true, username: true, email: true, fullName: true, createdAt: true } });
     if (!user) throw new NotFoundException('Profile not found.');
-    return user;
+    return { ...user, isAdmin };
   }
 
   async updateProfile(ownerId: string, input: { fullName?: unknown; email?: unknown }) {
@@ -88,11 +103,11 @@ export class ProductSurfacesService {
   async changelog(cursor?: string) {
     if (cursor && !(await this.prisma.changelogEntry.findUnique({ where: { id: cursor }, select: { id: true } }))) throw new BadRequestException('Invalid changelog cursor.');
     const rows = await this.prisma.changelogEntry.findMany({
-      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: PAGE_SIZE + 1,
+      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: CHANGELOG_PAGE_SIZE + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
-    const hasMore = rows.length > PAGE_SIZE;
-    const data = rows.slice(0, PAGE_SIZE);
+    const hasMore = rows.length > CHANGELOG_PAGE_SIZE;
+    const data = rows.slice(0, CHANGELOG_PAGE_SIZE);
     return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
   }
 }

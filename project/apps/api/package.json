@@ -9,6 +9,7 @@
     "test:task4": "npm run build && node --test test/task4.test.cjs",
     "test:task5": "npm run build && node --test test/task5.test.cjs",
     "test:task6": "npx tsc --incremental false && node --test test/task6.test.cjs && node generate-schema.cjs",
+    "test:task8": "npx tsc --incremental false && node --test test/task8.test.cjs",
     "test:notifications": "npx tsc --incremental false && node --test test/notifications.test.cjs",
     "schema:generate": "npx tsc --incremental false && node generate-schema.cjs",
     "prisma:generate": "prisma generate",

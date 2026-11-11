@@ -2,7 +2,7 @@ import { apiUrl, request } from './client';
 import { Job } from './types';
 
 export const JobsApi = {
-  getJobs: (token: string) => request<Job[]>('/jobs', {}, token),
+  getJobs: (token: string, silent = false) => request<Job[]>('/jobs', {}, token, { silent }),
   getJob: (id: string, token: string) => request<Job>(`/jobs/${encodeURIComponent(id)}`, {}, token),
   updateJobSettings: (id: string, settings: Pick<Job, 'selectedSheets' | 'sourceLanguage' | 'targetLanguage' | 'vocabularyGroupId'>, token: string) => request<Job>(`/jobs/${encodeURIComponent(id)}/settings`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }, token),
   uploadFile: async (file: File, token: string) => {

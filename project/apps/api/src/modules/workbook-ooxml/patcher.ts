@@ -1,3 +1,4 @@
+import { drawingReferences, DRAWING_PARAGRAPH, isolateDrawing } from './drawing-text';
 import { BadRequestException } from '@nestjs/common';
 import JSZip = require('jszip');
 import { hasAttribute, sharedStringIndex } from './worksheet-cells';
@@ -19,7 +20,7 @@ export async function patchWorkbook(zip: JSZip, worksheets: WorksheetPart[], tra
   for (const { name, part } of worksheets) {
     const xml = await zip.file(part)!.async('string');
     const isSelected = selected.some((sheet) => sheet.name === name);
-    for (const match of xml.matchAll(/<c\b([^>]*)>[\s\S]*?<\/c>/g)) {
+    for (const match of xml.matchAll(/<c\b(?![^>]*\/\s*>)([^>]*)>[\s\S]*?<\/c>/g)) {
       if (!hasAttribute(match[1], 't', 's')) continue;
       const index = sharedStringIndex(match[0]);
       if (index === undefined) throw new BadRequestException('The workbook contains an invalid shared string reference.');
@@ -56,7 +57,11 @@ export async function patchWorkbook(zip: JSZip, worksheets: WorksheetPart[], tra
     if (clones.length) {
       const closeTag = /<\/(?:[A-Za-z_][\w.-]*:)?sst\s*>/.exec(xml);
       if (!closeTag) throw new BadRequestException('The workbook shared strings part is malformed.');
-      xml = xml.slice(0, closeTag.index) + clones.join('') + xml.slice(closeTag.index);
+      // The optional extension list must remain the last child of sst.
+      const lastItemEnd = xml.lastIndexOf('</si>') + '</si>'.length;
+      const extension = /<(?:[A-Za-z_][\w.-]*:)?extLst\b/.exec(xml.slice(lastItemEnd, closeTag.index));
+      const insertAt = extension ? lastItemEnd + extension.index : closeTag.index;
+      xml = xml.slice(0, insertAt) + clones.join('') + xml.slice(insertAt);
       xml = xml.replace(/\buniqueCount=(['"])(\d+)\1/, (_all, quote) => `uniqueCount=${quote}${items.length + clones.length}${quote}`);
     }
     zip.file('xl/sharedStrings.xml', xml);
@@ -67,7 +72,7 @@ export async function patchWorkbook(zip: JSZip, worksheets: WorksheetPart[], tra
   for (const part of selectedParts) {
     let xml = await zip.file(part)!.async('string');
     if (clonedShared.size) {
-      xml = xml.replace(/<c\b([^>]*)>[\s\S]*?<\/c>/g, (cell, attributes) => {
+      xml = xml.replace(/<c\b(?![^>]*\/\s*>)([^>]*)>[\s\S]*?<\/c>/g, (cell, attributes) => {
         if (!hasAttribute(attributes, 't', 's') || /<f(?:\s[^>]*)?\s*\/?\s*>/.test(cell)) return cell;
         const index = sharedStringIndex(cell);
         const replacement = index === undefined ? undefined : clonedShared.get(index);
@@ -76,7 +81,7 @@ export async function patchWorkbook(zip: JSZip, worksheets: WorksheetPart[], tra
     }
 
     let inlineIndex = 0;
-    xml = xml.replace(/<c\b[^>]*>[\s\S]*?<\/c>/g, (cell) => {
+    xml = xml.replace(/<c\b(?![^>]*\/\s*>)[^>]*>[\s\S]*?<\/c>/g, (cell) => {
       const inlineIndexForCell = /<is(?:\s[^>]*)?>/.test(cell) ? inlineIndex++ : undefined;
       if (inlineIndexForCell === undefined || /<f(?:\s[^>]*)?\s*\/?\s*>/.test(cell)) return cell;
       const id = `inline:${part}:${inlineIndexForCell}`;
@@ -85,6 +90,21 @@ export async function patchWorkbook(zip: JSZip, worksheets: WorksheetPart[], tra
       return cell.replace(/(<is(?:\s[^>]*)?>)([\s\S]*?)(<\/is>)/, (_all, open, content, close) => open + replaceVisibleText(content, translated) + close);
     });
     zip.file(part, xml);
+  }
+
+  const references = await drawingReferences(zip, worksheets);
+  for (const part of new Set(references.filter((reference) => selectedParts.has(reference.sheet)).map((reference) => reference.part))) {
+    const chosenReferences = references.filter((reference) => reference.part === part && selectedParts.has(reference.sheet));
+    const hasTranslations = translations.some((translation) => translation.id.startsWith(`drawing:${part}:`));
+    if (!hasTranslations) continue;
+    const sharedWithOtherSheet = references.some((reference) => reference.part === part && !selectedParts.has(reference.sheet));
+    const target = sharedWithOtherSheet ? await isolateDrawing(zip, part, chosenReferences) : part;
+    let index = 0;
+    const xml = (await zip.file(target)!.async('string')).replace(new RegExp(DRAWING_PARAGRAPH.source, 'g'), (paragraph) => {
+      const translated = translatedValues.get(`drawing:${part}:${index++}`);
+      return translated === undefined ? paragraph : replaceVisibleText(paragraph, translated);
+    });
+    zip.file(target, xml);
   }
 
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });

@@ -1,32 +1,51 @@
 # Excel Translator
 
-Excel Translator is a React and NestJS application for translating Japanese strings in `.xlsx` workbooks through a local Ollama model.
+Excel Translator translates `.xlsx` workbooks with Ollama. The React/Vite frontend talks to a NestJS API. PostgreSQL and Prisma store users, jobs, history, notifications and settings; workbook files are stored on disk. Progress is polled. An optional ibisOffice container provides browser preview.
 
-## Run locally
+## Requirements
 
-Requirements: Node.js 18+, npm, and Ollama with a model pulled (the default is `gemma4:latest`).
+Install Docker with Compose and start a reachable Ollama server. Pull the configured model, for example `ollama pull gemma4:latest`. Ollama is external to Compose. Local development also requires Node.js 22+ and npm.
 
-1. Start Ollama and make sure its API is available at `http://localhost:11434`.
-2. In `project/apps/api`, run `npm ci`, `npm run build`, and `npm start`.
-3. In `project/apps/web`, run `npm ci` and `npm run dev`.
-4. Open `http://localhost:5173` and sign in with the local development account `user` / `password`.
+## Start the stack
 
-The API listens on port 3000. Set `AUTH_USERNAME`, `AUTH_PASSWORD`, and `JWT_SECRET` before exposing it beyond a local development environment. Optional settings: `OLLAMA_URL`, `OLLAMA_MODEL`, `PORT`, and `DATA_DIR`.
+Copy `.env.example` to `.env` in the repository root. Keep its defaults and set these example local values:
 
-To run with Docker Compose from this folder, use `docker compose up --build`. The compose file points the API container to the host Ollama service and publishes ports 3000 and 5173.
+```dotenv
+POSTGRES_DB=excel_translator
+POSTGRES_USER=excel_translator
+POSTGRES_PASSWORD=localdbpassword
+JWT_SECRET=local-development-signing-secret-change-before-deployment
+AUTH_USERNAME=user
+AUTH_PASSWORD=localpassword
+AUTH_BOOTSTRAP_ENABLED=true
+ADMIN_USERNAMES=user
+OLLAMA_URL=http://host.docker.internal:11434
+OLLAMA_MODEL=gemma4:latest
+VITE_API_URL=http://localhost:3000/excel-convert
+VITE_BASE_PATH=/excel-convert/
+WEB_ORIGIN=http://localhost:5173
+```
 
-Run `npm run build` for both applications and `npm test` for API checks. `npm run test:playwright` also runs the browser sign-in check and requires Playwright Chromium. With both services and Ollama running, `npm --prefix project/apps/api run smoke` exercises upload, translation, patching, and download.
+Use unique secrets for deployment and a URL-safe database password. Ollama must be reachable from the API container; Vite URLs must be reachable from the browser.
 
-Run `npm run test:frontend` for the mocked Playwright flow covering workspace navigation, localization, and theme switching on a narrow screen.
+```sh
+docker compose up --build -d                           # database, API, web
+docker compose --profile preview up --build -d         # include preview
+docker compose up -d postgres                          # database only
+docker compose up --build -d translator-api            # API and database
+docker compose up --build -d translator-web            # web and dependencies
+docker compose --profile preview up --build -d ibis-preview # preview only
+docker compose ps
+docker compose logs -f translator-api
+docker compose down
+```
 
-## Current behavior
+Open `http://localhost:5173/excel-convert/`. The API health endpoint is `http://localhost:3000/excel-convert`, GraphQL is at `/excel-convert/graphql`, and optional preview is at `http://localhost:8081/`. The API waits for PostgreSQL and applies migrations before starting. The `postgres-data` and `api-data` named volumes persist database and workbook files; back them up together. `docker compose down` retains them.
 
-- Authenticated XLSX upload with a 50 MB file limit, archive expansion checks, and malformed archive rejection.
-- Extraction and translation of shared and inline strings, including rich text runs. A translated rich-text string is placed in its first non-empty run; run-specific formatting cannot be mapped to translated word boundaries.
-- Translation is sent to Ollama in bounded batches and translation IDs are checked before the workbook is patched.
-- Jobs are persisted to `project/apps/api/data`, scoped to the authenticated user, and support progress refresh, cancellation, retry after failure, and download after successful patching.
-- A failed or incomplete translation never produces a downloadable completed job.
+Keep `BASE_PATH=/excel-convert` and `VITE_BASE_PATH=/excel-convert/` with the supplied nginx configuration and health check. Set `WEB_ORIGIN` to the exact frontend origin and `VITE_API_URL` to the browser-accessible API URL. Vite settings are embedded at build time, so rebuild the web image after changing them. When bootstrap is enabled, the local account is created on first successful login; changing its environment password does not overwrite an existing account.
 
-The job store is a local disk store for this working build. Prisma/PostgreSQL, GraphQL/Apollo, Socket.IO push updates, and the frontend TanStack Query, i18next, and Zustand integrations described in `project/REQUIREMENTS.md` have not been implemented yet. Progress refresh currently uses polling. Comments, drawings, and other OOXML text parts are not translated.
+## Development and architecture
 
-See [requirements](project/REQUIREMENTS.md) and [architecture](project/docs/ARCHITECTURE.md) for the target specification.
+Follow the [backend guide](project/apps/api/README.md) and [frontend guide](project/apps/web/README.md) for local setup and sample environments. The API source and migrations are in `project/apps/api`, the UI is in `project/apps/web`, and the optional preview image is in `deployment/ibis-preview`.
+
+See [deployment](project/docs/DEPLOYMENT.md) for Keycloak, preview, HTTPS and operations; [architecture](project/docs/ARCHITECTURE.md) and [requirements](project/REQUIREMENTS.md) provide further design context. Preview requires WebGPU and HTTPS or localhost. Review the bundled ibisOffice license and notices before deployment.

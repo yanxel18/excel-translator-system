@@ -10,7 +10,7 @@ Complete the workbook translator as a persistent, multi-language service with se
 - REST remains the binary upload and download boundary. GraphQL serves typed application data such as jobs, vocabulary, history, profile, and notifications.
 - Vocabulary replacements use protected tokens before model translation and restore approved targets afterward. Tokens preserve terminology without exposing raw terms to the model as instructions.
 - XLSX files remain in private object paths derived only from server-generated job IDs. Metadata and ownership are stored in PostgreSQL.
-- ibis-office runs as an isolated preview service. The API authorizes each preview request and never exposes file-system paths to browsers.
+- History uses an owner-authorized, bounded cell preview. The optional ibisOffice container is currently a separate browser page where users select a local file; it is not wired into the application's preview dialog or API authorization flow.
 
 ## Dependency Graph
 
@@ -28,3 +28,7 @@ Complete the workbook translator as a persistent, multi-language service with se
 ## Task List
 
 See [todo.md](todo.md) for the ordered, testable task list.
+
+## Completion status
+
+The checked tasks in `todo.md` represent the planned implementation scope, not completion of every objective in `project/REQUIREMENTS.md`. The requirements audit at the end of `todo.md` records unresolved technology choices and functional gaps, including ibisOffice preview integration, reconnect/push progress, shape text support, history filtering, and source-mirrored tests. Resolve or formally supersede those items before describing the full project as complete.

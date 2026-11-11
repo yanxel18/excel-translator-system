@@ -2,12 +2,13 @@ import { BadRequestException } from '@nestjs/common';
 import JSZip = require('jszip');
 import { selectWorksheets, WorksheetPart } from './worksheet-parts';
 import { hasAttribute, sharedStringIndex } from './worksheet-cells';
+import { drawingReferences, DRAWING_PARAGRAPH } from './drawing-text';
 import { visibleText } from './xml-text';
 
 export interface ExtractedText {
   id: string;
   value: string;
-  source: 'shared' | 'inline';
+  source: 'shared' | 'inline' | 'drawing';
   part: string;
   index: number;
 }
@@ -20,7 +21,7 @@ export async function extractWorkbookText(zip: JSZip, worksheets: WorksheetPart[
   for (const { part } of chosen) {
     const xml = await zip.file(part)!.async('string');
     sheetXml.set(part, xml);
-    for (const cellMatch of xml.matchAll(/<c\b([^>]*)>[\s\S]*?<\/c>/g)) {
+    for (const cellMatch of xml.matchAll(/<c\b(?![^>]*\/\s*>)([^>]*)>[\s\S]*?<\/c>/g)) {
       if (!hasAttribute(cellMatch[1], 't', 's')) continue;
       const index = sharedStringIndex(cellMatch[0]);
       if (index === undefined) continue;
@@ -45,7 +46,7 @@ export async function extractWorkbookText(zip: JSZip, worksheets: WorksheetPart[
   for (const { part } of chosen) {
     const xml = sheetXml.get(part)!;
     let index = 0;
-    for (const cell of xml.matchAll(/<c\b[^>]*>[\s\S]*?<\/c>/g)) {
+    for (const cell of xml.matchAll(/<c\b(?![^>]*\/\s*>)[^>]*>[\s\S]*?<\/c>/g)) {
       const inline = /<is(?:\s[^>]*)?>([\s\S]*?)<\/is>/.exec(cell[0]);
       if (!inline) continue;
       const cellIndex = index++;
@@ -55,5 +56,15 @@ export async function extractWorkbookText(zip: JSZip, worksheets: WorksheetPart[
     }
   }
 
+  const drawings = await drawingReferences(zip, chosen);
+  for (const part of new Set(drawings.map((drawing) => drawing.part))) {
+    const xml = await zip.file(part)!.async('string');
+    let index = 0;
+    for (const match of xml.matchAll(new RegExp(DRAWING_PARAGRAPH.source, 'g'))) {
+      const paragraphIndex = index++;
+      const value = visibleText(match[0]);
+      if (value.trim()) result.push({ id: `drawing:${part}:${paragraphIndex}`, value, source: 'drawing', part, index: paragraphIndex });
+    }
+  }
   return result;
 }

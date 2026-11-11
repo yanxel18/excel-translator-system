@@ -1,3 +1,4 @@
+import { drawingReferences } from './drawing-text';
 import { XMLValidator } from 'fast-xml-parser';
 import JSZip = require('jszip');
 import { openWorkbookArchive } from './archive';
@@ -21,10 +22,41 @@ export async function validateWorkbookOutput(originalBuffer: Buffer, outputBuffe
     const selectedParts = new Set(selectWorksheets(outputWorksheets, selectedSheets).map(({ part }) => part));
     const originalNames = fileNames(originalZip);
     const outputNames = fileNames(outputZip);
-    assert(JSON.stringify(originalNames) === JSON.stringify(outputNames), 'package parts changed');
+    const originalDrawings = await drawingReferences(originalZip, originalWorksheets);
+    const outputDrawings = await drawingReferences(outputZip, outputWorksheets);
+    assert(outputDrawings.length === originalDrawings.length, 'drawing references changed');
+    const allowedChanges = new Set<string>();
+    const addedParts = new Set<string>();
+    for (const original of originalDrawings) {
+      const output = outputDrawings.find((reference) => reference.sheet === original.sheet && reference.id === original.id);
+      assert(output, 'drawing reference removed');
+      if (!selectedParts.has(original.sheet)) {
+        assert(output.part === original.part, 'unselected drawing reference changed');
+        continue;
+      }
+      allowedChanges.add(output.part);
+      allowedChanges.add(original.relationships);
+      const before = await originalZip.file(original.part)!.async('string');
+      const after = await outputZip.file(output.part)!.async('string');
+      const stripText = (xml: string) => xml.replace(/(<(?:[\w.-]+:)?t(?:\s[^>]*)?>)[\s\S]*?(<\/(?:[\w.-]+:)?t\s*>)/g, '$1$2').replace(/ xml:space="preserve"/g, '');
+      assert(stripText(before) === stripText(after), 'drawing geometry or formatting changed');
+      if (output.part !== original.part) {
+        assert(!originalZip.file(output.part), 'drawing clone overwrote a package part');
+        addedParts.add(output.part);
+        const sourceRelationships = original.part.replace(/([^/]+)$/, '_rels/$1.rels');
+        const clonedRelationships = output.part.replace(/([^/]+)$/, '_rels/$1.rels');
+        if (originalZip.file(sourceRelationships)) {
+          assert(Boolean(outputZip.file(clonedRelationships)), 'drawing clone relationships missing');
+          assert((await originalZip.file(sourceRelationships)!.async('string')) === (await outputZip.file(clonedRelationships)!.async('string')), 'drawing clone relationships changed');
+          addedParts.add(clonedRelationships);
+        }
+        allowedChanges.add('[Content_Types].xml');
+      }
+    }
+    assert(originalNames.every((part) => outputNames.includes(part)) && outputNames.every((part) => originalNames.includes(part) || addedParts.has(part)), 'package parts changed');
 
     for (const part of originalNames) {
-      if (part === 'xl/sharedStrings.xml' || selectedParts.has(part)) continue;
+      if (part === 'xl/sharedStrings.xml' || selectedParts.has(part) || allowedChanges.has(part)) continue;
       const [originalContent, outputContent] = await Promise.all([
         originalZip.file(part)!.async('nodebuffer'),
         outputZip.file(part)!.async('nodebuffer'),

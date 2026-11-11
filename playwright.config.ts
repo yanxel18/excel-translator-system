@@ -21,4 +21,10 @@ export default defineConfig({
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
   },
+  webServer: {
+    command: 'npm --prefix project/apps/web run dev -- --host 127.0.0.1',
+    url: 'http://127.0.0.1:5173/excel-convert/',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+  },
 });

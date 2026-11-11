@@ -13,6 +13,10 @@ export class NotificationsController {
     return this.service.list(this.owner(req), cursor);
   }
 
+  @Get('unread-count') countUnread(@Req() req: Request) {
+    return this.service.countUnread(this.owner(req));
+  }
+
   @Patch(':id/read') markRead(@Req() req: Request, @Param('id') id: string) {
     return this.service.markRead(this.owner(req), id);
   }
