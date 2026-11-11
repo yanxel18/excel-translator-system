@@ -4,6 +4,7 @@ import { IdentityProvider } from '../../generated/prisma/client';
 import { PrismaService } from '../persistence/prisma.service';
 import { KeycloakVerifierService } from './keycloak-verifier.service';
 import { hashPassword, verifyPassword } from './passwords';
+import { allowsConfiguredUserBootstrap } from './bootstrap-policy';
 
 export interface AuthenticatedUser { userId: string; username: string; }
 
@@ -56,7 +57,7 @@ export class AuthenticationService {
   private async bootstrapDevelopmentUser(requestedUsername: string): Promise<void> {
     const configuredUsername = process.env.AUTH_USERNAME;
     const configuredPassword = process.env.AUTH_PASSWORD;
-    if (process.env.NODE_ENV === 'production' || !configuredUsername || !configuredPassword || requestedUsername !== configuredUsername) return;
+    if (!allowsConfiguredUserBootstrap() || !configuredUsername || !configuredPassword || requestedUsername !== configuredUsername) return;
     const existing = await this.prisma.user.findUnique({ where: { username: configuredUsername } });
     if (!existing) await this.prisma.user.create({ data: { username: configuredUsername, passwordHash: await hashPassword(configuredPassword) } });
   }

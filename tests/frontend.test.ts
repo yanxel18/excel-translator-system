@@ -1,10 +1,20 @@
 import { test, expect } from '@playwright/test';
+import { normalizeApiBaseUrl, normalizeWebBasePath } from '../project/apps/web/src/config/paths';
+
+const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000/excel-convert';
+const webBasePath = process.env.WEB_BASE_PATH || '/excel-convert/';
+
+test('frontend base-path settings normalize URLs for local and nested deployments', () => {
+  expect(normalizeWebBasePath('/excel-convert')).toBe('/excel-convert/');
+  expect(normalizeWebBasePath('/')).toBe('/');
+  expect(normalizeApiBaseUrl('https://api.example.com/excel-convert/')).toBe('https://api.example.com/excel-convert');
+});
 
 test('workspace navigation, preferences, and Japanese localization work on a narrow screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route('http://localhost:3000/excel-convert/**', async (route) => {
+  await page.route(`${apiBaseUrl}/**`, async (route) => {
     const url = new URL(route.request().url());
-    const path = url.pathname.replace('/excel-convert', '');
+    const path = url.pathname.replace(new URL(apiBaseUrl).pathname, '');
     const body = path === '/auth/login'
       ? { access_token: 'ui-test-token' }
       : path === '/profile'
@@ -15,7 +25,7 @@ test('workspace navigation, preferences, and Japanese localization work on a nar
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
-  await page.goto('/excel-convert/');
+  await page.goto(webBasePath);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Translate a workbook' })).toBeVisible();
 

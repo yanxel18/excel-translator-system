@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../persistence/prisma.service';
 import { readFile, unlink } from 'node:fs/promises';
 import * as XLSX from 'xlsx';
+import { normalizeBasePath, pathAtBase } from '../../config/base-path';
 
 const PAGE_SIZE = 20;
 
@@ -47,8 +48,8 @@ export class ProductSurfacesService {
     const job = await this.prisma.translationJob.findFirst({ where: { id, ownerId }, select: { id: true, status: true, outputPath: true } });
     if (!job) throw new NotFoundException('Job not found.');
     if (job.status !== 'COMPLETED' || !job.outputPath) throw new BadRequestException('The translated workbook is not ready.');
-    const basePath = (process.env.BASE_PATH || '/excel-convert').replace(/^\/+|\/+$/g, '');
-    return `${basePath ? `/${basePath}` : ''}/jobs/${encodeURIComponent(id)}/download`;
+    const basePath = normalizeBasePath(process.env.BASE_PATH);
+    return pathAtBase(basePath, `jobs/${encodeURIComponent(id)}/download`);
   }
 
   async deleteHistoryItem(id: string, ownerId: string) {
