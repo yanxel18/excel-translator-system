@@ -1,12 +1,11 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { PrismaService } from '../persistence/prisma.service';
 import { ProductSurfacesService } from './product-surfaces.service';
 import { ChangelogPage, JobPage, MutationResult, NotificationPage, ProfileRecord, WorkbookPreview } from './graphql.types';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Resolver()
 export class ProductSurfacesResolver {
-  constructor(private readonly prisma: PrismaService, private readonly surfaces: ProductSurfacesService) {}
+  constructor(private readonly surfaces: ProductSurfacesService, private readonly notificationsService: NotificationsService) {}
   private owner(context: any): string { return String(context.req.user.userId); }
 
   @Query(() => JobPage)
@@ -18,13 +17,8 @@ export class ProductSurfacesResolver {
   profile(@Context() context: any) { return this.surfaces.getProfile(this.owner(context)); }
 
   @Query(() => NotificationPage)
-  async notifications(@Context() context: any, @Args('cursor', { type: () => String, nullable: true }) cursor?: string) {
-    const userId = this.owner(context);
-    if (cursor && !(await this.prisma.notification.findFirst({ where: { id: cursor, userId }, select: { id: true } }))) throw new BadRequestException('Invalid notification cursor.');
-    const items = await this.prisma.notification.findMany({ where: { userId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 21, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
-    const hasMore = items.length > 20;
-    const data = items.slice(0, 20);
-    return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
+  notifications(@Context() context: any, @Args('cursor', { type: () => String, nullable: true }) cursor?: string) {
+    return this.notificationsService.list(this.owner(context), cursor);
   }
 
   @Query(() => ChangelogPage)
@@ -55,9 +49,7 @@ export class ProductSurfacesResolver {
   ) { return this.surfaces.updateProfile(this.owner(context), { fullName, email }); }
 
   @Mutation(() => MutationResult)
-  async markNotificationRead(@Context() context: any, @Args('id', { type: () => ID }) id: string) {
-    const result = await this.prisma.notification.updateMany({ where: { id, userId: this.owner(context) }, data: { isRead: true } });
-    if (!result.count) throw new NotFoundException('Notification not found.');
-    return { ok: true };
+  markNotificationRead(@Context() context: any, @Args('id', { type: () => ID }) id: string) {
+    return this.notificationsService.markRead(this.owner(context), id);
   }
 }
