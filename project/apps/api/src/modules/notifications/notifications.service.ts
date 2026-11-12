@@ -1,26 +1,28 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../persistence/prisma.service';
 
-const INITIAL_PAGE_SIZE = 10;
-const NEXT_PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(ownerId: string, cursor?: string) {
-    const pageSize = cursor ? NEXT_PAGE_SIZE : INITIAL_PAGE_SIZE;
     if (cursor && !(await this.prisma.notification.findFirst({ where: { id: cursor, userId: ownerId }, select: { id: true } }))) {
       throw new BadRequestException('Invalid notification cursor.');
     }
-    const items = await this.prisma.notification.findMany({
-      where: { userId: ownerId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: pageSize + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      select: { id: true, jobId: true, type: true, title: true, message: true, isRead: true, createdAt: true },
-    });
-    const hasMore = items.length > pageSize;
-    const data = items.slice(0, pageSize);
-    return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
+    const where = { userId: ownerId };
+    const [items, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: PAGE_SIZE + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: { id: true, jobId: true, type: true, title: true, message: true, isRead: true, createdAt: true },
+      }),
+      this.prisma.notification.count({ where }),
+    ]);
+    const hasMore = items.length > PAGE_SIZE;
+    const data = items.slice(0, PAGE_SIZE);
+    return { data, total, nextCursor: hasMore ? data[data.length - 1].id : null };
   }
 
   async countUnread(ownerId: string) {

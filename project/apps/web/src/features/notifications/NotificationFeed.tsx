@@ -5,18 +5,18 @@ import NotificationIcon from './NotificationIcon';
 import { useLocale } from '../shared/LocaleProvider';
 import './notifications.css';
 
-export default function NotificationFeed({ items, cursor, loading, error, onLoad, onSelect, selectedId, compact = false, emptyMessage }: {
-  items: JobNotification[]; cursor: string | null; loading: boolean; error: string; onLoad: () => void; onSelect: (item: JobNotification) => void; selectedId?: string; compact?: boolean; emptyMessage?: string;
+export default function NotificationFeed({ items, cursor, loading, error, onLoad, onSelect, selectedId, compact = false, emptyMessage, loadOnScroll = true, showLoadOlder = true }: {
+  items: JobNotification[]; cursor: string | null; loading: boolean; error: string; onLoad: () => void; onSelect: (item: JobNotification) => void; selectedId?: string; compact?: boolean; emptyMessage?: string; loadOnScroll?: boolean; showLoadOlder?: boolean;
 }) {
   const { t, locale } = useLocale();
   const sentinel = useRef<HTMLDivElement>(null);
   const selected = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const element = sentinel.current;
-    if (!element || !cursor || loading || error) return;
+    if (!loadOnScroll || !element || !cursor || loading || error) return;
     const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) onLoad(); }, { rootMargin: '80px' });
     observer.observe(element); return () => observer.disconnect();
-  }, [cursor, loading, error, onLoad]);
+  }, [cursor, loading, error, onLoad, loadOnScroll]);
   const found = items.some((item) => item.id === selectedId);
   useEffect(() => { if (found) { selected.current?.scrollIntoView({ block: 'center', behavior: 'auto' }); selected.current?.focus({ preventScroll: true }); } }, [found, selectedId]);
   const timeLabel = (date: string) => {
@@ -42,8 +42,8 @@ export default function NotificationFeed({ items, cursor, loading, error, onLoad
     </Box>)}
     {!items.length && !loading && !error && <Text size="sm" c="dimmed" py="md">{emptyMessage ?? t('No notifications yet.')}</Text>}
     {error && <Group><Text c="red" size="sm" role="alert">{error}</Text><Button variant="subtle" size="xs" onClick={onLoad}>{t('Retry')}</Button></Group>}
-    <div ref={sentinel} aria-hidden="true" />
+    {loadOnScroll && <div ref={sentinel} aria-hidden="true" />}
     {loading && <Group justify="center" py="sm" role="status" aria-label={t('Loading notifications')}><Loader size="sm" /></Group>}
-    {cursor && !loading && <Button variant="subtle" size="xs" onClick={onLoad}>{t('Load older notifications')}</Button>}
+    {showLoadOlder && cursor && !loading && <Button variant="subtle" size="xs" onClick={onLoad}>{t('Load older notifications')}</Button>}
   </Stack>;
 }

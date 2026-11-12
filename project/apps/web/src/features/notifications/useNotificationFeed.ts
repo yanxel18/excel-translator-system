@@ -3,6 +3,7 @@ import ApiService, { type JobNotification } from '../../api';
 
 export function useNotificationFeed(token: string) {
   const [items, setItems] = useState<JobNotification[]>([]);
+  const [total, setTotal] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -15,12 +16,13 @@ export function useNotificationFeed(token: string) {
     try {
       const page = await ApiService.getNotifications(token, next);
       if (current !== generation.current) return;
+      setTotal(page.total);
       setItems((previous) => next ? [...previous, ...page.data.filter((item) => !previous.some((entry) => entry.id === item.id))] : page.data);
       setCursor(page.nextCursor === next ? null : page.nextCursor);
     } catch (reason) { if (current === generation.current) setError(reason instanceof Error ? reason.message : 'Could not load notifications.'); }
     finally { if (current === generation.current) { pending.current = false; setLoading(false); } }
   }, [token]);
-  useEffect(() => { generation.current += 1; pending.current = false; setItems([]); setCursor(null); void load(); return () => { generation.current += 1; pending.current = false; }; }, [load]);
+  useEffect(() => { generation.current += 1; pending.current = false; setItems([]); setTotal(0); setCursor(null); void load(); return () => { generation.current += 1; pending.current = false; }; }, [load]);
   const markRead = async (id: string) => {
     try { await ApiService.markNotificationRead(id, token); setItems((previous) => previous.map((item) => item.id === id ? { ...item, isRead: true } : item)); window.dispatchEvent(new Event('notifications-updated')); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update notification.'); }
@@ -43,5 +45,5 @@ export function useNotificationFeed(token: string) {
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not update notification.'); }
     finally { setMarkingAll(false); window.dispatchEvent(new Event('notifications-updated')); }
   };
-  return { items, cursor, loading, error, load, markRead, markAllRead, markingAll };
+  return { items, cursor, total, loading, error, load, markRead, markAllRead, markingAll };
 }
