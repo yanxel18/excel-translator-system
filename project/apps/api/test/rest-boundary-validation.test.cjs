@@ -29,5 +29,6 @@ test('job, history and notification endpoints validate request boundaries', asyn
     assert.equal((await fetch(base + '/jobs/' + id + '/preview?version=bad')).status, 400);
     assert.equal((await patch('/notifications/bad/read', {})).status, 400);
     assert.equal((await fetch(base + '/notifications?cursor=bad')).status, 400);
+    for (const path of ['/notifications?extra=x', '/changelog?extra=x', '/jobs/' + id + '/preview?extra=x', '/jobs/' + id + '/preview-file?extra=x']) assert.equal((await fetch(base + path)).status, 400, path);
   } finally { await app.close(); }
 });

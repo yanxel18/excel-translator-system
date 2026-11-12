@@ -1,0 +1,2 @@
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+  ('changelog-20261112-v2-signin-graphql', 'Restore Keycloak sign-in and GraphQL access', 'Fixed Keycloak token verification and authenticated GraphQL requests, strengthened sign-in and request validation, and made successful sign-in open the Workspace.', '2026-11-12T05:00:00.000Z', '2026-11-12T05:00:00.000Z');

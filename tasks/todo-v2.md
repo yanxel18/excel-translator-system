@@ -39,6 +39,10 @@ Integration progress (2026-11-12): Added validation to job, history, preview and
 
 Integration progress (2026-11-12, continued): Added legacy workbook and GraphQL boundary validation and an administrator Base reassignment action. A disposable PostgreSQL 16 rehearsal deployed all migrations, retained a legacy user, identity and job, tested concurrent case-insensitive email registration, Base restrictions, administrator/ordinary user access and disabled-session rejection. Six historical migration encoding markers were removed without changing their entries; checksum caveats are documented in the deployment guide. Chrome tests cover mocked management interactions and role navigation. Real Keycloak, GraphQL transport, broader input audit and actual deployed end-to-end checks remain outstanding.
 
+Integration progress (2026-11-12, provider and transport): A disposable Keycloak 26.2.5 instance exposed a CommonJS import failure, now fixed; real signed tokens passed verification, exchange, audience/group rejection and disabled-account checks with mocked persistence. Authenticated GraphQL HTTP queries and mutations now forward arguments and ownership correctly and have transport tests. Sign-in now opens Workspace. V2-03 retains global DTO and comprehensive query validation gaps; V2-04 password-reset revocation is deferred to V2-12.
+
+Deployed browser evidence (2026-11-12): The isolated nginx/API/PostgreSQL stack passed a 390px Chrome workflow for registration, user search, direct settings refresh, Base reassignment and Base create/edit/delete, sign-out/sign-in to Workspace, and ordinary-user denial. The Keycloak test used a real provider with mocked account persistence; password reset remains a later task.
+
 **Checkpoint A:** Schema validates, authentication regression checks pass, and existing users can still sign in.
 
 ## Navigation and settings structure

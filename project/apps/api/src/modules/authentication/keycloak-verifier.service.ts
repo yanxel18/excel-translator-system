@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import jwt, { JwtHeader, JwtPayload, SigningKeyCallback } from 'jsonwebtoken';
-import jwksClient from 'jwks-rsa';
+import * as jwt from 'jsonwebtoken';
+import { JwtHeader, JwtPayload, SigningKeyCallback } from 'jsonwebtoken';
+import jwksClient = require('jwks-rsa');
 import { PrismaService } from '../persistence/prisma.service';
 
 export interface KeycloakClaims extends JwtPayload {

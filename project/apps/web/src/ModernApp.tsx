@@ -73,6 +73,7 @@ export default function ModernApp() {
         const result = await ApiService.exchangeKeycloakToken(keycloak.token);
         if (active) {
           localStorage.setItem('excel-translator-token', result.access_token);
+          setView('workspace');
           setToken(result.access_token);
         }
       })
@@ -106,6 +107,7 @@ export default function ModernApp() {
   const login = async (username: string, password: string) => {
     const result = await ApiService.login(username, password);
     localStorage.setItem('excel-translator-token', result.access_token);
+    setView('workspace');
     setToken(result.access_token);
   };
 

@@ -5,8 +5,8 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { AdminAuthGuard } from './admin-auth.guard';
 import { strictObject } from '../../common/management-validation';
 
-function credential(value: unknown, name: string): string {
-  if (typeof value !== 'string' || !value.length) throw new BadRequestException(`${name} is required.`);
+function credential(value: unknown, name: string, maxLength: number): string {
+  if (typeof value !== 'string' || !value.length || value.length > maxLength) throw new BadRequestException(`Invalid ${name}.`);
   return value;
 }
 
@@ -36,7 +36,7 @@ export class AuthenticationController {
   @Post('login')
   async login(@Body() body: unknown) {
     const credentials = strictObject(body, ['username', 'password']);
-    const user = await this.authService.validateUser(credential(credentials.username, 'Username'), credential(credentials.password, 'Password'));
+    const user = await this.authService.validateUser(credential(credentials.username, 'Username', 1024), credential(credentials.password, 'Password', 1024));
     if (!user) throw new UnauthorizedException('Invalid username or password.');
     return this.authService.login(user);
   }
@@ -44,13 +44,13 @@ export class AuthenticationController {
   @Post('oidc/exchange')
   async exchangeKeycloakToken(@Body() body: unknown) {
     const payload = strictObject(body, ['accessToken']);
-    return this.authService.exchangeKeycloakToken(credential(payload.accessToken, 'Access token'));
+    return this.authService.exchangeKeycloakToken(credential(payload.accessToken, 'Access token', 32768));
   }
 
   @Post('verify')
   async verifySession(@Body() body: unknown) {
     const payload = strictObject(body, ['token']);
-    const token = credential(payload.token, 'Token');
+    const token = credential(payload.token, 'Token', 32768);
     try {
       const decoded = await this.authService.verifySession(token);
       return { valid: true, user: decoded };
