@@ -1,4 +1,4 @@
-﻿INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
   (
     'changelog-20261111-recent-translations-view-all',
     'Show ten recent translations with a direct link to history',

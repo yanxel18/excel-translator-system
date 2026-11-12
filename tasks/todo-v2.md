@@ -37,6 +37,8 @@ Implementation evidence (2026-11-12): V2-03 through V2-10 have work in progress:
 
 Integration progress (2026-11-12): Added validation to job, history, preview and notification boundaries and owner checks for legacy progress operations. Improved settings feedback and Base selection; a mocked mobile browser test covers management navigation and actions, and nginx nested-path fallback was tested separately. V2-03 remains open: legacy translation/extraction and GraphQL inputs still need boundary validation. Real Keycloak, populated full migration deployment, concurrent registration and live end-to-end role checks remain outstanding; no additional task is marked complete without that evidence.
 
+Integration progress (2026-11-12, continued): Added legacy workbook and GraphQL boundary validation and an administrator Base reassignment action. A disposable PostgreSQL 16 rehearsal deployed all migrations, retained a legacy user, identity and job, tested concurrent case-insensitive email registration, Base restrictions, administrator/ordinary user access and disabled-session rejection. Six historical migration encoding markers were removed without changing their entries; checksum caveats are documented in the deployment guide. Chrome tests cover mocked management interactions and role navigation. Real Keycloak, GraphQL transport, broader input audit and actual deployed end-to-end checks remain outstanding.
+
 **Checkpoint A:** Schema validates, authentication regression checks pass, and existing users can still sign in.
 
 ## Navigation and settings structure

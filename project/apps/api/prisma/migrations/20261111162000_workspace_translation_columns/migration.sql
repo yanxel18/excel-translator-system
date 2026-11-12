@@ -1,4 +1,4 @@
-﻿INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
   (
     'changelog-20261111-workspace-translation-columns',
     'See ongoing and recent translations side by side',

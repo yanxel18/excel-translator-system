@@ -23,7 +23,7 @@ export function useAppRoute() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
   const navigate = (view: View, page?: number, params?: URLSearchParams) => {
-    const path = `${base}${view === 'workspace' ? '' : view}`;
+    const path = `${base}${view}`;
     const query = params ? (params.toString() ? `?${params}` : '') : page && page > 1 ? `?page=${Math.min(Math.floor(page), 100000)}` : '';
     if (`${window.location.pathname}${window.location.search}` !== `${path}${query}`) window.history.pushState(null, '', `${path}${query}`);
     setRoute(readRoute());

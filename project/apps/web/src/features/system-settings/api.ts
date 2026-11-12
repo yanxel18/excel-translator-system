@@ -9,5 +9,6 @@ export const management = {
   saveBase: (token: string, value: { code: string; name: string }, id?: string) => request<Base>(`/admin/bases${id ? `/${encodeURIComponent(id)}` : ''}`, write(id ? 'PATCH' : 'POST', value), token),
   deleteBase: (token: string, id: string) => request<Base>(`/admin/bases/${encodeURIComponent(id)}`, write('DELETE'), token),
   users: (token: string, query: string) => request<Page<User>>(`/admin/users?${query}`, {}, token),
+  assignBase: (token: string, id: string, baseId: string) => request<User>(`/admin/users/${encodeURIComponent(id)}/base`, write('PATCH', { baseId }), token),
   createUser: (token: string, value: { gid: string; username: string; email: string; baseId: string; password: string }) => request<User>('/admin/users', write('POST', value), token),
 };

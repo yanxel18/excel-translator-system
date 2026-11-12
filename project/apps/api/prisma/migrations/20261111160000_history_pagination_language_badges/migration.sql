@@ -1,4 +1,4 @@
-﻿INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
   (
     'changelog-20261111-history-navigation',
     'Browse translations with pages and clear language badges',

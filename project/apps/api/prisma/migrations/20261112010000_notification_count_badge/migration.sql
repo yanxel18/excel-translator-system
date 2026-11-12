@@ -1,4 +1,4 @@
-﻿INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
   (
     'changelog-20261112-notification-count-badge',
     'Show full unread notification counts',

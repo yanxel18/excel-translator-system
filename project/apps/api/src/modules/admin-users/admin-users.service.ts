@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { choice, pageNumber, requiredEmail, requiredText, strictObject, uuid } from '../../common/management-validation';
 import { hashPassword } from '../authentication/passwords';
 import { PrismaService } from '../persistence/prisma.service';
@@ -38,6 +38,20 @@ export class AdminUsersService {
     } catch (error) {
       if (['P2002', 'P2034'].includes((error as { code?: string }).code || '')) throw new ConflictException('GID, username or email is already in use, or registration conflicted. Please retry.');
       if ((error as { code?: string }).code === 'P2003') throw new BadRequestException('Choose an existing Base.');
+      throw error;
+    }
+  }
+
+  async assignBase(id: unknown, value: unknown) {
+    const input = strictObject(value, ['baseId']);
+    const userId = uuid(id);
+    const baseId = uuid(input.baseId);
+    try {
+      return await this.prisma.user.update({ where: { id: userId }, data: { baseId }, select: userSelect });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === 'P2003') throw new BadRequestException('Choose an existing Base.');
+      if (code === 'P2025') throw new NotFoundException('User not found.');
       throw error;
     }
   }

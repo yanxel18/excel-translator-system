@@ -60,6 +60,7 @@ test('administrator settings preserve list state and support management actions'
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => localStorage.setItem('excel-translator-token', 'ui-test-token'));
   const base = { id: '11111111-1111-1111-1111-111111111111', code: 'JTY', name: 'JTY' };
+  const user = { id: '22222222-2222-2222-2222-222222222222', gid: 'G123', username: 'alice', email: 'alice@example.com', baseId: null, base: null, enabled: true };
   const writes: string[] = [];
   await page.route(`${apiBaseUrl}/**`, async (route) => {
     const url = new URL(route.request().url());
@@ -68,7 +69,7 @@ test('administrator settings preserve list state and support management actions'
     if (method !== 'GET') writes.push(`${method} ${path}`);
     const body = path === '/profile' ? { id: 'admin', username: 'admin', isAdmin: true }
       : path === '/admin/bases' && method === 'GET' ? { data: [base], total: 1, page: 1, pageSize: 50 }
-      : path === '/admin/users' && method === 'GET' ? { data: [], total: 0, page: 1, pageSize: 10 }
+      : path === '/admin/users' && method === 'GET' ? { data: [user], total: 1, page: 1, pageSize: 10 }
       : path.startsWith('/admin/') ? base
       : path === '/notifications/unread-count' ? { count: 0 }
       : ['/jobs/history', '/history', '/notifications', '/changelog'].includes(path) ? { data: [], total: 0 }
@@ -91,6 +92,14 @@ test('administrator settings preserve list state and support management actions'
   await expect(page).toHaveURL(/sort=username/);
   await page.reload();
   await expect(page.getByRole('textbox', { name: 'Search' })).toHaveValue('alice');
+  await expect(page.getByText('Results: 1')).toBeVisible();
+  await page.getByRole('button', { name: 'Assign base' }).click();
+  const assignDialog = page.getByRole('dialog');
+  await assignDialog.getByLabel('Base').click();
+  await page.getByRole('option', { name: /JTY/ }).click();
+  await assignDialog.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Base reassigned.')).toBeVisible();
+  expect(writes).toContain(`PATCH /admin/users/${user.id}/base`);
   await page.getByRole('button', { name: 'Create user' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('GID').fill('G123');
@@ -118,4 +127,23 @@ test('administrator settings preserve list state and support management actions'
   await dialog.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByText('Base deleted.')).toBeVisible();
   expect(writes.some((entry) => entry.startsWith('DELETE /admin/bases/'))).toBe(true);
+});
+
+
+test('unknown routes offer a real Workspace path and settings deny normal users', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('excel-translator-token', 'ui-test-token'));
+  await page.route(`${apiBaseUrl}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname.replace(new URL(apiBaseUrl).pathname, '');
+    const body = path === '/profile' ? { id: 'user', username: 'user', isAdmin: false }
+      : path === '/notifications/unread-count' ? { count: 0 } : [];
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.goto(`${webBasePath}unknown-destination`);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await page.getByRole('button', { name: 'Go to Workspace' }).click();
+  await expect(page).toHaveURL(new RegExp(`${webBasePath}workspace$`));
+  await expect(page.getByRole('heading', { name: 'Translate a workbook' })).toBeVisible();
+  await page.goto(`${webBasePath}settings/users`);
+  await expect(page.getByText('Administrator access is required.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'System Settings' })).toHaveCount(0);
 });

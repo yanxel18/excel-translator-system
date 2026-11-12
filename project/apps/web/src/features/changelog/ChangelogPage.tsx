@@ -5,6 +5,7 @@ import ApiService, { type ChangelogEntry } from '../../api';
 import { useLocale } from '../shared/LocaleProvider';
 
 const initialHistory: ChangelogEntry[] = [
+  { id: 'changelog-20261112-v2-base-reassignment', title: 'Manage user Bases and strengthen setup', details: 'Administrators can reassign a user to an existing Base. Workbook input checks and page navigation were improved, and database setup was repaired for new installations.', publishedAt: '2026-11-12T04:00:00.000Z' },
   { id: 'changelog-20261112-v2-settings-hardening', title: 'Improve Version 2 settings and navigation', details: 'Improved account and Base management feedback, strengthened request validation and progress ownership checks, and fixed direct navigation through the deployed application path.', publishedAt: '2026-11-12T03:00:00.000Z' },
   { id: 'changelog-20261112-v2-management-foundation', title: 'Add Version 2 management foundations', details: 'Added administrator settings for managing Bases and registering and finding users, shareable page navigation, account session checks, and stronger validation for several API inputs. Further integration and accessibility verification is in progress.', publishedAt: '2026-11-12T02:20:00.000Z' },
   { id: 'changelog-20261112-notification-test', title: 'Update notification pagination checks', details: 'Updated the notification regression checks to cover ten-item pages and the total count returned by the current notification list.', publishedAt: '2026-11-12T02:10:00.000Z' },
