@@ -29,6 +29,11 @@ test('base creation normalizes codes and accepts CJK names', async () => {
   await assert.rejects(service.create({ code: 'JTY', name: 'Tokyo', extra: true }));
 });
 
+test('duplicate Base codes are reported as conflicts', async () => {
+  const service = new BaseService({ base: { create: async () => { throw { code: 'P2002' }; } } });
+  await assert.rejects(service.create({ code: 'jty', name: 'Tokyo' }), (error) => error.status === 409);
+});
+
 test('database foreign key restriction is reported as an assigned-base conflict', async () => {
   const service = new BaseService({ base: { delete: async () => { throw { code: 'P2003' }; } } });
   await assert.rejects(service.remove('11111111-1111-4111-8111-111111111111'), (error) => error.status === 409);

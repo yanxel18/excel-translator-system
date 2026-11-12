@@ -1,0 +1,2 @@
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+  ('changelog-20261112-v2-graphql-transport-validation', 'Reject unexpected GraphQL transport fields', 'GraphQL HTTP requests now reject unknown JSON body fields and URL query parameters instead of silently ignoring them. Validation errors do not echo submitted values.', '2026-11-12T11:08:00.000Z', '2026-11-12T11:08:00.000Z');

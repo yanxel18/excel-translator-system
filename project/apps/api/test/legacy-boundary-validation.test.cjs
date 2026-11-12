@@ -16,6 +16,7 @@ test('legacy workbook endpoints validate input and accept Unicode and JSON buffe
   await assert.rejects(() => translation.sendTextForTranslation({ textBatch: [{ id: 'x', value: '字' }], extra: 1 }), BadRequestException);
   await assert.rejects(() => translation.sendTextForTranslation({ textBatch: [{ id: 'x', value: 5 }] }), BadRequestException);
   await assert.rejects(() => translation.sendTextForTranslation({ textBatch: [{ id: 'x', value: 'あ'.repeat(30000) }] }), BadRequestException);
+  await assert.rejects(() => translation.sendTextForTranslation({ textBatch: [{ id: 'x', value: '漢字', extra: true }] }), BadRequestException);
   await translation.sendTextForTranslation({ textBatch: [{ id: 'shared:0', value: '日本語', source: 'shared', part: 'xl/sharedStrings.xml', index: 0 }] });
   assert.equal(batch[0].value, '日本語');
   await assert.rejects(() => extraction.extractText({ fileBuffer: { type: 'Buffer', data: [256] } }), BadRequestException);
@@ -39,10 +40,11 @@ test('GraphQL resolver applies REST ID, cursor, and version rules', () => {
 });
 
 test('legacy REST routes return 400 for malformed input through HTTP', async () => {
+  let translatedBatch;
   const moduleRef = await Test.createTestingModule({
     controllers: [TranslationController, TextExtractionController],
     providers: [
-      { provide: TranslationService, useValue: { sendTextForTranslation: async () => [] } },
+      { provide: TranslationService, useValue: { sendTextForTranslation: async (batch) => { translatedBatch = batch; return []; } } },
       { provide: TextExtractionService, useValue: { extractTextFromXlsx: async () => [] } },
     ],
   }).overrideGuard(JwtAuthGuard).useValue({ canActivate: () => true }).compile();
@@ -52,7 +54,12 @@ test('legacy REST routes return 400 for malformed input through HTTP', async () 
     const base = `http://127.0.0.1:${app.getHttpServer().address().port}`;
     const send = (path, body) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     assert.equal((await send('/translate/send', { textBatch: [{ id: 'a', value: 4 }] })).status, 400);
+    assert.equal((await send('/translate/send', { textBatch: [{ id: 'a', value: '日本語', unknown: true }] })).status, 400);
+    assert.equal((await send('/translate/send', { textBatch: [{ id: 'a', value: 'x'.repeat(70 * 1024) }] })).status, 400);
+    assert.equal((await send('/translate/send', { textBatch: [{ id: 'shared:0', value: '日本語', source: 'shared', part: 'xl/sharedStrings.xml', index: 0 }] })).status, 201);
+    assert.equal(translatedBatch[0].value, '日本語');
     assert.equal((await send('/extract', { fileBuffer: { type: 'Buffer', data: [256] } })).status, 400);
+    assert.equal((await send('/extract', { fileBuffer: { type: 'Buffer', data: [80, 75] }, extra: true })).status, 400);
     assert.equal((await send('/extract', { fileBuffer: { type: 'Buffer', data: [80, 75] } })).status, 201);
   } finally { await app.close(); }
 });

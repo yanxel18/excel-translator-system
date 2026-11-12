@@ -53,14 +53,14 @@ Confirmed on 2026-11-12: registration is administrator-only; new accounts requir
 | Change administrator authority | Denied | Denied through application; ADMIN_USERNAMES remains deployment-controlled |
 | Disable accounts | Denied | Allowed only if another usable administrator remains; never disable the last usable administrator |
 
-Administrator checks use configured names, not GIDs. Keycloak identity is determined by provider and subject, never by email. Before disabling an administrator, verify that another enabled administrator has a usable configured login; if this cannot be established, reject the operation and require an operator to restore access through configuration. Existing sessions must be checked against persisted enablement; local session versions are incremented on disable and password reset. Since legacy GIDs can already collide, migration must report conflicts rather than alter identities or silently discard data.
+Administrator checks use configured names, not GIDs. Keycloak identity is determined by provider and subject, never by email. Before disabling an administrator, verify that another enabled administrator has a usable configured login; if this cannot be established, reject the operation and require an operator to restore access through configuration. Existing sessions must be checked against persisted enablement; local session versions are incremented on disablement. Password changes and resets must also increment the version when implemented in V2-12. Since legacy GIDs can already collide, migration must report conflicts rather than alter identities or silently discard data.
 
 ## Database and migration design
 
 | Model | Proposed change | Integrity and query rules |
 | --- | --- | --- |
 | Base (new) | UUID id, unique code, display name, optional enabled flag, createdAt/updatedAt | Seed five approved codes idempotently. Users reference Base.id. Restrict deletion while assigned; reassign explicitly first. |
-| User (extend) | baseId, enabled, sessionVersion; finalize GID rules | Base FK indexed; preserve UUID and identities. Backfill existing users as enabled. Increment sessionVersion for disable/reset to revoke local sessions. |
+| User (extend) | baseId, enabled, sessionVersion; finalize GID rules | Base FK indexed; preserve UUID and identities. Backfill existing users as enabled. Increment sessionVersion on disablement; password changes/resets in V2-12 must increment it to revoke local sessions. |
 | UserIdentity (existing) | Preserve provider/subject identity links | Keep provider+subject unique and userId indexed; never auto-link identities solely by matching email. |
 | OidcSettings (extend) | Authentication mode plus validated existing issuer/realm/client/group fields | Single source of truth; migrate enabled flag consistently. Validate before enabling. Avoid storing a client secret for a public browser client. |
 | ManagementAudit (new) | Actor, action, target type/id, redacted change summary, timestamp | Nullable actor FK with SetNull preserves history if actor is removed. Index actor/time and target/time. Never store passwords, tokens, or secrets. |

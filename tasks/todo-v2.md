@@ -19,15 +19,15 @@ Work in the listed dependency order. Each task includes schema/API/UI work where
   - Verify: frontend `npx tsc --noEmit`, API/frontend builds, relevant current regression commands.
   - Dependencies: none. Files: `features/workspace/WorkspacePage.tsx`, project check configuration if needed.
 
-- [ ] **V2-03 — Centralize DTO and input validation (M)**
+- [x] **V2-03 — Centralize DTO and input validation (M)**
   - Configure server validation and reusable body/query/path constraints; mirror field limits in UI helpers.
   - Acceptance: malformed IDs, unknown fields, oversized input, invalid emails, and invalid sort/page parameters are rejected; valid CJK names remain usable.
   - Verify: focused API validation checks and builds; no password normalization or secret logging.
   - Dependencies: 01–02. Files: API bootstrap/DTO modules, frontend validation helpers.
 
-- [ ] **V2-04 — Add persistent account enablement and revocation (M)**
+- [x] **V2-04 — Add persistent account enablement and revocation (M)**
   - Extend User with enabled/session-version state and preserve existing accounts; enforce state across local and OIDC protected requests.
-  - Acceptance: disabled users cannot obtain or continue sessions; password reset revokes local sessions; existing UUID/identity links survive migration.
+  - Acceptance: disabled users cannot obtain or continue sessions; disablement revokes local sessions; existing UUID/identity links survive migration. Password-reset revocation is owned by V2-12.
   - Verify: migration on populated data and focused authentication/guard tests for both providers.
   - Dependencies: 01–03. Files: Prisma schema/migration, authentication service/guards.
 
@@ -43,17 +43,23 @@ Integration progress (2026-11-12, provider and transport): A disposable Keycloak
 
 Deployed browser evidence (2026-11-12): The isolated nginx/API/PostgreSQL stack passed a 390px Chrome workflow for registration, user search, direct settings refresh, Base reassignment and Base create/edit/delete, sign-out/sign-in to Workspace, and ordinary-user denial. The Keycloak test used a real provider with mocked account persistence; password reset remains a later task.
 
+Implementation progress (2026-11-12, first validation pass): Added shared API checks for nullable profile fields and management page sizes, rejected unknown profile fields, and mirrored documented GID/username/email/Base/password limits in the administrator forms with Japanese and Chinese errors. Password values are submitted unchanged and CJK names remain valid. API build and Prisma validation passed; focused registration/Base/profile/validation tests passed (18 passed, 1 populated-database integration test skipped because `V2_TEST_DATABASE_URL` is not configured); session-revocation, legacy REST/GraphQL, progress ownership and OIDC JWKS checks passed (13/13). Web typecheck/build passed; Vite reports the existing 581.15 kB bundle warning. Eight frontend validation-helper checks passed, but three interactive Playwright tests could not launch Chromium (`spawn UNKNOWN`), so browser verification was blocked at that point. The remaining V2-03 audit and current UI/deployed acceptance checks were still outstanding then; V2-04 reset-triggered revocation belongs to V2-12.
+
+Follow-up completion evidence (2026-11-12): Completed the V2-03 boundary audit, including legacy translation/extraction, REST DTO/query/path inputs, GraphQL HTTP body/query allowlists, and field limits; added unknown-field and identifier/constraint regressions. API compile and complete test suite passed (54 passed, 2 skipped); the skips require `V2_TEST_DATABASE_URL` for the local disposable PostgreSQL migration/management rehearsal and `V2_TEST_KEYCLOAK_URL` plus disposable credentials for real-provider checks. Added Base duplicate-code and user-list metadata/Base/enabled-state search assertions. Edge Playwright frontend and validation suites passed (13/13), including keyboard settings navigation, `aria-current`, combined user filters, sort toggling and pagination. Root production build, web `npx tsc --noEmit`, Prisma validation and `git diff --check` passed; Vite retains the 581.47 kB chunk-size warning. Prior recorded deployed 390px workflow and PostgreSQL migration rehearsal provide the deployment/data evidence for V2-05–V2-10; they were not rerun in this follow-up. Added synchronized GraphQL transport validation changelog entries in migration `20261112110800_v2_graphql_transport_validation` and the built-in history. V2-03 and V2-05–V2-10 are checked; V2-04 remains open because password-reset session revocation is explicitly completed by V2-12 and live database/Keycloak proof is unavailable in this run. No V2-11+ work was started.
+
+Scope alignment and final verification (2026-11-12): Per user approval, moved only password-reset session revocation from V2-04 to V2-12; password changes/resets there must increment `sessionVersion`. V2-04 now covers persistent enablement, disablement/session-version enforcement for local and OIDC identities, and migration preservation, and is checked based on the prior populated PostgreSQL rehearsal, local revocation tests, and recorded real-Keycloak-token verification. Final local API build and full suite passed (54 passed, 2 skipped because disposable PostgreSQL/Keycloak URLs are not configured); root build, web typecheck/build, Prisma validation and `git diff --check` passed. The default Chromium launcher could not start four interactive tests (`spawn UNKNOWN`), while one static test passed; rerunning the frontend suite using the installed Edge channel passed 5/5. The earlier Edge Playwright run (13/13) and deployed 390px workflow remain the broader UI evidence. Vite reports a 581.47 kB chunk-size warning.
+
 **Checkpoint A:** Schema validates, authentication regression checks pass, and existing users can still sign in.
 
 ## Navigation and settings structure
 
-- [ ] **V2-05 — Introduce browser routes and query state (M)**
+- [x] **V2-05 — Introduce browser routes and query state (M)**
   - Map current view destinations to real paths under the configured base path; support back/forward and query parsing.
   - Acceptance: Workspace is default; direct links and refresh work; unsupported routes show a useful destination; page parameters are bounded.
   - Verify: browser navigation/direct-refresh checks including deployed subpath fallback.
   - Dependencies: 02–03. Files: `ModernApp.tsx`, app-shell navigation/header, routing and deployment configuration.
 
-- [ ] **V2-06 — Build the System Settings page shell (M)**
+- [x] **V2-06 — Build the System Settings page shell (M)**
   - Add grouped left icon navigation for Users, Bases, Authentication, with page actions and responsive mobile navigation.
   - Acceptance: administrator-only settings entry; normal users receive API denial as well as hidden controls; active section has its own URL.
   - Verify: keyboard/mobile review and role access checks.
@@ -61,13 +67,13 @@ Deployed browser evidence (2026-11-12): The isolated nginx/API/PostgreSQL stack 
 
 ## Base management
 
-- [ ] **V2-07 — Deliver Base list and creation (M)**
+- [x] **V2-07 — Deliver Base list and creation (M)**
   - Add Base model, seed approved codes, and expose administrator list/create UI and API.
   - Acceptance: unique code, validated name, searchable/sortable paginated list; repeated seed deployment creates no duplicates.
   - Verify: schema/migration validation, duplicate/code validation and unauthorized-access checks.
   - Dependencies: 03, 06. Files: Prisma schema/migration, Base module/API client/settings page.
 
-- [ ] **V2-08 — Deliver Base edit/delete and user relation (M)**
+- [x] **V2-08 — Deliver Base edit/delete and user relation (M)**
   - Add User.baseId FK and indexed lookup; implement Base editing and guarded deletion.
   - Acceptance: existing users migrate safely; assigned bases cannot be deleted; reassignment is explicit; invalid FK values rejected.
   - Verify: FK/deletion tests, populated migration rehearsal, edit/delete UI states.
@@ -77,13 +83,13 @@ Deployed browser evidence (2026-11-12): The isolated nginx/API/PostgreSQL stack 
 
 ## User management
 
-- [ ] **V2-09 — Deliver administrator registration (M)**
+- [x] **V2-09 — Deliver administrator registration (M)**
   - Add user registration route/form and transactional creation of User/local identity using GID, username, email, Base and password rules.
   - Acceptance: duplicate GID/username/email handled safely; required fields validated; password hashed; public requests cannot create accounts or set privileges.
   - Verify: registration/rollback/authorization checks; accessible form states.
   - Dependencies: 03–04, 06, 08. Files: user management module, DTOs, admin API client and registration page.
 
-- [ ] **V2-10 — Deliver searchable sortable user list (M)**
+- [x] **V2-10 — Deliver searchable sortable user list (M)**
   - Show GID, Username, Email address, Base, Enabled and actions; implement server search plus Base/enabled filters, ascending/descending headers and pagination.
   - Acceptance: search includes approved user metadata and Base; query state appears in URL; sort fields allowlisted with stable tie-breaker.
   - Verify: combined search/filter/order/page requests, isolation/access checks, empty/loading states.
@@ -97,7 +103,7 @@ Deployed browser evidence (2026-11-12): The isolated nginx/API/PostgreSQL stack 
 
 - [ ] **V2-12 — Deliver local password management (M)**
   - Add separate administrator reset and owner password-change flows with approved password policy and identity-aware UI.
-  - Acceptance: owner change verifies current password; admins cannot retrieve passwords; OIDC-only credentials route to provider management; reset revokes local sessions.
+  - Acceptance: owner change verifies current password; admins cannot retrieve passwords; OIDC-only credentials route to provider management; password changes and resets revoke local sessions by incrementing `sessionVersion`.
   - Verify: weak/oversized/password-reuse-policy cases as applicable, incorrect-current-password, authorization, redacted logs.
   - Dependencies: 03–04, 11. Files: password/auth service/DTOs, user detail/profile account components.
 

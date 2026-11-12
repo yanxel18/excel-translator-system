@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../persistence/prisma.service';
+import { nullableEmail, nullableText, strictObject } from '../../common/management-validation';
 import { readFile, unlink } from 'node:fs/promises';
 import * as XLSX from 'xlsx';
 import { normalizeBasePath, pathAtBase } from '../../config/base-path';
@@ -83,15 +84,12 @@ export class ProductSurfacesService {
 
   async updateProfile(ownerId: string, input: { fullName?: unknown; email?: unknown }) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new BadRequestException('Profile details are required.');
+    const fields = strictObject(input, ['fullName', 'email']);
     const data: { fullName?: string | null; email?: string | null } = {};
-    if (input.fullName !== undefined) {
-      if (input.fullName !== null && (typeof input.fullName !== 'string' || input.fullName.trim().length > 120)) throw new BadRequestException('Name must be 120 characters or fewer.');
-      data.fullName = typeof input.fullName === 'string' ? input.fullName.trim() || null : null;
-    }
-    if (input.email !== undefined) {
-      if (input.email !== null && (typeof input.email !== 'string' || input.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email))) throw new BadRequestException('Enter a valid email address.');
-      data.email = typeof input.email === 'string' ? input.email.trim().toLowerCase() || null : null;
-    }
+    const fullName = nullableText(fields.fullName, 'Name', 120);
+    if (fullName !== undefined) data.fullName = fullName;
+    const email = nullableEmail(fields.email);
+    if (email !== undefined) data.email = email;
     try {
       return await this.prisma.user.update({ where: { id: ownerId }, data, select: { id: true, username: true, email: true, fullName: true, createdAt: true } });
     } catch (error) {

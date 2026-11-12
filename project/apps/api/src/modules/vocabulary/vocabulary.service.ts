@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Language } from '../../generated/prisma/client';
 import { PrismaService } from '../persistence/prisma.service';
 import { isSupportedLanguagePair } from '../job-management/language-pairs';
+import { requiredText } from '../../common/management-validation';
 
 const MAX_GROUP_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 1000;
@@ -36,13 +37,6 @@ export class VocabularyService {
     }
   }
 
-  private text(value: unknown, label: string, maxLength: number): string {
-    if (typeof value !== 'string' || !value.trim() || value.trim().length > maxLength) {
-      throw new BadRequestException(`${label} must contain 1 to ${maxLength} characters.`);
-    }
-    return value.trim();
-  }
-
   private async unique<T>(operation: Promise<T>): Promise<T> {
     try { return await operation; }
     catch (error) {
@@ -59,9 +53,9 @@ export class VocabularyService {
 
   async createGroup(ownerId: string, input: GroupInput) {
     if (!input || typeof input !== 'object') throw new BadRequestException('Vocabulary group details are required.');
-    const name = this.text(input.name, 'Name', MAX_GROUP_NAME_LENGTH);
+    const name = requiredText(input.name, 'Name', MAX_GROUP_NAME_LENGTH);
     const description = input.description === undefined || input.description === null
-      ? null : this.text(input.description, 'Description', MAX_DESCRIPTION_LENGTH);
+      ? null : requiredText(input.description, 'Description', MAX_DESCRIPTION_LENGTH);
     this.languagePair(input.sourceLanguage, input.targetLanguage);
     return this.unique(this.prisma.vocabularyGroup.create({
       data: { ownerId, name, description, sourceLanguage: input.sourceLanguage as Language, targetLanguage: input.targetLanguage as Language },
@@ -82,9 +76,9 @@ export class VocabularyService {
       if (activeJob) throw new BadRequestException('A vocabulary group cannot change languages while a job is processing.');
     }
     const data: Record<string, unknown> = { sourceLanguage, targetLanguage };
-    if (input.name !== undefined) data.name = this.text(input.name, 'Name', MAX_GROUP_NAME_LENGTH);
+    if (input.name !== undefined) data.name = requiredText(input.name, 'Name', MAX_GROUP_NAME_LENGTH);
     if (input.description !== undefined) data.description = input.description === null
-      ? null : this.text(input.description, 'Description', MAX_DESCRIPTION_LENGTH);
+      ? null : requiredText(input.description, 'Description', MAX_DESCRIPTION_LENGTH);
     return this.unique(this.prisma.vocabularyGroup.update({ where: { id }, data, include: { entries: true } }));
   }
 
@@ -96,8 +90,8 @@ export class VocabularyService {
 
   async createEntry(groupId: string, ownerId: string, input: EntryInput) {
     await this.group(groupId, ownerId);
-    const source = this.text(input?.source, 'Source term', MAX_TERM_LENGTH);
-    const target = this.text(input?.target, 'Target term', MAX_TERM_LENGTH);
+    const source = requiredText(input?.source, 'Source term', MAX_TERM_LENGTH);
+    const target = requiredText(input?.target, 'Target term', MAX_TERM_LENGTH);
     const count = await this.prisma.vocabularyEntry.count({ where: { groupId } });
     if (count >= MAX_ENTRIES_PER_GROUP) throw new BadRequestException(`A vocabulary group can contain at most ${MAX_ENTRIES_PER_GROUP} terms.`);
     return this.unique(this.prisma.vocabularyEntry.create({ data: { groupId, source, target } }));
@@ -108,8 +102,8 @@ export class VocabularyService {
     const entry = await this.prisma.vocabularyEntry.findFirst({ where: { id: entryId, groupId } });
     if (!entry) throw new NotFoundException('Vocabulary term not found.');
     const data: Record<string, string> = {};
-    if (input?.source !== undefined) data.source = this.text(input.source, 'Source term', MAX_TERM_LENGTH);
-    if (input?.target !== undefined) data.target = this.text(input.target, 'Target term', MAX_TERM_LENGTH);
+    if (input?.source !== undefined) data.source = requiredText(input.source, 'Source term', MAX_TERM_LENGTH);
+    if (input?.target !== undefined) data.target = requiredText(input.target, 'Target term', MAX_TERM_LENGTH);
     if (!Object.keys(data).length) throw new BadRequestException('Provide a source or target term to update.');
     return this.unique(this.prisma.vocabularyEntry.update({ where: { id: entryId }, data }));
   }
