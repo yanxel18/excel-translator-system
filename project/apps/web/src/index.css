@@ -1,1 +1,10 @@
-html{min-width:320px}body{min-width:320px;margin:0}#root{min-height:100vh}
+html {
+  min-width: 320px;
+}
+body {
+  min-width: 320px;
+  margin: 0;
+}
+#root {
+  min-height: 100vh;
+}

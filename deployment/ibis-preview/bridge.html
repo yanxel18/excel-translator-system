@@ -1,25 +1,132 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workbook preview</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;font:13px system-ui;background:#fff}body>canvas{position:fixed;inset:0;width:100%;height:100%}#status{position:fixed;inset:0;display:grid;place-content:center;color:#56677d}#progress{height:4px;background:#e5edf8}#progress>div{height:100%;background:#2676df}</style></head><body><div id="status"><span id="status-text">Preparing workbook preview?</span><div id="progress"><div></div></div></div><script type="module">
-// The editor receives only file bytes. Authentication stays in the parent application.
-const parentOrigin = document.referrer ? new URL(document.referrer).origin : null;
-let received = false;
-if (parentOrigin && window.parent !== window) {
-  window.addEventListener('message', async (event) => {
-    if (received || event.source !== parent || event.origin !== parentOrigin || event.data?.source !== 'excel-translator' || event.data.type !== 'workbook') return;
-    if (!(event.data.bytes instanceof ArrayBuffer) || event.data.bytes.byteLength > 50 * 1024 * 1024 || typeof event.data.name !== 'string') return;
-    received = true;
-    // The workbook stays read-only; suppress ibisOffice's linked-workbook banner in this preview origin.
-    localStorage.setItem('ibisOffice.trust.links-warning', '0');
-    if (!('gpu' in navigator)) { parent.postMessage({ source: 'excel-translator-preview', type: 'error' }, parentOrigin); return; }
-    const bytes = event.data.bytes;
-    const fileUrl = new URL(`__preview__/${encodeURIComponent(event.data.name)}`, location.href).href;
-    const nativeFetch = window.fetch.bind(window);
-    window.fetch = (input, options) => String(input) === fileUrl ? Promise.resolve(new Response(bytes, { headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' } })) : nativeFetch(input, options);
-    history.replaceState(null, '', `?open=${encodeURIComponent(fileUrl)}`);
-    window.ibisOfficeOptions = { view: true, menuBar: false, toolBar: false, close: false, download: false, targetOrigin: parentOrigin };
-    try { await import('./main.js'); parent.postMessage({ source: 'excel-translator-preview', type: document.getElementById('status') ? 'error' : 'started' }, parentOrigin); }
-    catch { parent.postMessage({ source: 'excel-translator-preview', type: 'error' }, parentOrigin); }
-  });
-  parent.postMessage({ source: 'excel-translator-preview', type: 'ready' }, parentOrigin);
-} else document.getElementById('status-text').textContent = 'Open workbook previews from Excel Translator.';
-</script></body></html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Workbook preview</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font: 13px system-ui;
+        background: #fff;
+      }
+      body > canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      #status {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        color: #56677d;
+      }
+      #progress {
+        height: 4px;
+        background: #e5edf8;
+      }
+      #progress > div {
+        height: 100%;
+        background: #2676df;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status">
+      <span id="status-text">Preparing workbook preview?</span>
+      <div id="progress"><div></div></div>
+    </div>
+    <script type="module">
+      // The editor receives only file bytes. Authentication stays in the parent application.
+      const parentOrigin = document.referrer
+        ? new URL(document.referrer).origin
+        : null;
+      let received = false;
+      if (parentOrigin && window.parent !== window) {
+        window.addEventListener("message", async (event) => {
+          if (
+            received ||
+            event.source !== parent ||
+            event.origin !== parentOrigin ||
+            event.data?.source !== "excel-translator" ||
+            event.data.type !== "workbook"
+          )
+            return;
+          if (
+            !(event.data.bytes instanceof ArrayBuffer) ||
+            event.data.bytes.byteLength > 50 * 1024 * 1024 ||
+            typeof event.data.name !== "string"
+          )
+            return;
+          received = true;
+          // The workbook stays read-only; suppress ibisOffice's linked-workbook banner in this preview origin.
+          localStorage.setItem("ibisOffice.trust.links-warning", "0");
+          if (!("gpu" in navigator)) {
+            parent.postMessage(
+              { source: "excel-translator-preview", type: "error" },
+              parentOrigin,
+            );
+            return;
+          }
+          const bytes = event.data.bytes;
+          const fileUrl = new URL(
+            `__preview__/${encodeURIComponent(event.data.name)}`,
+            location.href,
+          ).href;
+          const nativeFetch = window.fetch.bind(window);
+          window.fetch = (input, options) =>
+            String(input) === fileUrl
+              ? Promise.resolve(
+                  new Response(bytes, {
+                    headers: {
+                      "Content-Type":
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    },
+                  }),
+                )
+              : nativeFetch(input, options);
+          history.replaceState(
+            null,
+            "",
+            `?open=${encodeURIComponent(fileUrl)}`,
+          );
+          window.ibisOfficeOptions = {
+            view: true,
+            menuBar: false,
+            toolBar: false,
+            close: false,
+            download: false,
+            targetOrigin: parentOrigin,
+          };
+          try {
+            await import("./main.js");
+            parent.postMessage(
+              {
+                source: "excel-translator-preview",
+                type: document.getElementById("status") ? "error" : "started",
+              },
+              parentOrigin,
+            );
+          } catch {
+            parent.postMessage(
+              { source: "excel-translator-preview", type: "error" },
+              parentOrigin,
+            );
+          }
+        });
+        parent.postMessage(
+          { source: "excel-translator-preview", type: "ready" },
+          parentOrigin,
+        );
+      } else
+        document.getElementById("status-text").textContent =
+          "Open workbook previews from Excel Translator.";
+    </script>
+  </body>
+</html>

@@ -1,69 +1,107 @@
-import { BadRequestException } from '@nestjs/common';
-import JSZip = require('jszip');
-import { selectWorksheets, WorksheetPart } from './worksheet-parts';
-import { hasAttribute, sharedStringIndex } from './worksheet-cells';
-import { drawingReferences, DRAWING_PARAGRAPH } from './drawing-text';
-import { visibleText } from './xml-text';
+import { BadRequestException } from "@nestjs/common";
+import JSZip = require("jszip");
+import { selectWorksheets, WorksheetPart } from "./worksheet-parts";
+import { hasAttribute, sharedStringIndex } from "./worksheet-cells";
+import { drawingReferences, DRAWING_PARAGRAPH } from "./drawing-text";
+import { visibleText } from "./xml-text";
 
 export interface ExtractedText {
   id: string;
   value: string;
-  source: 'shared' | 'inline' | 'drawing';
+  source: "shared" | "inline" | "drawing";
   part: string;
   index: number;
 }
 
-export async function extractWorkbookText(zip: JSZip, worksheets: WorksheetPart[], selectedSheets?: string[]): Promise<ExtractedText[]> {
+export async function extractWorkbookText(
+  zip: JSZip,
+  worksheets: WorksheetPart[],
+  selectedSheets?: string[],
+): Promise<ExtractedText[]> {
   const chosen = selectWorksheets(worksheets, selectedSheets);
   const sheetXml = new Map<string, string>();
   const sharedIndexes = new Set<number>();
 
   for (const { part } of chosen) {
-    const xml = await zip.file(part)!.async('string');
+    const xml = await zip.file(part)!.async("string");
     sheetXml.set(part, xml);
-    for (const cellMatch of xml.matchAll(/<c\b(?![^>]*\/\s*>)([^>]*)>[\s\S]*?<\/c>/g)) {
-      if (!hasAttribute(cellMatch[1], 't', 's')) continue;
+    for (const cellMatch of xml.matchAll(
+      /<c\b(?![^>]*\/\s*>)([^>]*)>[\s\S]*?<\/c>/g,
+    )) {
+      if (!hasAttribute(cellMatch[1], "t", "s")) continue;
       const index = sharedStringIndex(cellMatch[0]);
       if (index === undefined) continue;
-      if (!/<f(?:\s[^>]*)?\s*\/?\s*>/.test(cellMatch[0])) sharedIndexes.add(index);
+      if (!/<f(?:\s[^>]*)?\s*\/?\s*>/.test(cellMatch[0]))
+        sharedIndexes.add(index);
     }
   }
 
-  const sharedFile = zip.file('xl/sharedStrings.xml');
-  if (sharedIndexes.size && !sharedFile) throw new BadRequestException('The workbook is missing shared strings referenced by a worksheet.');
+  const sharedFile = zip.file("xl/sharedStrings.xml");
+  if (sharedIndexes.size && !sharedFile)
+    throw new BadRequestException(
+      "The workbook is missing shared strings referenced by a worksheet.",
+    );
 
   const result: ExtractedText[] = [];
   if (sharedFile) {
-    const xml = await sharedFile.async('string');
+    const xml = await sharedFile.async("string");
     const items = [...xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)];
     for (const index of sharedIndexes) {
-      if (!items[index]) throw new BadRequestException('The workbook references an invalid shared string.');
+      if (!items[index])
+        throw new BadRequestException(
+          "The workbook references an invalid shared string.",
+        );
       const value = visibleText(items[index][1]);
-      if (value.trim()) result.push({ id: `shared:${index}`, value, source: 'shared', part: 'xl/sharedStrings.xml', index });
+      if (value.trim())
+        result.push({
+          id: `shared:${index}`,
+          value,
+          source: "shared",
+          part: "xl/sharedStrings.xml",
+          index,
+        });
     }
   }
 
   for (const { part } of chosen) {
     const xml = sheetXml.get(part)!;
     let index = 0;
-    for (const cell of xml.matchAll(/<c\b(?![^>]*\/\s*>)[^>]*>[\s\S]*?<\/c>/g)) {
+    for (const cell of xml.matchAll(
+      /<c\b(?![^>]*\/\s*>)[^>]*>[\s\S]*?<\/c>/g,
+    )) {
       const inline = /<is(?:\s[^>]*)?>([\s\S]*?)<\/is>/.exec(cell[0]);
       if (!inline) continue;
       const cellIndex = index++;
       if (/<f(?:\s[^>]*)?\s*\/?\s*>/.test(cell[0])) continue;
       const value = visibleText(inline[1]);
-      if (value.trim()) result.push({ id: `inline:${part}:${cellIndex}`, value, source: 'inline', part, index: cellIndex });
+      if (value.trim())
+        result.push({
+          id: `inline:${part}:${cellIndex}`,
+          value,
+          source: "inline",
+          part,
+          index: cellIndex,
+        });
     }
   }
 
   const drawings = await drawingReferences(zip, chosen);
   for (const part of new Set(drawings.map((drawing) => drawing.part))) {
-    const xml = await zip.file(part)!.async('string');
+    const xml = await zip.file(part)!.async("string");
     let index = 0;
-    for (const match of xml.matchAll(new RegExp(DRAWING_PARAGRAPH.source, 'g'))) {
+    for (const match of xml.matchAll(
+      new RegExp(DRAWING_PARAGRAPH.source, "g"),
+    )) {
       const paragraphIndex = index++;
       const value = visibleText(match[0]);
-      if (value.trim()) result.push({ id: `drawing:${part}:${paragraphIndex}`, value, source: 'drawing', part, index: paragraphIndex });
+      if (value.trim())
+        result.push({
+          id: `drawing:${part}:${paragraphIndex}`,
+          value,
+          source: "drawing",
+          part,
+          index: paragraphIndex,
+        });
     }
   }
   return result;

@@ -24,7 +24,18 @@ The frontend base path and API base path are configured separately using `VITE_B
 
 Set `ADMIN_USERNAMES` to a comma-separated list of administrator login names. These names are checked by the API for both protected setting endpoints and the admin-only section in Profile. An administrator can configure Keycloak there; the settings are stored in PostgreSQL and take effect for new sign-ins. The public login page receives only the enablement, server URL, realm, and client ID. `KEYCLOAK_*` environment values provide the initial/default config when no admin settings have been saved.
 
-The browser client must be a public Keycloak client with Standard Flow enabled, PKCE using S256, the app URL in its valid redirect URIs, and the app origin in Web Origins. The Keycloak token is verified by the API and exchanged for an application JWT; the browser adapter keeps Keycloak tokens in memory. Existing local accounts are not automatically merged with Keycloak identities.
+The browser client must be a public Keycloak client with Standard Flow enabled, PKCE using S256, the app URL in its valid redirect URIs, and the app origin in Web Origins. The Keycloak token is verified by the API and exchanged for an application JWT; the browser adapter keeps Keycloak tokens in memory. Existing local accounts are not automatically merged with Keycloak identities. Authentication mode is stored in PostgreSQL: LOCAL disables provider sign-in, OIDC uses Keycloak, and HYBRID keeps both methods available. Remote Keycloak and issuer URLs must use HTTPS; HTTP is accepted only for loopback development.
+
+If a provider configuration locks out administrators, first take a database backup, then have an operator with direct database access switch the persisted setting to LOCAL:
+
+```sql
+INSERT INTO "OidcSettings" ("id", "mode", "enabled", "updatedAt")
+VALUES ('default', 'LOCAL', false, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO UPDATE
+SET "mode" = 'LOCAL', "enabled" = false, "updatedAt" = CURRENT_TIMESTAMP;
+```
+
+Local sign-in also requires `LOCAL_AUTH_ENABLED=true` and an enabled local-password account whose username appears in `ADMIN_USERNAMES`. If either prerequisite is absent, restore a usable local administrator through the approved operator process before switching modes; never put passwords in SQL or logs. Once access is restored, correct the provider configuration and select the intended mode through the administrator settings API.
 
 ## ibisOffice preview
 

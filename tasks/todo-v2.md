@@ -49,6 +49,10 @@ Follow-up completion evidence (2026-11-12): Completed the V2-03 boundary audit, 
 
 Scope alignment and final verification (2026-11-12): Per user approval, moved only password-reset session revocation from V2-04 to V2-12; password changes/resets there must increment `sessionVersion`. V2-04 now covers persistent enablement, disablement/session-version enforcement for local and OIDC identities, and migration preservation, and is checked based on the prior populated PostgreSQL rehearsal, local revocation tests, and recorded real-Keycloak-token verification. Final local API build and full suite passed (54 passed, 2 skipped because disposable PostgreSQL/Keycloak URLs are not configured); root build, web typecheck/build, Prisma validation and `git diff --check` passed. The default Chromium launcher could not start four interactive tests (`spawn UNKNOWN`), while one static test passed; rerunning the frontend suite using the installed Edge channel passed 5/5. The earlier Edge Playwright run (13/13) and deployed 390px workflow remain the broader UI evidence. Vite reports a 581.47 kB chunk-size warning.
 
+Implementation evidence (2026-11-12, account, audit and history API): Completed V2-11–V2-13 with user detail editing/enablement, local password change/reset, and redacted transactional audit records; added matching Prisma migration and newest-first built-in Changelog entry. API build and full suite passed (79 passed, 2 skipped for optional Keycloak and disposable database configuration); Prisma validation passed; Edge Playwright frontend suite passed (7/7). A disposable local PostgreSQL 16 rehearsal deployed the migration and verified user detail, account update/disable revocation, persisted owner password change and admin reset, audit records for account/password/Base/authentication mutations, redaction, and actor deletion retaining the audit row with `actorId` set null. Completed V2-18’s owner-scoped history query API with combined search/filter/sort/pagination and validation; its focused and full API regressions passed. The PostgreSQL test is reproducible with `V2_TEST_DATABASE_URL`; real Keycloak and deployed-stack verification are not needed by these four tasks and remain future integration scope. Vite retains the existing ~591 kB chunk-size warning.
+
+Implementation evidence (2026-11-12, authentication modes): Completed V2-14 with a persisted LOCAL/OIDC/HYBRID mode, backward-compatible enabled-to-HYBRID migration, validated provider configuration and safe issuer URLs, administrator-only audited updates, and database lockout-recovery guidance. API build, Prisma validation and full API suite passed (88 passed, 2 skipped); web typecheck/build passed (Vite reports a 591.60 kB chunk warning). A PostgreSQL 16 rehearsal deployed the migration over a legacy enabled OIDC row and verified HYBRID preservation, persisted settings on a fresh service instance, and the audit record. Mode/config/API tests passed; the optional live Keycloak-token test remains skipped because no disposable provider URL/credentials are configured.
+
 **Checkpoint A:** Schema validates, authentication regression checks pass, and existing users can still sign in.
 
 ## Navigation and settings structure
@@ -95,19 +99,19 @@ Scope alignment and final verification (2026-11-12): Per user approval, moved on
   - Verify: combined search/filter/order/page requests, isolation/access checks, empty/loading states.
   - Dependencies: 05, 09. Files: admin user list service/DTO/client/page.
 
-- [ ] **V2-11 — Deliver user detail editing and enable toggle (M)**
+- [x] **V2-11 — Deliver user detail editing and enable toggle (M)**
   - Add user view/edit form with GID rules, username, email, Base, and enabled status.
   - Acceptance: changes persist; disabling revokes access; last usable administrator protected; rejected toggles roll back in UI.
   - Verify: validation/uniqueness/role checks and active-session disable flow.
   - Dependencies: 04, 10. Files: user detail API/DTO/UI, session enforcement.
 
-- [ ] **V2-12 — Deliver local password management (M)**
+- [x] **V2-12 — Deliver local password management (M)**
   - Add separate administrator reset and owner password-change flows with approved password policy and identity-aware UI.
   - Acceptance: owner change verifies current password; admins cannot retrieve passwords; OIDC-only credentials route to provider management; password changes and resets revoke local sessions by incrementing `sessionVersion`.
   - Verify: weak/oversized/password-reuse-policy cases as applicable, incorrect-current-password, authorization, redacted logs.
   - Dependencies: 03–04, 11. Files: password/auth service/DTOs, user detail/profile account components.
 
-- [ ] **V2-13 — Add management audit records (M)**
+- [x] **V2-13 — Add management audit records (M)**
   - Record actor, action, target and redacted changes for user/Base/authentication mutations.
   - Acceptance: audit survives actor removal; mutation/audit consistency defined; passwords/tokens/secrets excluded.
   - Verify: audit entries for successful operations, no sensitive payloads, FK/index migration checks.
@@ -117,49 +121,59 @@ Scope alignment and final verification (2026-11-12): Per user approval, moved on
 
 ## Authentication settings and sessions
 
-- [ ] **V2-14 — Persist local/OIDC/hybrid modes (M)**
+- [x] **V2-14 — Persist local/OIDC/hybrid modes (M)**
   - Extend existing OidcSettings model and APIs with one coherent authentication mode and validated Keycloak parameters.
   - Acceptance: settings survive restarts; malformed/unsafe issuer URLs rejected; existing access preserved on migration; lockout recovery documented.
   - Verify: mode/config combinations, admin authorization and audit records.
   - Dependencies: 03–04, 06, 13. Files: existing authentication settings DTO/service/controller, Prisma migration.
 
-- [ ] **V2-15 — Build authentication settings and conditional Login (M)**
+- [x] **V2-15 — Build authentication settings and conditional Login (M)**
   - Add full-page settings controls for provider URL, realm, client ID, issuer and required group; apply the selected mode to Login.
   - Acceptance: LOCAL hides OIDC; OIDC displays provider-only login; HYBRID displays both; invalid config cannot be activated; disabled users remain blocked.
   - Verify: browser mode switching, Keycloak exchange/callback and configuration failure states.
   - Dependencies: 14. Files: authentication settings page, LoginScreen, ModernApp OIDC initialization.
 
-- [ ] **V2-16 — Handle session expiry globally (M)**
+Implementation evidence (2026-11-12): Edge Playwright authentication-settings suite passed (30/30), covering mode switching, unsafe/incomplete config rejection, load/retry failures, responsive/keyboard/localized settings, PKCE callback success/failure, exchange failures, and disabled-account behavior. A disposable local Keycloak 26.2.5 integration passed (1/1), verifying provider token validation, app-session exchange and disabled-user rejection. V2-14's PostgreSQL rehearsal verified persisted mode settings; the synchronized UI history is in migration `20261112123000_v2_authentication_ui` and `initialHistory`. Deployment-level verification remains blocked: the currently running API's `/excel-convert/auth/oidc/config` returned HTTP 500, and its database has only `20261110131804_initial_platform` applied, not the V2 migrations. No deployment database was modified.
+
+- [x] **V2-16 — Handle session expiry globally (M)**
   - Centralize typed 401/session-expiry handling for requests, polling, previews/downloads and other authenticated transports.
   - Acceptance: clear credentials and logout once; no invalid-session errors rendered inside page content; 403 stays permission denial; no redirect loop.
   - Verify: expired/revoked sessions during list load, polling, save, preview and download; both auth providers.
   - Dependencies: 04–05, 15. Files: API client/tracked fetch, session owner in ModernApp, preview/download callers.
 
+Implementation evidence (2026-11-12): Added a typed 401 error and shared authenticated-fetch event handler; local and Keycloak-exchanged app sessions now clear credentials once, stop polling, show a Login expiry message, preserve only an allowlisted internal route, and leave 403 errors as permission denials. Edge Playwright task suite passed independently (7/7); the implementer also ran the combined session/authentication/frontend suite (44/44), web TypeScript check, production build and `git diff --check` successfully. The new fallback/migration history entry is synchronized in migration `20261112124500_v2_session_expiry` and `initialHistory`. No live deployment was changed or certified; the active API database remains on the initial migration only.
+
 ## Personal experience and history
 
-- [ ] **V2-17 — Consolidate personal home into Profile (M)**
+- [x] **V2-17 — Consolidate personal home into Profile (M)**
   - Remove the standalone Profile heading/subtitle; keep professional identity banner, read-only tabs and explicit Edit info. Add New translation.
   - Acceptance: New translation opens Workspace; personal statistics remain owner-scoped; Dashboard nav/component is retired and old URLs redirect to Profile; login/root still land on Workspace.
   - Verify: navigation, profile edits, dashboard data ownership, mobile and three-language review.
   - Dependencies: 05, 12, 16. Files: ProfilePage, DashboardPage consumers, ModernApp, app shell and CSS/locales.
 
-- [ ] **V2-18 — Add history query API (M)**
+Implementation evidence (2026-11-12): Edge Playwright V2-17 cases passed (3/3), and 11/11 related Profile, legacy-route, root/login and session-expiry browser cases passed after review added a semantic h1 for the user's identity. The focused API suite passed 7/7, including database job-list owner scoping. Tests cover legacy `/dashboard` redirection with query preservation, direct refresh/back/forward, Workspace as root/login destination, read-only details/edit flow, New translation, and English/Japanese/Chinese at a 390px viewport. Web TypeScript check, production build and `git diff --check` passed; Vite retains its >500 kB chunk advisory. The Changelog entry is synchronized in migration `20261112130500_v2_profile_home` and newest-first `initialHistory`. No deployed database or browser environment was modified or certified.
+
+- [x] **V2-18 — Add history query API (M)**
   - Extend owner-scoped history with filename/metadata search, source/target language filters, supported column sorting and bounded page sizes 10–50.
   - Acceptance: count matches filters; deterministic ordering; unsupported sort/filter/limit rejected; no cross-user results.
   - Verify: combined filter/sort/pagination cases and injection/ownership checks.
   - Dependencies: 03, 05. Files: product-surfaces service/controller/DTO, API types/history client.
 
-- [ ] **V2-19 — Add history search and table controls (M)**
+- [x] **V2-19 — Add history search and table controls (M)**
   - Wire searchable/sortable table, language selectors and 10/20/30/40/50 page-size menu to URL query state.
   - Acceptance: default 10; changing filters/page size resets page; back/forward restores controls; stale responses cannot replace current results; previews/downloads still work.
   - Verify: browser combined controls, final/empty pages, keyboard/mobile/localization and session expiry.
   - Dependencies: 16, 18. Files: HistoryPage, API client/types, locale strings.
 
-- [ ] **V2-20 — Validate search indexes using actual queries (M)**
+Implementation evidence (2026-11-12): Independent focused Edge Playwright checks passed (3/3), covering combined URL-backed search/filter/sort/page size, page reset, browser back/forward, superseded response protection, final/empty result states, keyboard sorting, preview/download, and English/Japanese/Chinese mobile layouts. Web TypeScript check and production build passed; Vite reports its existing >500 kB chunk advisory. Related session-expiry browser coverage passed earlier (7/7 focused); `git diff --check` passed. Changelog migration `20261112131800_v2_history_controls` and `initialHistory` entry are synchronized and newest-first. Deployment-level verification remains unavailable; no deployment database was changed.
+
+- [x] **V2-20 — Validate search indexes using actual queries (M)**
   - Analyze user/Base/history searches and add justified FK/composite/trigram indexes in new migrations.
   - Acceptance: representative EXPLAIN plans documented; pg_trgm support checked if used; no redundant indexes added blindly.
   - Verify: representative seeded data, query plans, migration deployment and result correctness.
   - Dependencies: 10, 18–19. Files: Prisma schema/migration and performance notes.
+
+Implementation evidence (2026-11-12): PostgreSQL 16.15 with `pg_trgm` 1.6 available; populated local benchmark (50,002 users, 100,001 jobs, 5 Bases) showed the original user-search `OR` plan did not use trigram indexes (77.5 ms count / 66.8 ms ordered page). Splitting Base matching from user text search enabled GIN `BitmapOr` plans (0.46 ms count / 0.12 ms page); Base search remained a negligible 5-row scan. Filename history search used GIN (~0.12 ms); owner+language and default history used their composite indexes (index-only scans, ~0.04/~0.06 ms). Prior pre-migration filename scan was ~44 ms. Plans and limitations are documented in `project/docs/v2-search-index-validation.md`. Fresh disposable PostgreSQL migration/API integration and Changelog fallback parity passed (2/2), including index/extension deployment, Changelog synchronization, user search results, and owner-scoped history results. API suite passed 90/90 (2 optional Keycloak/disposable DB tests skipped); Prisma validation and full API/web production build passed. Vite retains its >500 kB chunk advisory. No deployed PostgreSQL/extension availability, production lock window, or production query-plan evidence; not production-certified.
 
 **Checkpoint D:** Mode-dependent login, automatic logout, profile navigation and shareable history queries work together.
 

@@ -23,16 +23,22 @@ services:
       PORT: 3000
       BASE_PATH: /excel-convert
       WEB_ORIGIN: http://127.0.0.1:43101
-      LOCAL_AUTH_ENABLED: 'true'
-      AUTH_BOOTSTRAP_ENABLED: 'true'
+      LOCAL_AUTH_ENABLED: "true"
+      AUTH_BOOTSTRAP_ENABLED: "true"
       AUTH_USERNAME: e2e-admin
       AUTH_PASSWORD: disposable-admin-password
       ADMIN_USERNAMES: e2e-admin
-      KEYCLOAK_ENABLED: 'false'
+      KEYCLOAK_ENABLED: "false"
       DATA_DIR: /tmp/e2e-data
     ports: ["127.0.0.1:43100:3000"]
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/excel-convert').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/excel-convert').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
       interval: 2s
       timeout: 3s
       retries: 30

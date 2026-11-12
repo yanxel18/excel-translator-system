@@ -1,5 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../persistence/prisma.service';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { PrismaService } from "../persistence/prisma.service";
 
 const PAGE_SIZE = 10;
 
@@ -8,30 +12,57 @@ export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(ownerId: string, cursor?: string) {
-    if (cursor && !(await this.prisma.notification.findFirst({ where: { id: cursor, userId: ownerId }, select: { id: true } }))) {
-      throw new BadRequestException('Invalid notification cursor.');
+    if (
+      cursor &&
+      !(await this.prisma.notification.findFirst({
+        where: { id: cursor, userId: ownerId },
+        select: { id: true },
+      }))
+    ) {
+      throw new BadRequestException("Invalid notification cursor.");
     }
     const where = { userId: ownerId };
     const [items, total] = await Promise.all([
       this.prisma.notification.findMany({
-        where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: PAGE_SIZE + 1,
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: PAGE_SIZE + 1,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        select: { id: true, jobId: true, type: true, title: true, message: true, isRead: true, createdAt: true },
+        select: {
+          id: true,
+          jobId: true,
+          type: true,
+          title: true,
+          message: true,
+          isRead: true,
+          createdAt: true,
+        },
       }),
       this.prisma.notification.count({ where }),
     ]);
     const hasMore = items.length > PAGE_SIZE;
     const data = items.slice(0, PAGE_SIZE);
-    return { data, total, nextCursor: hasMore ? data[data.length - 1].id : null };
+    return {
+      data,
+      total,
+      nextCursor: hasMore ? data[data.length - 1].id : null,
+    };
   }
 
   async countUnread(ownerId: string) {
-    return { count: await this.prisma.notification.count({ where: { userId: ownerId, isRead: false } }) };
+    return {
+      count: await this.prisma.notification.count({
+        where: { userId: ownerId, isRead: false },
+      }),
+    };
   }
 
   async markRead(ownerId: string, id: string) {
-    const result = await this.prisma.notification.updateMany({ where: { id, userId: ownerId }, data: { isRead: true } });
-    if (!result.count) throw new NotFoundException('Notification not found.');
+    const result = await this.prisma.notification.updateMany({
+      where: { id, userId: ownerId },
+      data: { isRead: true },
+    });
+    if (!result.count) throw new NotFoundException("Notification not found.");
     return { ok: true };
   }
 }

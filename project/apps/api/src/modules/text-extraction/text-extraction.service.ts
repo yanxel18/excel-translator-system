@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
-import JSZip = require('jszip');
-import { openWorkbookArchive } from '../workbook-ooxml/archive';
-import { extractWorkbookText, ExtractedText } from '../workbook-ooxml/text-extractor';
-import { getWorksheetParts, WorksheetPart } from '../workbook-ooxml/worksheet-parts';
+import { Injectable } from "@nestjs/common";
+import JSZip = require("jszip");
+import { openWorkbookArchive } from "../workbook-ooxml/archive";
+import {
+  extractWorkbookText,
+  ExtractedText,
+} from "../workbook-ooxml/text-extractor";
+import {
+  getWorksheetParts,
+  WorksheetPart,
+} from "../workbook-ooxml/worksheet-parts";
 
-export { ExtractedText } from '../workbook-ooxml/text-extractor';
+export { ExtractedText } from "../workbook-ooxml/text-extractor";
 
 @Injectable()
 export class TextExtractionService {
@@ -21,7 +27,10 @@ export class TextExtractionService {
     return (await this.getWorksheetParts(zip)).map(({ name }) => name);
   }
 
-  async extractTextFromXlsx(fileBuffer: Buffer, selectedSheets?: string[]): Promise<ExtractedText[]> {
+  async extractTextFromXlsx(
+    fileBuffer: Buffer,
+    selectedSheets?: string[],
+  ): Promise<ExtractedText[]> {
     const zip = await this.openWorkbook(fileBuffer);
     const worksheets = await this.getWorksheetParts(zip);
     return extractWorkbookText(zip, worksheets, selectedSheets);

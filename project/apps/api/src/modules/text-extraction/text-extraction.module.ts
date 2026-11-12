@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { TextExtractionController } from './text-extraction.controller';
-import { TextExtractionService } from './text-extraction.service';
-import { AuthenticationModule } from '../authentication/authentication.module';
+import { Module } from "@nestjs/common";
+import { TextExtractionController } from "./text-extraction.controller";
+import { TextExtractionService } from "./text-extraction.service";
+import { AuthenticationModule } from "../authentication/authentication.module";
 
 @Module({
   imports: [AuthenticationModule],

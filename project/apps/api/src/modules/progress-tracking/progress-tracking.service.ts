@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
 @Injectable()
 export class ProgressTrackingService {
@@ -20,7 +20,7 @@ export class ProgressTrackingService {
     if (!progress) {
       return null;
     }
-    
+
     // Simulate recovery process
     return {
       ...progress,

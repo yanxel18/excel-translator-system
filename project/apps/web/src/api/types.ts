@@ -1,8 +1,8 @@
-export type Language = 'ENGLISH' | 'JAPANESE' | 'CHINESE';
+export type Language = "ENGLISH" | "JAPANESE" | "CHINESE";
 
 export interface Job {
   id: string;
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "CANCELLED" | "FAILED";
   fileName: string;
   fileSize: number;
   progress: number;
@@ -65,7 +65,7 @@ export interface HistoryPage {
 
 export interface WorkbookPreview {
   fileName: string;
-  version: 'source' | 'translated';
+  version: "source" | "translated";
   sheets: { name: string; rows: string[][] }[];
 }
 
@@ -76,16 +76,21 @@ export interface UserProfile {
   fullName: string | null;
   createdAt: string;
   isAdmin: boolean;
+  identityProviders?: string[];
+  hasLocalPassword?: boolean;
 }
 
+export type AuthenticationMode = "LOCAL" | "OIDC" | "HYBRID";
+
 export interface OidcPublicConfig {
+  mode: AuthenticationMode;
   enabled: boolean;
   url: string;
   realm: string;
   clientId: string;
 }
 
-export interface OidcAdminSettings extends Omit<OidcPublicConfig, 'url'> {
+export interface OidcAdminSettings extends Omit<OidcPublicConfig, "url"> {
   keycloakUrl: string;
   issuerUrl: string;
   requiredGroup: string;
