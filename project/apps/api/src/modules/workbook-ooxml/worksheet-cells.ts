@@ -1,6 +1,12 @@
-export function hasAttribute(attributes: string, name: string, expected: string): boolean {
-  const escapedName = name.replace(':', '\\:');
-  return new RegExp(`(?:^|\\s)${escapedName}=(['"])${expected}\\1`).test(attributes);
+export function hasAttribute(
+  attributes: string,
+  name: string,
+  expected: string,
+): boolean {
+  const escapedName = name.replace(":", "\\:");
+  return new RegExp(`(?:^|\\s)${escapedName}=(['"])${expected}\\1`).test(
+    attributes,
+  );
 }
 
 export function sharedStringIndex(cellXml: string): number | undefined {

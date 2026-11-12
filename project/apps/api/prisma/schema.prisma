@@ -26,6 +26,12 @@ enum IdentityProvider {
   KEYCLOAK
 }
 
+enum AuthenticationMode {
+  LOCAL
+  OIDC
+  HYBRID
+}
+
 enum NotificationType {
   JOB_QUEUED
   JOB_PROGRESS
@@ -51,9 +57,13 @@ model User {
   jobs           TranslationJob[]
   vocabulary     VocabularyGroup[]
   notifications  Notification[]
+  managementAudits ManagementAudit[]
 
   @@index([createdAt])
   @@index([baseId])
+  @@index([gid(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_gid_trgm_idx")
+  @@index([username(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_username_trgm_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_email_trgm_idx")
 }
 
 model Base {
@@ -69,6 +79,7 @@ model UserIdentity {
   id        String           @id @default(uuid())
   provider  IdentityProvider
   subject   String
+  providerUsername String?
   userId    String
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -79,6 +90,7 @@ model UserIdentity {
 
 model OidcSettings {
   id            String   @id @default("default")
+  mode          AuthenticationMode @default(LOCAL)
   enabled       Boolean  @default(false)
   keycloakUrl   String?
   realm         String?
@@ -86,6 +98,20 @@ model OidcSettings {
   issuerUrl     String?
   requiredGroup String?
   updatedAt     DateTime @updatedAt
+}
+
+model ManagementAudit {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String
+  targetId   String
+  changes    Json
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
 }
 
 model TranslationJob {
@@ -114,7 +140,9 @@ model TranslationJob {
   sheets            JobSheet[]
   notifications     Notification[]
 
-  @@index([ownerId, createdAt])
+  @@index([ownerId, createdAt, id], map: "TranslationJob_ownerId_createdAt_id_idx")
+  @@index([ownerId, sourceLanguage, targetLanguage, createdAt, id], map: "TranslationJob_owner_langs_created_id_idx")
+  @@index([fileName(ops: raw("gin_trgm_ops"))], type: Gin, map: "TranslationJob_fileName_trgm_idx")
   @@index([ownerId, status, completedAt])
   @@index([vocabularyGroupId])
 }

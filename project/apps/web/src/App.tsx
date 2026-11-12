@@ -1,4 +1,4 @@
-import ModernApp from './ModernApp';
+import ModernApp from "./ModernApp";
 
 export default function App() {
   return <ModernApp />;
