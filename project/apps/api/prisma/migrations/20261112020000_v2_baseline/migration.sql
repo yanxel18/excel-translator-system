@@ -1,0 +1,2 @@
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+  ('changelog-20261112-v2-baseline', 'Prepare the Version 2 development baseline', 'Fixed a Workspace layout type error and documented the account, access, and migration rules for Version 2. The existing notification test failure is recorded for follow-up.', '2026-11-12T02:00:00.000Z', '2026-11-12T02:00:00.000Z');

@@ -67,7 +67,7 @@ export default function WorkspacePage({
     </Paper>
     {file && <Group justify="flex-end"><Button onClick={onUpload} loading={busy} leftSection={<CloudUpload size={16} />}>{t('Upload workbook')}</Button></Group>}
 
-    <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" align="start">
+    <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" style={{ alignItems: 'start' }}>
       <Stack gap="sm">
         <Group justify="space-between" align="end"><Box><Text component="h2" fz={18} fw={600}>{t('Ongoing')}</Text><Text size="sm" c="dimmed">{t('Translations waiting to start or currently processing.')}</Text></Box><Button variant="default" size="xs" onClick={onRefresh} loading={jobsLoading}>{t('Refresh')}</Button></Group>
         {jobsLoading ? <LoadingJobs /> : <div aria-live="polite"><JobList jobs={ongoingJobs} busy={busy} onStart={onStart} onRetry={onRetry} onCancel={onCancel} onDownload={onDownload} onConfigure={onConfigure} onView={setPreviewJob} /></div>}
