@@ -28,6 +28,12 @@ test('REST authentication and profile inputs reject unknown fields and preserve 
     assert.equal((await post('/auth/login', { username: 'user', password: ' pass\nword ' })).status, 201);
     assert.deepEqual(loginArguments, ['user', ' pass\nword ']);
     assert.equal((await post('/auth/login', { username: 123, password: 'x' })).status, 400);
+    assert.equal((await post('/auth/login', { username: 'x'.repeat(1025), password: 'valid' })).status, 400);
+    assert.equal((await post('/auth/login', { username: 'user', password: 'x'.repeat(1025) })).status, 400);
+    assert.equal((await post('/auth/login', { username: 'user', password: ' '.repeat(1024) })).status, 201);
+    assert.equal(loginArguments[1], ' '.repeat(1024));
+    assert.equal((await post('/auth/oidc/exchange', { accessToken: 'x'.repeat(32769) })).status, 400);
+    assert.equal((await post('/auth/verify', { token: 'x'.repeat(32769) })).status, 400);
     assert.equal((await post('/auth/oidc/exchange', { accessToken: 1 })).status, 400);
     assert.equal((await post('/auth/verify', { token: [] })).status, 400);
     assert.equal((await post('/auth/oidc/settings', { enabled: false, unknown: true }, 'PATCH')).status, 400);

@@ -19,17 +19,17 @@ export async function mountProductSurfacesGraphql(app: INestApplication): Promis
   });
   app.use(graphqlPath, createHandler({
     schema,
-    context: (req) => ({ req }),
+    context: (req) => ({ req: req.raw }),
     rootValue: {
-      history: (_root, args, context) => resolver.history(context, args.cursor),
-      profile: (_root, _args, context) => resolver.profile(context),
-      notifications: (_root, args, context) => resolver.notifications(context, args.cursor),
-      changelog: (_root, args) => resolver.changelog(args.cursor),
-      preview: (_root, args, context) => resolver.preview(context, args.jobId, args.version),
-      downloadUrl: (_root, args, context) => resolver.downloadUrl(context, args.jobId),
-      deleteHistoryItem: (_root, args, context) => resolver.deleteHistoryItem(context, args.id),
-      updateProfile: (_root, args, context) => resolver.updateProfile(context, args.fullName, args.email),
-      markNotificationRead: (_root, args, context) => resolver.markNotificationRead(context, args.id),
+      history: (args, context) => resolver.history(context, args.cursor),
+      profile: (_args, context) => resolver.profile(context),
+      notifications: (args, context) => resolver.notifications(context, args.cursor),
+      changelog: (args) => resolver.changelog(args.cursor),
+      preview: (args, context) => resolver.preview(context, args.jobId, args.version),
+      downloadUrl: (args, context) => resolver.downloadUrl(context, args.jobId),
+      deleteHistoryItem: (args, context) => resolver.deleteHistoryItem(context, args.id),
+      updateProfile: (args, context) => resolver.updateProfile(context, args.fullName, args.email),
+      markNotificationRead: (args, context) => resolver.markNotificationRead(context, args.id),
     },
   }));
 }

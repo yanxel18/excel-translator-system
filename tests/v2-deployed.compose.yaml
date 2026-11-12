@@ -1,0 +1,51 @@
+# Disposable, loopback-only stack for tests/v2-deployed.test.ts.
+# Start: docker compose -p v2e2edisposable -f tests/v2-deployed.compose.yaml up -d --build
+# Test: set V2_DEPLOYED_E2E=1 and PLAYWRIGHT_CHANNEL=chrome, then run npx playwright test tests/v2-deployed.test.ts
+# Stop: docker compose -p v2e2edisposable -f tests/v2-deployed.compose.yaml down
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: e2e
+      POSTGRES_PASSWORD: disposable_test_only
+      POSTGRES_DB: v2_e2e
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U e2e -d v2_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    build: ../project/apps/api
+    command: sh -c "npm run db:deploy && npm run start"
+    environment:
+      DATABASE_URL: postgresql://e2e:disposable_test_only@db:5432/v2_e2e?schema=public
+      JWT_SECRET: disposable-e2e-jwt-secret-only
+      PORT: 3000
+      BASE_PATH: /excel-convert
+      WEB_ORIGIN: http://127.0.0.1:43101
+      LOCAL_AUTH_ENABLED: 'true'
+      AUTH_BOOTSTRAP_ENABLED: 'true'
+      AUTH_USERNAME: e2e-admin
+      AUTH_PASSWORD: disposable-admin-password
+      ADMIN_USERNAMES: e2e-admin
+      KEYCLOAK_ENABLED: 'false'
+      DATA_DIR: /tmp/e2e-data
+    ports: ["127.0.0.1:43100:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/excel-convert').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    build:
+      context: ../project/apps/web
+      args:
+        VITE_API_URL: http://127.0.0.1:43100/excel-convert
+        VITE_BASE_PATH: /excel-convert/
+    ports: ["127.0.0.1:43101:80"]
+    depends_on:
+      api:
+        condition: service_healthy
