@@ -1,0 +1,2 @@
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+  ('changelog-20261112-v2-validation-feedback', 'Explain account and Base input requirements', 'Administrator forms now explain invalid account and Base values before saving, support valid Japanese and Chinese names, and preserve password input exactly. Shared API validation also rejects unknown profile fields and enforces consistent management page sizes.', '2026-11-12T10:50:00.000Z', '2026-11-12T10:50:00.000Z');

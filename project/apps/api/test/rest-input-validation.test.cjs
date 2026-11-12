@@ -49,5 +49,6 @@ test('profile validation rejects invalid email and oversized names while accepti
   const service = new ProductSurfacesService({ user: { update: async ({ data }) => data } });
   await assert.rejects(service.updateProfile('u', { email: 'invalid' }), (error) => error.status === 400);
   await assert.rejects(service.updateProfile('u', { fullName: 'x'.repeat(121) }), (error) => error.status === 400);
+  await assert.rejects(service.updateProfile('u', { fullName: '山田', unexpected: true }), (error) => error.status === 400);
   assert.deepEqual(await service.updateProfile('u', { fullName: '山田 太郎' }), { fullName: '山田 太郎' });
 });

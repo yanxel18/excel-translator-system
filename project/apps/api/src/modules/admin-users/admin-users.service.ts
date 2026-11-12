@@ -1,10 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { choice, pageNumber, requiredEmail, requiredText, strictObject, uuid } from '../../common/management-validation';
+import { choice, pageNumber, pageSize, requiredEmail, requiredText, strictObject, uuid } from '../../common/management-validation';
 import { hashPassword } from '../authentication/passwords';
 import { PrismaService } from '../persistence/prisma.service';
 
 const userSelect = { id: true, gid: true, username: true, email: true, baseId: true, enabled: true, base: { select: { id: true, code: true, name: true } } };
-const pageSizes = ['10', '20', '30', '40', '50'] as const;
 const sortFields = ['gid', 'username', 'email', 'base', 'enabled'] as const;
 
 @Injectable()
@@ -64,7 +63,7 @@ export class AdminUsersService {
     const sort = choice(query.sort ?? 'username', sortFields, 'sort');
     const direction = choice(query.direction ?? 'asc', ['asc', 'desc'] as const, 'direction');
     const page = pageNumber(query.page, 1, 100000);
-    const pageSize = Number(choice(query.pageSize ?? '10', pageSizes, 'page size'));
+    const size = pageSize(query.pageSize);
     const where: any = { ...(baseId ? { baseId } : {}), ...(enabled === undefined ? {} : { enabled }) };
     if (q) where.OR = [
       { gid: { contains: q, mode: 'insensitive' } }, { username: { contains: q, mode: 'insensitive' } },
@@ -74,7 +73,7 @@ export class AdminUsersService {
     ];
     const orderBy: any = [sort === 'base' ? { base: { name: direction } } : { [sort]: direction }, { id: 'asc' }];
     const users = this.prisma.user as any;
-    const [data, total] = await Promise.all([users.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize, select: userSelect }), users.count({ where })]);
-    return { data, total, page, pageSize };
+    const [data, total] = await Promise.all([users.findMany({ where, orderBy, skip: (page - 1) * size, take: size, select: userSelect }), users.count({ where })]);
+    return { data, total, page, pageSize: size };
   }
 }

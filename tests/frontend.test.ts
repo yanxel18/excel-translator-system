@@ -62,11 +62,15 @@ test('administrator settings preserve list state and support management actions'
   const base = { id: '11111111-1111-1111-1111-111111111111', code: 'JTY', name: 'JTY' };
   const user = { id: '22222222-2222-2222-2222-222222222222', gid: 'G123', username: 'alice', email: 'alice@example.com', baseId: null, base: null, enabled: true };
   const writes: string[] = [];
+  let createdUser: Record<string, string> | undefined;
+  let savedBase: Record<string, string> | undefined;
   await page.route(`${apiBaseUrl}/**`, async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(new URL(apiBaseUrl).pathname, '');
     const method = route.request().method();
     if (method !== 'GET') writes.push(`${method} ${path}`);
+    if (method === 'POST' && path === '/admin/users') createdUser = route.request().postDataJSON();
+    if (method === 'POST' && path === '/admin/bases') savedBase = route.request().postDataJSON();
     const body = path === '/profile' ? { id: 'admin', username: 'admin', isAdmin: true }
       : path === '/admin/bases' && method === 'GET' ? { data: [base], total: 1, page: 1, pageSize: 50 }
       : path === '/admin/users' && method === 'GET' ? { data: [user], total: 1, page: 1, pageSize: 10 }
@@ -102,22 +106,36 @@ test('administrator settings preserve list state and support management actions'
   expect(writes).toContain(`PATCH /admin/users/${user.id}/base`);
   await page.getByRole('button', { name: 'Create user' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('GID').fill('G123');
-  await dialog.getByLabel('Username').fill('alice');
+  await dialog.getByLabel('GID').fill(' G123 ');
+  await dialog.getByLabel('Username').fill('　 ');
   await dialog.getByLabel('Email').fill('alice@example.com');
   await dialog.getByLabel('Base').click();
   await page.getByRole('option', { name: /JTY/ }).click();
-  await dialog.getByLabel('Password').fill('twelvecharacters');
+  const exactPassword = '  twelvecharacters　';
+  await dialog.getByLabel('Password').fill(exactPassword);
+  await expect(dialog.getByLabel('Password')).toHaveAttribute('minlength', '12');
+  await expect(dialog.getByLabel('Password')).toHaveAttribute('maxlength', '128');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog.getByLabel('Username')).toHaveAttribute('aria-invalid', 'true');
+  expect(writes).not.toContain('POST /admin/users');
+  await expect(dialog.getByLabel('Password')).toHaveValue(exactPassword);
+  await dialog.getByLabel('Username').fill(' 山田・张伟 ');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('User created.')).toBeVisible();
+  expect(createdUser).toMatchObject({ gid: 'G123', username: '山田・张伟', password: exactPassword });
   expect(writes).toContain('POST /admin/users');
   await page.getByRole('button', { name: 'Bases', exact: true }).click();
   await expect(page).toHaveURL(/settings\/bases/);
   await page.getByRole('button', { name: 'Create base' }).click();
   await dialog.getByLabel('Code').fill('NEW');
-  await dialog.getByLabel('Name').fill('New base');
+  await dialog.getByLabel('Name').fill('　 ');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog.getByLabel('Name')).toHaveAttribute('aria-invalid', 'true');
+  expect(writes).not.toContain('POST /admin/bases');
+  await dialog.getByLabel('Name').fill(' 東京・上海 ');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Base saved.')).toBeVisible();
+  expect(savedBase).toEqual({ code: 'NEW', name: '東京・上海' });
   expect(writes).toContain('POST /admin/bases');
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await dialog.getByLabel('Name').fill('Edited base');
@@ -146,4 +164,50 @@ test('unknown routes offer a real Workspace path and settings deny normal users'
   await page.goto(`${webBasePath}settings/users`);
   await expect(page.getByText('Administrator access is required.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'System Settings' })).toHaveCount(0);
+});
+
+test('administrator user list supports keyboard sorting and preserves combined filters while paging', async ({ page }) => {
+  const baseId = '11111111-1111-1111-1111-111111111111';
+  const user = { id: '22222222-2222-2222-2222-222222222222', gid: 'G123', username: 'alice', email: 'alice@example.com', baseId, base: { id: baseId, code: 'JTY', name: 'Tokyo' }, enabled: true };
+  const requests: URLSearchParams[] = [];
+  await page.addInitScript(() => localStorage.setItem('excel-translator-token', 'ui-test-token'));
+  await page.route(`${apiBaseUrl}/**`, async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(new URL(apiBaseUrl).pathname, '');
+    let body: unknown = [];
+    if (path === '/profile') body = { id: 'admin', username: 'admin', isAdmin: true };
+    if (path === '/admin/bases') body = { data: [{ id: baseId, code: 'JTY', name: 'Tokyo' }], total: 1, page: 1, pageSize: 50 };
+    if (path === '/admin/users') {
+      requests.push(new URLSearchParams(url.searchParams));
+      body = { data: [user], total: 41, page: Number(url.searchParams.get('page') || 1), pageSize: Number(url.searchParams.get('pageSize') || 10) };
+    }
+    if (path === '/notifications/unread-count') body = { count: 0 };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+
+  await page.goto(`${webBasePath}settings/users?q=alice&baseId=${baseId}&enabled=true&page=2&pageSize=10&sort=username&direction=asc`);
+  await expect(page.getByText('alice', { exact: true })).toBeVisible();
+  await expect.poll(() => requests.length).toBeGreaterThan(0);
+  expect(Object.fromEntries(requests[0])).toMatchObject({ q: 'alice', baseId, enabled: 'true', page: '2', pageSize: '10', sort: 'username', direction: 'asc' });
+
+  const gidSort = page.getByRole('button', { name: /GID/ });
+  await gidSort.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/sort=gid/);
+  await expect(page).not.toHaveURL(/page=2/);
+  await expect(page.getByRole('columnheader', { name: /GID/ })).toHaveAttribute('aria-sort', 'ascending');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/direction=desc/);
+  await expect(page.getByRole('columnheader', { name: /GID/ })).toHaveAttribute('aria-sort', 'descending');
+
+  await page.getByRole('button', { name: '2', exact: true }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect.poll(() => requests.at(-1)?.get('page')).toBe('2');
+  expect(Object.fromEntries(requests.at(-1)!)).toMatchObject({ q: 'alice', baseId, enabled: 'true', page: '2', pageSize: '10', sort: 'gid', direction: 'desc' });
+
+  const basesNavigation = page.getByRole('navigation', { name: 'System Settings' }).getByRole('button', { name: 'Bases' });
+  await basesNavigation.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/settings\/bases/);
+  await expect(basesNavigation).toHaveAttribute('aria-current', 'page');
 });

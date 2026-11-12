@@ -64,6 +64,22 @@ test('validates list query and forwards combined filters and stable ordering', a
   assert.deepEqual(query.orderBy, [{ base: { name: 'desc' } }, { id: 'asc' }]);
   assert.equal(query.where.baseId, baseId);
   assert.equal(query.where.enabled, true);
+  assert.deepEqual(query.where.OR, [
+    { gid: { contains: '山田', mode: 'insensitive' } },
+    { username: { contains: '山田', mode: 'insensitive' } },
+    { email: { contains: '山田', mode: 'insensitive' } },
+    { base: { is: { code: { contains: '山田', mode: 'insensitive' } } } },
+    { base: { is: { name: { contains: '山田', mode: 'insensitive' } } } },
+  ]);
+  await service.list({ q: 'disabled' });
+  assert.deepEqual(query.where.OR, [
+    { gid: { contains: 'disabled', mode: 'insensitive' } },
+    { username: { contains: 'disabled', mode: 'insensitive' } },
+    { email: { contains: 'disabled', mode: 'insensitive' } },
+    { base: { is: { code: { contains: 'disabled', mode: 'insensitive' } } } },
+    { base: { is: { name: { contains: 'disabled', mode: 'insensitive' } } } },
+    { enabled: false },
+  ]);
   await assert.rejects(service.list({ sort: 'passwordHash' }), BadRequestException);
   await assert.rejects(service.list({ pageSize: '11' }), BadRequestException);
 });

@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { json } from 'express';
 import { GraphQLSchemaFactory } from '@nestjs/graphql';
 import { createHandler } from 'graphql-http/lib/use/express';
 import { AuthenticationService } from '../authentication/authentication.service';
@@ -11,11 +12,21 @@ export async function mountProductSurfacesGraphql(app: INestApplication): Promis
   const resolver = app.get(ProductSurfacesResolver);
   const authentication = app.get(AuthenticationService);
 
+  app.use(graphqlPath, json());
   app.use(graphqlPath, async (req, res, next) => {
     const token = (req.headers.authorization as string | undefined)?.match(/^Bearer\s+(.+)$/i)?.[1];
     if (!token) return res.status(401).json({ message: 'A bearer token is required.' });
     try { (req as any).user = await authentication.verifySession(token); next(); }
     catch { return res.status(401).json({ message: 'Session is invalid or expired.' }); }
+  });
+  app.use(graphqlPath, (req, res, next) => {
+    const allowed = new Set(['query', 'variables', 'operationName', 'extensions']);
+    const unknownBodyField = req.method === 'POST' && req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      && Object.keys(req.body).some((key) => !allowed.has(key));
+    const url = new URL(req.originalUrl, `http://${req.headers.host || 'localhost'}`);
+    const unknownQueryField = req.method === 'GET' && Array.from(url.searchParams.keys()).some((key) => !allowed.has(key));
+    if (unknownBodyField || unknownQueryField) return res.status(400).json({ errors: [{ message: 'Unexpected GraphQL request field.' }] });
+    return next();
   });
   app.use(graphqlPath, createHandler({
     schema,
