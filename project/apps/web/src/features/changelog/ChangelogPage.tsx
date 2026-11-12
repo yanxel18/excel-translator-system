@@ -5,6 +5,7 @@ import ApiService, { type ChangelogEntry } from '../../api';
 import { useLocale } from '../shared/LocaleProvider';
 
 const initialHistory: ChangelogEntry[] = [
+  { id: 'changelog-20261112-v2-settings-hardening', title: 'Improve Version 2 settings and navigation', details: 'Improved account and Base management feedback, strengthened request validation and progress ownership checks, and fixed direct navigation through the deployed application path.', publishedAt: '2026-11-12T03:00:00.000Z' },
   { id: 'changelog-20261112-v2-management-foundation', title: 'Add Version 2 management foundations', details: 'Added administrator settings for managing Bases and registering and finding users, shareable page navigation, account session checks, and stronger validation for several API inputs. Further integration and accessibility verification is in progress.', publishedAt: '2026-11-12T02:20:00.000Z' },
   { id: 'changelog-20261112-notification-test', title: 'Update notification pagination checks', details: 'Updated the notification regression checks to cover ten-item pages and the total count returned by the current notification list.', publishedAt: '2026-11-12T02:10:00.000Z' },
   { id: 'changelog-20261112-v2-baseline', title: 'Prepare the Version 2 development baseline', details: 'Fixed a Workspace layout type error and documented the account, access, and migration rules for Version 2. The existing notification test failure is recorded for follow-up.', publishedAt: '2026-11-12T02:00:00.000Z' },
