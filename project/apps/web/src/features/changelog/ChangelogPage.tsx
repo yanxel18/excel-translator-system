@@ -5,6 +5,7 @@ import ApiService, { type ChangelogEntry } from '../../api';
 import { useLocale } from '../shared/LocaleProvider';
 
 const initialHistory: ChangelogEntry[] = [
+  { id: 'changelog-20261112-notification-test', title: 'Update notification pagination checks', details: 'Updated the notification regression checks to cover ten-item pages and the total count returned by the current notification list.', publishedAt: '2026-11-12T02:10:00.000Z' },
   { id: 'changelog-20261112-v2-baseline', title: 'Prepare the Version 2 development baseline', details: 'Fixed a Workspace layout type error and documented the account, access, and migration rules for Version 2. The existing notification test failure is recorded for follow-up.', publishedAt: '2026-11-12T02:00:00.000Z' },
   { id: 'changelog-20261112-version-two-roadmap', title: 'Record the Version 2 implementation roadmap', details: 'Added a separate Version 2 plan and task checklist for administration, authentication, profile navigation, searchable history, security, branding, and footer improvements. These features are planned for implementation.', publishedAt: '2026-11-12T01:20:00.000Z' },
   { id: 'changelog-20261112-profile-readonly-tabs', title: 'Keep profile details read-only until edited', details: 'Added Overview and Account tabs to the profile. Account details now stay read-only until Edit info is selected, with save and cancel actions in the page header.', publishedAt: '2026-11-12T01:10:00.000Z' },

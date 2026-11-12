@@ -31,7 +31,7 @@ Work in the listed dependency order. Each task includes schema/API/UI work where
   - Verify: migration on populated data and focused authentication/guard tests for both providers.
   - Dependencies: 01–03. Files: Prisma schema/migration, authentication service/guards.
 
-Baseline evidence (2026-11-12): frontend `npx tsc --noEmit` and web/API builds pass after the SimpleGrid fix. `npm run test:notifications` has one existing failure: its mock lacks `notification.count` (3/4 pass). Vite reports a chunk-size warning. Runtime browser verification remains outstanding.
+Baseline evidence (2026-11-12): frontend `npx tsc --noEmit` and web/API builds pass after the SimpleGrid fix. The notification test mock was updated for the current ten-item pagination and total count; `node --test test/notifications.test.cjs` passes (4/4). Vite reports a chunk-size warning. Runtime browser verification remains outstanding.
 
 **Checkpoint A:** Schema validates, authentication regression checks pass, and existing users can still sign in.
 
