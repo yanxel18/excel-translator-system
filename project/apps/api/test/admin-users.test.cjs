@@ -73,7 +73,7 @@ test('HTTP management endpoints require authenticated administrators', async () 
     controllers: [AdminUsersController],
     providers: [JwtAuthGuard, AdminAuthGuard, { provide: AuthenticationService, useValue: {
       verifySession: async (token) => ({ userId: 'u', isAdmin: token === 'admin' }),
-    } }, { provide: AdminUsersService, useValue: { list: async () => ({ data: [] }), create: async () => ({ id: 'new' }) } }],
+    } }, { provide: AdminUsersService, useValue: { list: async () => ({ data: [] }), create: async () => ({ id: 'new' }), assignBase: async () => ({ id: 'u' }) } }],
   }).compile();
   const app = moduleRef.createNestApplication();
   await app.listen(0);
@@ -83,5 +83,25 @@ test('HTTP management endpoints require authenticated administrators', async () 
     assert.equal((await fetch(url, { headers: { Authorization: 'Bearer user' } })).status, 403);
     assert.equal((await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer user', 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
     assert.equal((await fetch(url, { headers: { Authorization: 'Bearer admin' } })).status, 200);
+    assert.equal((await fetch(`${url}/user/base`, { method: 'PATCH', headers: { Authorization: 'Bearer user', 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
+    assert.equal((await fetch(`${url}/user/base`, { method: 'PATCH', headers: { Authorization: 'Bearer admin', 'Content-Type': 'application/json' }, body: '{}' })).status, 200);
   } finally { await app.close(); }
+});
+
+
+test('administrator assigns a valid Base to an existing user', async () => {
+  let update;
+  const userId = '6bd767a6-b04e-4aaa-9eb6-574a26b135c1';
+  const prisma = { user: { update: async (input) => { update = input; return { id: userId, baseId }; } } };
+  const service = new AdminUsersService(prisma);
+  assert.deepEqual(await service.assignBase(userId, { baseId }), { id: userId, baseId });
+  assert.equal(update.where.id, userId);
+  assert.equal(update.data.baseId, baseId);
+  for (const [id, input] of [['bad', { baseId }], [userId, { baseId: 'bad' }], [userId, { baseId, enabled: true }]]) {
+    await assert.rejects(service.assignBase(id, input), BadRequestException);
+  }
+  prisma.user.update = async () => { throw Object.assign(new Error('foreign key'), { code: 'P2003' }); };
+  await assert.rejects(service.assignBase(userId, { baseId }), BadRequestException);
+  prisma.user.update = async () => { throw Object.assign(new Error('missing'), { code: 'P2025' }); };
+  await assert.rejects(service.assignBase(userId, { baseId }), { status: 404 });
 });

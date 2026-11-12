@@ -18,6 +18,8 @@ The frontend is served at `/excel-convert/`, the API health endpoint is `/excel-
 
 The frontend base path and API base path are configured separately using `VITE_BASE_PATH` and `BASE_PATH`; keep both set to `/excel-convert` for the supplied nginx configuration and health check. If the service is exposed through a TLS reverse proxy, forward the `/excel-convert` path and set `WEB_ORIGIN` and `VITE_API_URL` to the public HTTPS addresses.
 
+**Migration encoding correction (2026-11-12):** Six historical changelog migrations had a UTF-8 byte-order marker removed because PostgreSQL rejected it during a fresh deployment. Their SQL and published entries are unchanged, but databases that applied the original files retain the old checksums. In a disposable PostgreSQL 16 rehearsal, Prisma 7.10.1 `migrate status` and `migrate deploy` succeeded with an old stored checksum; `migrate dev` was not tested. Review migration history and back up the database before development migration operations; do not manually rewrite `_prisma_migrations` to silence a mismatch.
+
 ## Keycloak OIDC
 
 Set `ADMIN_USERNAMES` to a comma-separated list of administrator login names. These names are checked by the API for both protected setting endpoints and the admin-only section in Profile. An administrator can configure Keycloak there; the settings are stored in PostgreSQL and take effect for new sign-ins. The public login page receives only the enablement, server URL, realm, and client ID. `KEYCLOAK_*` environment values provide the initial/default config when no admin settings have been saved.

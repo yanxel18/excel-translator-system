@@ -1,4 +1,4 @@
-﻿INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
   (
     'changelog-20261111-compact-recent-translations',
     'Compact recent translations into one card',

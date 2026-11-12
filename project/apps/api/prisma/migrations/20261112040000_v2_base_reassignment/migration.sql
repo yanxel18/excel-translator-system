@@ -1,0 +1,2 @@
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+  ('changelog-20261112-v2-base-reassignment', 'Manage user Bases and strengthen setup', 'Administrators can reassign a user to an existing Base. Workbook input checks and page navigation were improved, and database setup was repaired for new installations.', '2026-11-12T04:00:00.000Z', '2026-11-12T04:00:00.000Z');

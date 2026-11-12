@@ -1,4 +1,6 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { strictObject } from '../../common/management-validation';
+import { extractedBatch, translationRows, workbookBuffer } from '../../common/workbook-input-validation';
 import { TranslationService } from './translation.service';
 import { JwtAuthGuard } from '../authentication/jwt-auth.guard';
 
@@ -8,32 +10,20 @@ export class TranslationController {
   constructor(private readonly translationService: TranslationService) {}
 
   @Post('send')
-  async sendTextForTranslation(@Body() payload: { textBatch: any[] }) {
-    try {
-      const result = await this.translationService.sendTextForTranslation(payload.textBatch);
-      return result;
-    } catch (error) {
-      throw new Error(`Translation failed: ${error.message}`);
-    }
+  async sendTextForTranslation(@Body() payload: unknown) {
+    const input = strictObject(payload, ['textBatch']);
+    return this.translationService.sendTextForTranslation(extractedBatch(input.textBatch));
   }
 
   @Post('validate')
-  async validateTranslation(@Body() payload: { translationResult: any }) {
-    try {
-      const isValid = await this.translationService.validateTranslation(payload.translationResult);
-      return { valid: isValid };
-    } catch (error) {
-      throw new Error(`Validation failed: ${error.message}`);
-    }
+  async validateTranslation(@Body() payload: unknown) {
+    const input = strictObject(payload, ['translationResult']);
+    return { valid: await this.translationService.validateTranslation(translationRows(input.translationResult)) };
   }
 
   @Post('patch')
-  async patchOOXML(@Body() payload: { originalFileBuffer: Buffer; translations: any[] }) {
-    try {
-      const patchedFile = await this.translationService.patchOOXML(payload.originalFileBuffer, payload.translations);
-      return { patchedFile };
-    } catch (error) {
-      throw new Error(`OOXML patching failed: ${error.message}`);
-    }
+  async patchOOXML(@Body() payload: unknown) {
+    const input = strictObject(payload, ['originalFileBuffer', 'translations']);
+    return { patchedFile: await this.translationService.patchOOXML(workbookBuffer(input.originalFileBuffer), translationRows(input.translations)) };
   }
 }

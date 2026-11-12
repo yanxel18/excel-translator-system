@@ -2,6 +2,7 @@ import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ProductSurfacesService } from './product-surfaces.service';
 import { ChangelogPage, JobPage, MutationResult, NotificationPage, ProfileRecord, WorkbookPreview } from './graphql.types';
 import { NotificationsService } from '../notifications/notifications.service';
+import { choice, requiredText, uuid } from '../../common/management-validation';
 
 @Resolver()
 export class ProductSurfacesResolver {
@@ -10,7 +11,7 @@ export class ProductSurfacesResolver {
 
   @Query(() => JobPage)
   history(@Context() context: any, @Args('cursor', { type: () => String, nullable: true }) cursor?: string) {
-    return this.surfaces.history(this.owner(context), cursor);
+    return this.surfaces.history(this.owner(context), cursor == null ? undefined : uuid(cursor));
   }
 
   @Query(() => ProfileRecord)
@@ -18,27 +19,27 @@ export class ProductSurfacesResolver {
 
   @Query(() => NotificationPage)
   notifications(@Context() context: any, @Args('cursor', { type: () => String, nullable: true }) cursor?: string) {
-    return this.notificationsService.list(this.owner(context), cursor);
+    return this.notificationsService.list(this.owner(context), cursor == null ? undefined : uuid(cursor));
   }
 
   @Query(() => ChangelogPage)
-  changelog(@Args('cursor', { type: () => String, nullable: true }) cursor?: string) { return this.surfaces.changelog(cursor); }
+  changelog(@Args('cursor', { type: () => String, nullable: true }) cursor?: string) { return this.surfaces.changelog(cursor == null ? undefined : requiredText(cursor, 'Cursor', 128)); }
 
   @Query(() => WorkbookPreview)
   preview(
     @Context() context: any,
     @Args('jobId', { type: () => ID }) jobId: string,
     @Args('version', { type: () => String, nullable: true }) version = 'translated',
-  ) { return this.surfaces.preview(jobId, this.owner(context), version); }
+  ) { return this.surfaces.preview(uuid(jobId), this.owner(context), choice(version ?? 'translated', ['source', 'translated'] as const, 'preview version')); }
 
   @Query(() => String)
   downloadUrl(@Context() context: any, @Args('jobId', { type: () => ID }) jobId: string) {
-    return this.surfaces.downloadUrl(jobId, this.owner(context));
+    return this.surfaces.downloadUrl(uuid(jobId), this.owner(context));
   }
 
   @Mutation(() => MutationResult)
   deleteHistoryItem(@Context() context: any, @Args('id', { type: () => ID }) id: string) {
-    return this.surfaces.deleteHistoryItem(id, this.owner(context));
+    return this.surfaces.deleteHistoryItem(uuid(id), this.owner(context));
   }
 
   @Mutation(() => ProfileRecord)
@@ -50,6 +51,6 @@ export class ProductSurfacesResolver {
 
   @Mutation(() => MutationResult)
   markNotificationRead(@Context() context: any, @Args('id', { type: () => ID }) id: string) {
-    return this.notificationsService.markRead(this.owner(context), id);
+    return this.notificationsService.markRead(this.owner(context), uuid(id));
   }
 }
