@@ -7,13 +7,13 @@ Work in the listed dependency order. Each task includes schema/API/UI work where
 
 ## Foundation and access
 
-- [ ] **V2-01 — Confirm data and access rules (S)**
+- [x] **V2-01 — Confirm data and access rules (S)**
   - Decide GID format/uniqueness, Base requirement, registration ownership, admin authority source, initial auth mode, and page-size options recorded in the plan.
   - Acceptance: a field/validation matrix and role/action matrix are recorded; migration backfills and last-admin protection are specified.
   - Verify: trace each requested feature to a task; inspect current admin guard and existing identity mapping.
   - Dependencies: none. Files: `tasks/plan-v2.md`, relevant API DTO specifications.
 
-- [ ] **V2-02 — Establish the V2 check baseline (S)**
+- [x] **V2-02 — Establish the V2 check baseline (S)**
   - Resolve the existing `WorkspacePage.tsx` SimpleGrid type error after confirming it is still present; record current build/test failures.
   - Acceptance: no suppressed checks; unrelated failures are explicitly tracked.
   - Verify: frontend `npx tsc --noEmit`, API/frontend builds, relevant current regression commands.
@@ -30,6 +30,10 @@ Work in the listed dependency order. Each task includes schema/API/UI work where
   - Acceptance: disabled users cannot obtain or continue sessions; password reset revokes local sessions; existing UUID/identity links survive migration.
   - Verify: migration on populated data and focused authentication/guard tests for both providers.
   - Dependencies: 01–03. Files: Prisma schema/migration, authentication service/guards.
+
+Baseline evidence (2026-11-12): frontend `npx tsc --noEmit` and web/API builds pass after the SimpleGrid fix. The notification test mock was updated for the current ten-item pagination and total count; `node --test test/notifications.test.cjs` passes (4/4). Vite reports a chunk-size warning. Runtime browser verification remains outstanding.
+
+Implementation evidence (2026-11-12): V2-03 through V2-10 have work in progress: strict validators for management endpoints, account session revocation, browser routes, administrator settings, Base management, registration and the user list. API build, Prisma validation, web typecheck/build and 44 API regression and focused checks passed. PostgreSQL 16 rehearsal on a minimal populated legacy schema preserved users, detected normalized GID duplicates, seeded Bases and enforced deletion/uniqueness constraints. Browser, accessibility, deployed refresh, real Keycloak, full existing-database Prisma deployment and concurrent-registration checks remain outstanding. Management, authentication, profile and vocabulary REST inputs have additional validation; validation is not yet centralized across all existing endpoints, and the user edit/enable and password-reset actions belong to later tasks. These items remain unchecked until their acceptance criteria are met.
 
 **Checkpoint A:** Schema validates, authentication regression checks pass, and existing users can still sign in.
 

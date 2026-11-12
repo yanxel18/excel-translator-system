@@ -32,6 +32,29 @@ History and management lists use server-side search, allowlisted column sorting,
 
 These are implementation decisions to resolve in Task V2-01, not reasons to delay creating the plan.
 
+## V2 access and validation decisions
+
+Confirmed on 2026-11-12: registration is administrator-only; new accounts require a Base and a GID unique ignoring case. Existing accounts retain their UUIDs and identities and may temporarily have no Base or GID. Seed JTY, KKTY, CGTY, MSTY and PTY with their codes as initial display names. Preserve the existing login availability and administrator authority configured by ADMIN_USERNAMES. Lists default to 10 and offer 10, 20, 30, 40 and 50 rows.
+
+| Field | New account rule | Migration and handling |
+| --- | --- | --- |
+| GID | Required, 1?64 characters, trimmed, no control characters; case-insensitive uniqueness | Preserve legacy values; detect and resolve duplicate normalized values before enforcing a database unique index. Do not invent GIDs. |
+| Username | Required, 1?100 characters, trimmed; unique | Preserve existing values and identity links. |
+| Email | Required, valid email, maximum 254 characters | Preserve nullable existing values; reject duplicates for new accounts. |
+| Base | Required existing Base ID | Legacy accounts remain unassigned until explicitly updated; never infer from OIDC or assign an arbitrary Base. |
+| Password | 12?128 characters, preserved exactly | Store only a password hash; never trim, log, or return it. |
+| Base code/name | Code 1?32 ASCII letters, digits, underscore or hyphen; name 1?100 Unicode characters | Codes unique ignoring case; seed idempotently. Names support CJK. |
+| Pagination | Positive page; page size 10, 20, 30, 40 or 50 | Reject unsupported inputs; use an ID tie-breaker for stable ordering. |
+
+| Action | Ordinary user | Administrator |
+| --- | --- | --- |
+| Use own account and translations | Allowed | Allowed |
+| List or create users and manage Bases | Denied | Allowed |
+| Change administrator authority | Denied | Denied through application; ADMIN_USERNAMES remains deployment-controlled |
+| Disable accounts | Denied | Allowed only if another usable administrator remains; never disable the last usable administrator |
+
+Administrator checks use configured names, not GIDs. Keycloak identity is determined by provider and subject, never by email. Before disabling an administrator, verify that another enabled administrator has a usable configured login; if this cannot be established, reject the operation and require an operator to restore access through configuration. Existing sessions must be checked against persisted enablement; local session versions are incremented on disable and password reset. Since legacy GIDs can already collide, migration must report conflicts rather than alter identities or silently discard data.
+
 ## Database and migration design
 
 | Model | Proposed change | Integrity and query rules |

@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Header, Param, Patch, Query, Req, Stream
 import { Request } from 'express';
 import { JwtAuthGuard } from '../authentication/jwt-auth.guard';
 import { ProductSurfacesService } from './product-surfaces.service';
+import { strictObject } from '../../common/management-validation';
 
 @Controller()
 @UseGuards(JwtAuthGuard)
@@ -15,6 +16,6 @@ export class ProductSurfacesController {
   @Get('jobs/:id/preview-file') @Header('Cache-Control', 'no-store') async previewFile(@Param('id') id: string, @Req() req: Request, @Query('version') version = 'translated') { return new StreamableFile(await this.service.previewFile(id, this.owner(req), version), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', disposition: 'inline' }); }
   @Delete('jobs/:id') deleteJob(@Param('id') id: string, @Req() req: Request) { return this.service.deleteHistoryItem(id, this.owner(req)); }
   @Get('profile') profile(@Req() req: Request) { return this.service.getProfile(this.owner(req), Boolean((req as any).user?.isAdmin)); }
-  @Patch('profile') updateProfile(@Req() req: Request, @Body() body: { fullName?: unknown; email?: unknown }) { return this.service.updateProfile(this.owner(req), body); }
+  @Patch('profile') updateProfile(@Req() req: Request, @Body() body: unknown) { return this.service.updateProfile(this.owner(req), strictObject(body, ['fullName', 'email'])); }
   @Get('changelog') changelog(@Query('cursor') cursor?: string) { return this.service.changelog(cursor); }
 }

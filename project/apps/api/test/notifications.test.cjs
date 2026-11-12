@@ -5,17 +5,20 @@ const { NotificationsService } = require('../dist/modules/notifications/notifica
 
 test('notifications are owner scoped, cursor paginated, and expose a next cursor only when another page exists', async () => {
   const calls = [];
-  const rows = Array.from({ length: 21 }, (_, index) => ({ id: `notification-${index}`, userId: 'user-1' }));
+  const rows = Array.from({ length: 11 }, (_, index) => ({ id: `notification-${index}`, userId: 'user-1' }));
   const prisma = { notification: {
     findFirst: async (query) => { calls.push(query); return { id: query.where.id }; },
     findMany: async (query) => { calls.push(query); return rows; },
+    count: async (query) => { calls.push(query); return 21; },
   } };
   const result = await new NotificationsService(prisma).list('user-1', 'notification-before');
-  assert.equal(result.data.length, 20);
-  assert.equal(result.nextCursor, 'notification-19');
+  assert.equal(result.data.length, 10);
+  assert.equal(result.nextCursor, 'notification-9');
   assert.deepEqual(calls[0].where, { id: 'notification-before', userId: 'user-1' });
   assert.deepEqual(calls[1].where, { userId: 'user-1' });
-  assert.equal(calls[1].take, 21);
+  assert.equal(calls[1].take, 11);
+  assert.deepEqual(calls[2].where, { userId: 'user-1' });
+  assert.equal(result.total, 21);
 });
 
 test('notifications reject a cursor that does not belong to the owner', async () => {

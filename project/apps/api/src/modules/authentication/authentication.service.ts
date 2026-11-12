@@ -20,23 +20,35 @@ export class AuthenticationService {
     if (process.env.LOCAL_AUTH_ENABLED !== 'true' || !username || !password) return null;
     await this.bootstrapDevelopmentUser(username);
     const user = await this.prisma.user.findUnique({ where: { username } });
-    if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) return null;
+    if (!user?.enabled || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) return null;
     return { userId: user.id, username: user.username, isAdmin: this.isAdmin(user.username) };
   }
 
   async login(user: AuthenticatedUser) {
-    const payload = { username: user.username, sub: user.userId };
+    const persisted = await this.prisma.user.findUnique({ where: { id: user.userId }, select: { enabled: true, sessionVersion: true } });
+    if (!persisted?.enabled) throw new UnauthorizedException('Session is invalid or expired.');
+    const payload = { username: user.username, sub: user.userId, sessionVersion: persisted.sessionVersion };
     return {
       access_token: this.jwtService.sign(payload),
     };
   }
 
   async verifySession(token: string): Promise<AuthenticatedUser> {
+    let local: { sub: string; username: string; sessionVersion?: number } | undefined;
     try {
-      const local = await this.jwtService.verifyAsync<{ sub: string; username: string }>(token);
-      if (local?.sub && local.username) return { userId: local.sub, username: local.username, isAdmin: this.isAdmin(local.username) };
+      local = await this.jwtService.verifyAsync(token);
     } catch {
       // A Keycloak token is verified below when OIDC is enabled.
+    }
+    if (local) {
+      if (!local.sub || !local.username || (local.sessionVersion !== undefined && !Number.isInteger(local.sessionVersion))) {
+        throw new UnauthorizedException('Session is invalid or expired.');
+      }
+      const user = await this.prisma.user.findUnique({ where: { id: local.sub }, select: { enabled: true, sessionVersion: true } });
+      if (!user?.enabled || user.sessionVersion !== (local.sessionVersion ?? 0)) {
+        throw new UnauthorizedException('Session is invalid or expired.');
+      }
+      return { userId: local.sub, username: local.username, isAdmin: this.isAdmin(local.username) };
     }
     return this.findOrCreateKeycloakUser(await this.keycloak.verify(token));
   }
@@ -66,6 +78,7 @@ export class AuthenticationService {
         },
       });
     }
+    if (!user.enabled) throw new UnauthorizedException('Session is invalid or expired.');
     const username = claims.preferred_username || user.username;
     return { userId: user.id, username, isAdmin: this.isAdmin(username) };
   }
