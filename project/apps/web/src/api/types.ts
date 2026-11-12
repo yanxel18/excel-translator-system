@@ -52,6 +52,7 @@ export interface JobNotification {
 export interface NotificationPage {
   data: JobNotification[];
   nextCursor: string | null;
+  total: number;
 }
 
 export interface HistoryPage {
