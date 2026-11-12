@@ -9,6 +9,8 @@ import { PersistenceModule } from './modules/persistence/persistence.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { GraphQLSchemaBuilderModule } from '@nestjs/graphql';
 import { ProductSurfacesModule } from './modules/product-surfaces/product-surfaces.module';
+import { AdminUsersModule } from './modules/admin-users/admin-users.module';
+import { BaseModule } from './modules/base-management/base.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { ProductSurfacesModule } from './modules/product-surfaces/product-surfac
     ProductSurfacesModule,
     JobManagementModule,
     AuthenticationModule,
+    AdminUsersModule,
+    BaseModule,
     ProgressTrackingModule,
     VocabularyModule,
     GraphQLSchemaBuilderModule,

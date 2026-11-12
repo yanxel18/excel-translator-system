@@ -56,7 +56,7 @@ test('product surface routes enforce authentication and pass the authenticated o
   assert.deepEqual(await deleted.json(), { ok: true });
 
   assert.deepEqual(calls, [
-    ['history', 'user-1', 'previous'],
+    ['history', 'user-1', 'previous', 1],
     ['preview', 'job-1', 'user-1', 'source'],
     ['delete', 'job-1', 'user-1'],
   ]);

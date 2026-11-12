@@ -1,0 +1,2 @@
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+  ('changelog-20261112-v2-management-foundation', 'Add Version 2 management foundations', 'Added administrator settings for managing Bases and registering and finding users, shareable page navigation, account session checks, and stronger validation for several API inputs. Further integration and accessibility verification is in progress.', '2026-11-12T02:20:00.000Z', '2026-11-12T02:20:00.000Z');

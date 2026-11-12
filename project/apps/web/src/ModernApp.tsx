@@ -4,7 +4,7 @@ import Keycloak from 'keycloak-js';
 import ApiService, { type Job, type VocabularyGroup } from './api';
 import NotificationsPage from './features/notifications/NotificationsPage';
 import LoginScreen from './features/auth/LoginScreen';
-import type { View } from './features/app-shell/types';
+import { useAppRoute } from './features/app-shell/useAppRoute';
 import AppFrame from './features/app-shell/AppFrame';
 import VocabularyPage from './features/vocabulary/VocabularyPage';
 import HistoryPage from './features/history/HistoryPage';
@@ -13,7 +13,8 @@ import ChangelogPage from './features/changelog/ChangelogPage';
 import TranslationSettingsModal from './features/workspace/TranslationSettingsModal';
 import WorkspacePage from './features/workspace/WorkspacePage';
 import DashboardPage from './features/dashboard/DashboardPage';
-import { Alert } from '@mantine/core';
+import SystemSettings from './features/system-settings/SystemSettings';
+import { Alert, Button, Paper, Stack, Text } from '@mantine/core';
 import { useWorkspaceController } from './features/workspace/useWorkspaceController';
 import { useLocale } from './features/shared/LocaleProvider';
 import './ModernApp.css';
@@ -21,7 +22,8 @@ import './ModernApp.css';
 export default function ModernApp() {
   const [token, setToken] = useState(() => localStorage.getItem('excel-translator-token') || '');
   const [selectedNotificationId, setSelectedNotificationId] = useState<string>();
-  const [view, setView] = useState<View>('workspace');
+  const { view, page, search, navigate: setView } = useAppRoute();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [settingsOpen, { open: openSettingsDialog, close: closeSettingsDialog }] = useDisclosure(false);
   const [settingsJob, setSettingsJob] = useState<Job | null>(null);
   const [vocabularyGroups, setVocabularyGroups] = useState<VocabularyGroup[]>([]);
@@ -34,6 +36,12 @@ export default function ModernApp() {
   const keycloakRef = useRef<Keycloak | null>(null);
   const { t } = useLocale();
   const workspace = useWorkspaceController(token, t);
+  useEffect(() => {
+    let active = true;
+    setIsAdmin(null);
+    if (token) void ApiService.getProfile(token).then((profile) => { if (active) setIsAdmin(profile.isAdmin); }).catch(() => { if (active) setIsAdmin(false); });
+    return () => { active = false; };
+  }, [token]);
 
   useEffect(() => {
     if (token) return;
@@ -129,16 +137,16 @@ export default function ModernApp() {
   const settingsValid = Boolean(settingsJob?.selectedSheets.length && settingsJob.sourceLanguage !== settingsJob.targetLanguage
     && (!settingsJob.vocabularyGroupId || compatibleVocabularyGroups.some((group) => group.id === settingsJob.vocabularyGroupId)));
 
-  return <AppFrame onOpenNotification={(id) => { setSelectedNotificationId(id); setView('notifications'); }} token={token} view={view} onNavigate={setView} onSignOut={logout} mobileOpen={mobileNavigationOpen}
+  return <AppFrame isAdmin={isAdmin === true} onOpenNotification={(id) => { setSelectedNotificationId(id); setView('notifications'); }} token={token} view={view ?? 'workspace'} onNavigate={setView} onSignOut={logout} mobileOpen={mobileNavigationOpen}
     onToggleMobile={toggleMobileNavigation} onCloseMobile={closeMobileNavigation}
     settingsOpen={settingsOpen} onSettingsOpen={openSettingsDialog} onSettingsClose={closeSettingsDialog}>
     {settingsError && !settingsJob && <Alert color="red" withCloseButton onClose={() => setSettingsError('')} mb="md">{settingsError}</Alert>}
-    {view === 'dashboard' ? <DashboardPage jobs={workspace.jobs} loading={workspace.jobsLoading} onWorkspace={() => setView('workspace')} onHistory={() => setView('history')} /> : view === 'workspace' ? <WorkspacePage
+    {view?.startsWith('settings/') ? isAdmin === null ? <Text role="status">{t('Loading')}</Text> : isAdmin ? <SystemSettings token={token} section={view} search={search} onNavigate={setView} /> : <Alert color="red">{t('Administrator access is required.')}</Alert> : view === null ? <Paper withBorder p="xl"><Stack align="start"><Text component="h1" fz="h2" fw={700}>{t('Page not found')}</Text><Text>{t('The page you requested is not available.')}</Text><Button onClick={() => setView('workspace')}>{t('Go to Workspace')}</Button></Stack></Paper> : view === 'dashboard' ? <DashboardPage jobs={workspace.jobs} loading={workspace.jobsLoading} onWorkspace={() => setView('workspace')} onHistory={() => setView('history')} /> : view === 'workspace' ? <WorkspacePage
       file={workspace.file} fileInput={workspace.fileInput} error={workspace.error} busy={workspace.busy} jobs={workspace.jobs} jobsLoading={workspace.jobsLoading} token={token}
       onDismissError={workspace.dismissError} onSelectFile={workspace.selectFile} onUpload={workspace.upload} onRefresh={() => void workspace.refresh()} onHistory={() => setView('history')}
       onStart={(job) => void openJobSettings(job)} onRetry={(id) => void workspace.run(() => ApiService.retryJob(id, token))}
       onCancel={(id) => void workspace.run(() => ApiService.cancelJob(id, token))} onDownload={workspace.download} onConfigure={(job) => void openJobSettings(job)}
-    /> : view === 'notifications' ? <NotificationsPage token={token} selectedId={selectedNotificationId} /> : view === 'vocabulary' ? <VocabularyPage token={token} /> : view === 'history' ? <HistoryPage token={token} /> : view === 'profile' ? <ProfilePage token={token} /> : <ChangelogPage token={token} />}
+    /> : view === 'notifications' ? <NotificationsPage token={token} selectedId={selectedNotificationId} /> : view === 'vocabulary' ? <VocabularyPage token={token} /> : view === 'history' ? <HistoryPage token={token} page={page} onPageChange={(nextPage) => setView('history', nextPage)} /> : view === 'profile' ? <ProfilePage token={token} /> : <ChangelogPage token={token} />}
     <TranslationSettingsModal job={settingsJob} vocabularyGroups={vocabularyGroups} busy={settingsBusy} error={settingsError} valid={settingsValid} onClose={() => setSettingsJob(null)} onJobChange={setSettingsJob} onSave={(startAfterSave) => void saveSettings(startAfterSave)} />
   </AppFrame>;
 }
