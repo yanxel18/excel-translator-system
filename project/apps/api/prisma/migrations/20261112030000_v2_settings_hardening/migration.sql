@@ -1,0 +1,2 @@
+INSERT INTO "ChangelogEntry" ("id", "title", "details", "publishedAt", "createdAt") VALUES
+  ('changelog-20261112-v2-settings-hardening', 'Improve Version 2 settings and navigation', 'Improved account and Base management feedback, strengthened request validation and progress ownership checks, and fixed direct navigation through the deployed application path.', '2026-11-12T03:00:00.000Z', '2026-11-12T03:00:00.000Z');

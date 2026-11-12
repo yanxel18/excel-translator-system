@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../authentication/jwt-auth.guard';
+import { uuid } from '../../common/management-validation';
 import { NotificationsService } from './notifications.service';
 
 @Controller('notifications')
@@ -10,7 +11,7 @@ export class NotificationsController {
   private owner(req: Request): string { return String((req as any).user?.userId); }
 
   @Get() list(@Req() req: Request, @Query('cursor') cursor?: string) {
-    return this.service.list(this.owner(req), cursor);
+    return this.service.list(this.owner(req), cursor === undefined ? undefined : uuid(cursor));
   }
 
   @Get('unread-count') countUnread(@Req() req: Request) {
@@ -18,6 +19,6 @@ export class NotificationsController {
   }
 
   @Patch(':id/read') markRead(@Req() req: Request, @Param('id') id: string) {
-    return this.service.markRead(this.owner(req), id);
+    return this.service.markRead(this.owner(req), uuid(id));
   }
 }
