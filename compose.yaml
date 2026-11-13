@@ -23,6 +23,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      MAX_CONCURRENT_TRANSLATIONS: ${MAX_CONCURRENT_TRANSLATIONS:-5}
       BASE_PATH: ${BASE_PATH:-/excel-convert}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
       DATABASE_URL: postgresql://${POSTGRES_USER:-excel_translator}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-excel_translator}?schema=public

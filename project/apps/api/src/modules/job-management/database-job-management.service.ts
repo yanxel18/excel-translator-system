@@ -1,13 +1,17 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
   OnModuleInit,
+  OnModuleDestroy,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
+import { Client } from "pg";
 import {
   JobStatus as DatabaseJobStatus,
   Language,
@@ -18,6 +22,11 @@ import { TextExtractionService } from "../text-extraction/text-extraction.servic
 import { TranslationService } from "../translation/translation.service";
 import { normalizeUploadFilename } from "../../utils/filename";
 import { isSupportedLanguagePair } from "./language-pairs";
+import { getMaxConcurrentTranslations } from "../../config/translation-concurrency";
+
+const ADVISORY_LOCK_NAMESPACE = 1_163_430_226;
+const SINGLETON_LOCK_ID = 1;
+const CAPACITY_LOCK_ID = 2;
 
 export enum JobStatus {
   PENDING = "PENDING",
@@ -47,12 +56,22 @@ export interface Job {
 }
 
 @Injectable()
-export class DatabaseJobManagementService implements OnModuleInit {
+export class DatabaseJobManagementService
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly dataDir = resolve(
     process.env.DATA_DIR || join(process.cwd(), "data"),
   );
   private readonly cancelled = new Set<string>();
   private readonly controllers = new Map<string, AbortController>();
+  private readonly workers = new Map<string, Promise<void>>();
+  private readonly jobOperations = new Map<string, Promise<void>>();
+  private readonly inFlightAdmissions = new Set<Promise<void>>();
+  private readonly maxConcurrentTranslations = getMaxConcurrentTranslations(
+    process.env.MAX_CONCURRENT_TRANSLATIONS,
+  );
+  private singletonConnection: Client | null = null;
+  private shuttingDown = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -61,30 +80,132 @@ export class DatabaseJobManagementService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const interrupted = await this.prisma.$transaction(async (tx) => {
-      const jobs = await tx.translationJob.updateManyAndReturn({
-        where: { status: DatabaseJobStatus.PROCESSING },
-        data: {
-          status: DatabaseJobStatus.FAILED,
-          error:
-            "The API restarted while this job was running. Retry the job to continue.",
-          completedAt: new Date(),
-        },
-      });
-      if (jobs.length)
-        await tx.notification.createMany({
-          data: jobs.map((job) => ({
-            userId: job.ownerId,
-            jobId: job.id,
-            type: NotificationType.JOB_FAILED,
-            title: "Translation interrupted",
-            message: `${job.fileName} can be retried after an API restart.`,
-          })),
+    await this.acquireSingletonLock();
+    try {
+      const interrupted = await this.prisma.$transaction(async (tx) => {
+        const jobs = await tx.translationJob.updateManyAndReturn({
+          where: { status: DatabaseJobStatus.PROCESSING },
+          data: {
+            status: DatabaseJobStatus.FAILED,
+            error:
+              "The API restarted while this job was running. Retry the job to continue.",
+            completedAt: new Date(),
+          },
         });
-      return jobs;
+        if (jobs.length)
+          await tx.notification.createMany({
+            data: jobs.map((job) => ({
+              userId: job.ownerId,
+              jobId: job.id,
+              type: NotificationType.JOB_FAILED,
+              title: "Translation interrupted",
+              message: `${job.fileName} can be retried after an API restart.`,
+            })),
+          });
+        return jobs;
+      });
+      for (const job of interrupted)
+        await unlink(`${this.outputPath(job.id)}.tmp`).catch(() => undefined);
+    } catch (error) {
+      await this.releaseSingletonLock();
+      throw error;
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    this.shuttingDown = true;
+    await Promise.all(this.inFlightAdmissions);
+    await Promise.allSettled(this.workers.values());
+    await this.releaseSingletonLock();
+  }
+
+  private async acquireSingletonLock(): Promise<void> {
+    const connection = new Client({
+      connectionString: process.env.DATABASE_URL,
     });
-    for (const job of interrupted)
-      await unlink(`${this.outputPath(job.id)}.tmp`).catch(() => undefined);
+    try {
+      await connection.connect();
+      const result = await connection.query(
+        "SELECT pg_try_advisory_lock($1, $2) AS locked",
+        [ADVISORY_LOCK_NAMESPACE, SINGLETON_LOCK_ID],
+      );
+      if (result.rows[0]?.locked !== true)
+        throw new Error(
+          "Only one API instance may use this database. Stop the other API instance before starting this one.",
+        );
+      this.singletonConnection = connection;
+      connection.on("error", (error) => {
+        console.error(
+          "The API lost its database singleton lock connection and will exit to prevent split-brain job processing.",
+          error,
+        );
+        process.exit(1);
+      });
+    } catch (error) {
+      await connection.end().catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async releaseSingletonLock(): Promise<void> {
+    const connection = this.singletonConnection;
+    this.singletonConnection = null;
+    if (!connection) return;
+    connection.removeAllListeners("error");
+    try {
+      await connection.query(
+        "SELECT pg_advisory_unlock($1, $2)",
+        [ADVISORY_LOCK_NAMESPACE, SINGLETON_LOCK_ID],
+      );
+    } catch {
+      /* Closing the session releases its advisory lock. */
+    } finally {
+      await connection.end().catch(() => undefined);
+    }
+  }
+
+  private assertSingletonLock(): void {
+    if (!this.singletonConnection)
+      throw new ServiceUnavailableException(
+        "Translation processing is unavailable until the API acquires its database instance lock.",
+      );
+  }
+
+  private beginAdmission(): () => void {
+    if (this.shuttingDown)
+      throw new ServiceUnavailableException(
+        "Translation processing is shutting down.",
+      );
+    this.assertSingletonLock();
+    let finish!: () => void;
+    const admission = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    this.inFlightAdmissions.add(admission);
+    return () => {
+      this.inFlightAdmissions.delete(admission);
+      finish();
+    };
+  }
+
+  private async withJobLock<T>(
+    id: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const previous = this.jobOperations.get(id) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.jobOperations.set(id, current);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.jobOperations.get(id) === current)
+        this.jobOperations.delete(id);
+    }
   }
 
   private toJob(job: any): Job {
@@ -283,25 +404,70 @@ export class DatabaseJobManagementService implements OnModuleInit {
   }
 
   async startJob(id: string, ownerId: string): Promise<Job> {
-    const job = await this.owned(id, ownerId);
-    await this.assertCompatibleVocabulary(job);
-    const claimed = await this.claimJob(id, ownerId, DatabaseJobStatus.PENDING);
-    if (claimed.length !== 1)
-      throw new BadRequestException("Only pending jobs can be started.");
-    this.controllers.set(id, new AbortController());
-    void this.process(id);
-    return this.toJob(claimed[0]);
+    const finishAdmission = this.beginAdmission();
+    try {
+      return await this.withJobLock(id, async () => {
+        const job = await this.owned(id, ownerId);
+        await this.assertCompatibleVocabulary(job);
+        const claimed = await this.claimJob(
+          id,
+          ownerId,
+          DatabaseJobStatus.PENDING,
+        );
+        if (claimed.length !== 1)
+          throw new BadRequestException("Only pending jobs can be started.");
+        this.launchWorker(id);
+        return this.toJob(claimed[0]);
+      });
+    } finally {
+      finishAdmission();
+    }
   }
 
   async retryJob(id: string, ownerId: string): Promise<Job> {
-    const job = await this.owned(id, ownerId);
-    await this.assertCompatibleVocabulary(job);
-    const claimed = await this.claimJob(id, ownerId, DatabaseJobStatus.FAILED);
-    if (claimed.length !== 1)
-      throw new BadRequestException("Only failed jobs can be retried.");
+    const finishAdmission = this.beginAdmission();
+    try {
+      while (true) {
+        const result = await this.withJobLock(id, async () => {
+          const job = await this.owned(id, ownerId);
+          await this.assertCompatibleVocabulary(job);
+          if (job.status !== DatabaseJobStatus.FAILED)
+            throw new BadRequestException("Only failed jobs can be retried.");
+          const previousWorker = this.workers.get(id);
+          if (previousWorker)
+            return { kind: "wait" as const, worker: previousWorker };
+          const claimed = await this.claimJob(
+            id,
+            ownerId,
+            DatabaseJobStatus.FAILED,
+          );
+          if (claimed.length !== 1)
+            throw new BadRequestException("Only failed jobs can be retried.");
+          this.launchWorker(id);
+          return { kind: "started" as const, job: this.toJob(claimed[0]) };
+        });
+        if (result.kind === "started") return result.job;
+        // Worker finalization may need the per-job lock, so wait only after releasing it.
+        await result.worker.catch(() => undefined);
+      }
+    } finally {
+      finishAdmission();
+    }
+  }
+
+  private launchWorker(id: string): void {
     this.controllers.set(id, new AbortController());
-    void this.process(id);
-    return this.toJob(claimed[0]);
+    const worker = this.process(id);
+    this.workers.set(id, worker);
+    void worker.then(
+      () => {
+        if (this.workers.get(id) === worker) this.workers.delete(id);
+      },
+      (error) => {
+        if (this.workers.get(id) === worker) this.workers.delete(id);
+        console.error(`Translation worker ${id} stopped unexpectedly.`, error);
+      },
+    );
   }
 
   private async claimJob(
@@ -310,6 +476,23 @@ export class DatabaseJobManagementService implements OnModuleInit {
     status: DatabaseJobStatus,
   ) {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRawUnsafe(
+        "SELECT pg_advisory_xact_lock($1, $2)::text",
+        ADVISORY_LOCK_NAMESPACE,
+        CAPACITY_LOCK_ID,
+      );
+      const eligible = await tx.translationJob.findFirst({
+        where: { id, ownerId, status },
+        select: { id: true },
+      });
+      if (!eligible) return [];
+      const processingCount = await tx.translationJob.count({
+        where: { status: DatabaseJobStatus.PROCESSING },
+      });
+      if (processingCount >= this.maxConcurrentTranslations)
+        throw new ConflictException(
+          `Translation capacity reached (${this.maxConcurrentTranslations} concurrent jobs). Wait for a job to finish or cancel before starting or retrying another.`,
+        );
       const claimed = await tx.translationJob.updateManyAndReturn({
         where: { id, ownerId, status },
         data: {
@@ -338,6 +521,7 @@ export class DatabaseJobManagementService implements OnModuleInit {
   private async process(id: string): Promise<void> {
     const startedAt = Date.now();
     let progressWrites: Promise<unknown> = Promise.resolve();
+    let outputPath: string | undefined;
     try {
       const job = await this.prisma.translationJob.findUniqueOrThrow({
         where: { id },
@@ -402,40 +586,53 @@ export class DatabaseJobManagementService implements OnModuleInit {
         selectedSheets,
       );
       this.ensureNotCancelled(id);
-      const outputPath = this.outputPath(id);
+      outputPath = this.outputPath(id);
       await writeFile(`${outputPath}.tmp`, output);
       await rename(`${outputPath}.tmp`, outputPath);
-      await this.prisma.$transaction(async (tx) => {
-        const changed = await tx.translationJob.updateManyAndReturn({
-          where: { id, status: DatabaseJobStatus.PROCESSING },
-          data: {
-            status: DatabaseJobStatus.COMPLETED,
-            progress: 100,
-            outputPath,
-            completedAt: new Date(),
-            elapsedMs: Date.now() - startedAt,
-          },
-        });
-        if (changed.length)
-          await tx.notification.create({
+      await this.withJobLock(id, async () => {
+        this.ensureNotCancelled(id);
+        await this.prisma.$transaction(async (tx) => {
+          const changed = await tx.translationJob.updateManyAndReturn({
+            where: { id, status: DatabaseJobStatus.PROCESSING },
             data: {
-              userId: changed[0].ownerId,
-              jobId: id,
-              type: NotificationType.JOB_COMPLETED,
-              title: "Translation complete",
-              message: "Your translated workbook is ready to download.",
+              status: DatabaseJobStatus.COMPLETED,
+              progress: 100,
+              outputPath,
+              completedAt: new Date(),
+              elapsedMs: Date.now() - startedAt,
             },
           });
+          if (changed.length)
+            await tx.notification.create({
+              data: {
+                userId: changed[0].ownerId,
+                jobId: id,
+                type: NotificationType.JOB_COMPLETED,
+                title: "Translation complete",
+                message: "Your translated workbook is ready to download.",
+              },
+            });
+        });
       });
     } catch (error) {
       await progressWrites.catch(() => undefined);
+      const wasCancelled = this.cancelled.has(id);
+      if (wasCancelled && outputPath) {
+        await unlink(`${outputPath}.tmp`).catch(() => undefined);
+        await unlink(outputPath).catch(() => undefined);
+      }
       await this.prisma.$transaction(async (tx) => {
         const changed = await tx.translationJob.updateManyAndReturn({
           where: { id, status: DatabaseJobStatus.PROCESSING },
           data: {
-            status: DatabaseJobStatus.FAILED,
-            error:
-              error instanceof Error ? error.message : "Translation failed.",
+            status: wasCancelled
+              ? DatabaseJobStatus.CANCELLED
+              : DatabaseJobStatus.FAILED,
+            error: wasCancelled
+              ? null
+              : error instanceof Error
+                ? error.message
+                : "Translation failed.",
             completedAt: new Date(),
             elapsedMs: Date.now() - startedAt,
           },
@@ -445,9 +642,15 @@ export class DatabaseJobManagementService implements OnModuleInit {
             data: {
               userId: changed[0].ownerId,
               jobId: id,
-              type: NotificationType.JOB_FAILED,
-              title: "Translation failed",
-              message: `${changed[0].fileName} could not be translated.`,
+              type: wasCancelled
+                ? NotificationType.JOB_CANCELLED
+                : NotificationType.JOB_FAILED,
+              title: wasCancelled
+                ? "Translation cancelled"
+                : "Translation failed",
+              message: wasCancelled
+                ? `${changed[0].fileName} was cancelled.`
+                : `${changed[0].fileName} could not be translated.`,
             },
           });
       });
@@ -477,39 +680,46 @@ export class DatabaseJobManagementService implements OnModuleInit {
       );
   }
   async cancelJob(id: string, ownerId: string): Promise<Job> {
-    await this.owned(id, ownerId);
-    const changed = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.translationJob.updateManyAndReturn({
-        where: {
-          id,
-          ownerId,
-          status: {
-            in: [DatabaseJobStatus.PENDING, DatabaseJobStatus.PROCESSING],
-          },
-        },
-        data: { status: DatabaseJobStatus.CANCELLED, completedAt: new Date() },
-      });
-      if (result.length)
-        await tx.notification.create({
+    const worker = await this.withJobLock(id, async () => {
+      this.assertSingletonLock();
+      const job = await this.owned(id, ownerId);
+      if (job.status === DatabaseJobStatus.PROCESSING) {
+        this.cancelled.add(id);
+        this.controllers.get(id)?.abort();
+        return { worker: this.workers.get(id) };
+      }
+      if (job.status !== DatabaseJobStatus.PENDING)
+        throw new BadRequestException(
+          "Only pending or processing jobs can be cancelled.",
+        );
+      const changed = await this.prisma.$transaction(async (tx) => {
+        const result = await tx.translationJob.updateManyAndReturn({
+          where: { id, ownerId, status: DatabaseJobStatus.PENDING },
           data: {
-            userId: ownerId,
-            jobId: id,
-            type: NotificationType.JOB_CANCELLED,
-            title: "Translation cancelled",
-            message: `${result[0].fileName} was cancelled.`,
+            status: DatabaseJobStatus.CANCELLED,
+            completedAt: new Date(),
           },
         });
-      return result;
+        if (result.length)
+          await tx.notification.create({
+            data: {
+              userId: ownerId,
+              jobId: id,
+              type: NotificationType.JOB_CANCELLED,
+              title: "Translation cancelled",
+              message: `${result[0].fileName} was cancelled.`,
+            },
+          });
+        return result;
+      });
+      if (!changed.length)
+        throw new BadRequestException(
+          "Job status changed. Refresh and try again.",
+        );
+      return { worker: undefined };
     });
-    if (!changed.length)
-      throw new BadRequestException(
-        "Only pending or processing jobs can be cancelled.",
-      );
-    if (changed[0].startedAt) {
-      this.cancelled.add(id);
-      this.controllers.get(id)?.abort();
-    }
-    return this.toJob(changed[0]);
+    await worker.worker?.catch(() => undefined);
+    return this.toJob(await this.owned(id, ownerId));
   }
   async getDownload(
     id: string,
