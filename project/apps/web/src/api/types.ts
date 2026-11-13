@@ -107,3 +107,7 @@ export interface ChangelogPage {
   data: ChangelogEntry[];
   nextCursor: string | null;
 }
+
+export interface SystemInfo {
+  year: number;
+}

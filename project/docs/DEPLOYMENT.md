@@ -20,6 +20,12 @@ The frontend base path and API base path are configured separately using `VITE_B
 
 **Migration encoding correction (2026-11-12):** Six historical changelog migrations had a UTF-8 byte-order marker removed because PostgreSQL rejected it during a fresh deployment. Their SQL and published entries are unchanged, but databases that applied the original files retain the old checksums. In a disposable PostgreSQL 16 rehearsal, Prisma 7.10.1 `migrate status` and `migrate deploy` succeeded with an old stored checksum; `migrate dev` was not tested. Review migration history and back up the database before development migration operations; do not manually rewrite `_prisma_migrations` to silence a mismatch.
 
+## Migration and recovery checks
+
+The API container applies pending Prisma migrations before serving requests. Back up `postgres-data` and `api-data` together before upgrading, then inspect `docker compose logs --no-color translator-api` for migration and startup results. The Version 2 branding/footer migration only inserts its stable Changelog entry; the public `/excel-convert/system/info` endpoint returns the current Asia/Tokyo calendar year with `Cache-Control: public, max-age=300`. The footer refreshes on that cache interval, so a displayed year may remain cached for up to five minutes after Tokyo midnight.
+
+If a migration fails, keep the database and logs intact, confirm the migration status with the database operator, and use a reviewed forward migration or restore the paired volume backup if recovery requires rollback. Do not use `prisma migrate dev` or `migrate reset` against production, delete application data, or edit `_prisma_migrations` to make a failed deployment appear successful. After recovery, redeploy the reviewed image and verify API readiness, the system-info response, and an authenticated workbook workflow before returning traffic.
+
 ## Keycloak OIDC
 
 Set `ADMIN_USERNAMES` to a comma-separated list of administrator login names. These names are checked by the API for both protected setting endpoints and the admin-only section in Profile. An administrator can configure Keycloak there; the settings are stored in PostgreSQL and take effect for new sign-ins. The public login page receives only the enablement, server URL, realm, and client ID. `KEYCLOAK_*` environment values provide the initial/default config when no admin settings have been saved.

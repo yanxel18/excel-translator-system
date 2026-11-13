@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v2-branding-footer",
+    title: "Add application branding and a backend-year footer",
+    details:
+      "Added an original workbook translation mark for the header and favicon, plus a responsive localized footer using the backend-provided Asia/Tokyo calendar year. The year endpoint uses a five-minute public cache, and the footer explains when year metadata is unavailable.",
+    publishedAt: "2026-11-13T08:43:13.000Z",
+  },
+  {
     id: "changelog-20261112-v2-admin-auth-guardrails",
     title: "Protect configured administrator access",
     details:

@@ -11,6 +11,7 @@ import { GraphQLSchemaBuilderModule } from "@nestjs/graphql";
 import { ProductSurfacesModule } from "./modules/product-surfaces/product-surfaces.module";
 import { AdminUsersModule } from "./modules/admin-users/admin-users.module";
 import { BaseModule } from "./modules/base-management/base.module";
+import { SystemInfoModule } from "./modules/system-info/system-info.module";
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { BaseModule } from "./modules/base-management/base.module";
     AuthenticationModule,
     AdminUsersModule,
     BaseModule,
+    SystemInfoModule,
     ProgressTrackingModule,
     VocabularyModule,
     GraphQLSchemaBuilderModule,

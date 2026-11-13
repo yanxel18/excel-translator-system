@@ -179,23 +179,29 @@ Implementation evidence (2026-11-12): PostgreSQL 16.15 with `pg_trgm` 1.6 availa
 
 ## Branding, footer and release
 
-- [ ] **V2-21 — Create original SVG identity assets (S)**
+- [x] **V2-21 — Create original SVG identity assets (S)**
   - Design a system-specific SVG mark for the favicon and top header; wire favicon references and accessible branding.
   - Acceptance: same identity at small and header sizes, legible in light/dark themes; original vector artwork committed.
   - Verify: favicon loads on nested routes and review at small sizes in both themes.
   - Dependencies: 05. Files: web public/assets SVG, index.html, AppHeader.
 
-- [ ] **V2-22 — Add backend-year footer (M)**
+  Implementation evidence (2026-11-13): Added the original 38×38 workbook translation SVG to the header and favicon. The focused browser suite verified its asset response from `/excel-convert/workspace`, the accessible Home label, native dimensions, and visibility after toggling the light/dark theme; the fixed dark-teal canvas, warm-white workbook, and teal/ochre strokes do not depend on the shell theme.
+
+- [x] **V2-22 — Add backend-year footer (M)**
   - Expose safe system display metadata and render `Translation System Taiyo Yuden Co. Ltd © {year}` below page content.
   - Acceptance: year supplied by backend under agreed timezone policy; year rollover/cache behavior defined; footer works on short and long pages without covering controls.
   - Verify: backend year-boundary checks, unavailable API behavior, mobile layout.
   - Dependencies: 05. Files: system info endpoint/client, app shell footer/locales/CSS.
 
-- [ ] **V2-23 — Complete integration and deployment review (M)**
+  Implementation evidence (2026-11-13): Added public `GET /system/info` using the Asia/Tokyo calendar year and `Cache-Control: public, max-age=300`; the footer refreshes on that interval, fits normal and long content without fixed positioning, and shows a localized unavailable state on request or payload failure. API year-boundary/cache tests passed (2/2), and branding/footer browser tests passed (5/5), covering HTTP and malformed-response fallback, Japanese/Chinese labels, and 320/768/1024/1440 widths.
+
+- [x] **V2-23 — Complete integration and deployment review (M)**
   - Rehearse forward migrations on existing data; verify admin restrictions, password policy, OIDC modes, disabled sessions, URL refreshes and retained workbook flows.
   - Acceptance: focused regressions and API/frontend builds pass; frontend typecheck passes; English/Japanese/Chinese and 320/768/1024/1440 layouts reviewed; operational recovery and deployment notes updated.
   - Verify: `npm run build`, `npx tsc --noEmit` in web, API `npm run prisma:validate`, existing focused authentication/API checks and relevant Playwright suites; add meaningful new coverage with the implementation tasks.
   - Dependencies: 13, 15–22. Files: relevant tests, deployment docs, V2 trackers, Changelog migration/fallback.
+
+  Implementation evidence (2026-11-13): API production build and Prisma validation passed; web TypeScript check and production build passed. API suite passed 101 tests with 2 optional provider/database cases skipped in the no-credentials default run; the database integration was then run separately against isolated PostgreSQL 16 and passed 4/4, applying forward migrations over legacy user/workbook data and checking Changelog parity. Relevant browser suites passed 56/56 for auth modes, administrator access, password policy, session revocation/expiry, URL refresh/navigation, workbooks, branding, footer localization, and responsive layouts. Deployment and migration-recovery guidance was updated. No deployed database was touched; the separate Compose deployment smoke test remains opt-in.
 
 ## Completion rules for every task
 
