@@ -4,8 +4,10 @@ import type { View } from "./types";
 import AppHeader from "./AppHeader";
 import AppNavigation from "./AppNavigation";
 import PreferencesModal from "./PreferencesModal";
+import ShellControls from "./ShellControls";
 import ApiService from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
+import type { UserProfile } from "../../api";
 
 export default function AppFrame({
   isAdmin,
@@ -21,8 +23,14 @@ export default function AppFrame({
   children,
   token,
   onOpenNotification,
+  profile,
+  profileLoading,
+  profileLoadError,
 }: {
   isAdmin: boolean;
+  profile: UserProfile | null;
+  profileLoading: boolean;
+  profileLoadError: boolean;
   onOpenNotification: (id?: string) => void;
   token: string;
   view: View;
@@ -75,27 +83,15 @@ export default function AppFrame({
     >
       <AppShell.Header className="app-header">
         <AppHeader
-          isAdmin={isAdmin}
-          onSystemSettings={() => {
-            onNavigate("settings/users");
-            onCloseMobile();
-          }}
           onHome={() => {
             onNavigate("workspace");
             onCloseMobile();
           }}
           token={token}
-          onSettings={onSettingsOpen}
-          onSignOut={onSignOut}
-          onChangelog={() => onNavigate("changelog")}
           navigationOpen={mobileOpen}
           onToggleNavigation={onToggleMobile}
           onOpenNotifications={(id) => {
             onOpenNotification(id);
-            onCloseMobile();
-          }}
-          onOpenProfile={() => {
-            onNavigate("profile");
             onCloseMobile();
           }}
         />
@@ -107,8 +103,6 @@ export default function AppFrame({
             onNavigate(destination);
             onCloseMobile();
           }}
-          onSettings={onSettingsOpen}
-          onSignOut={onSignOut}
         />
       </AppShell.Navbar>
       <AppShell.Main>
@@ -117,6 +111,18 @@ export default function AppFrame({
           {t("Translation System Taiyo Yuden Co. Ltd")} ©{" "}
           {year ?? (yearUnavailable ? t("Year unavailable") : "…")}
         </footer>
+        <ShellControls
+          isAdmin={isAdmin}
+          profile={profile}
+          profileLoading={profileLoading}
+          profileLoadError={profileLoadError}
+          onNavigate={(destination) => {
+            onNavigate(destination);
+            onCloseMobile();
+          }}
+          onSettings={onSettingsOpen}
+          onSignOut={onSignOut}
+        />
       </AppShell.Main>
       <PreferencesModal opened={settingsOpen} onClose={onSettingsClose} />
     </AppShell>
