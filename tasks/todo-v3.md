@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-01–V3-12 and V3-14 completed; final verification pending.
+Created: 2026-11-13. Status: V3-01–V3-14 completed and verified.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -124,8 +124,9 @@ This checklist records the requested changes; it does not claim they are impleme
 
 ## Final verification
 
-- [ ] **V3-13 — Run integrated V3 checks (M)**
+- [x] **V3-13 — Run integrated V3 checks (M)**
   - Verify the completed vocabulary, history, shell, workbook, and concurrent-job workflows together.
   - Acceptance: all V3 criteria are met, existing permissions and data are preserved, and synchronized Changelog entries describe completed updates.
   - Verify: relevant API tests and build, web typecheck/build, and desktop/mobile browser checks including localization, accessibility, and session expiry.
   - Dependencies: V3-01–V3-12 and V3-14. Files: existing API and browser test suites.
+  - Evidence: 35 integrated browser checks and 24 shell/regression checks passed; API suite passed 115 tests with 3 external-service tests skipped; builds and typechecks passed. Disposable PostgreSQL verified migrations, admission, recovery, and slot release. An isolated HTTP workflow verified settings, start, completion, and workbook download using a deterministic local translation stub. Real model quality and screen-reader testing were not assessed.

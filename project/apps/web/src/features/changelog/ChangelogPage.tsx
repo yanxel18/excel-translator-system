@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v3-verification",
+    title: "Verify version 3 workflows",
+    details:
+      "The updated vocabulary, history, account controls, workbook actions, and translation workflows have been checked together.",
+    publishedAt: "2026-11-13T12:07:00.000Z",
+  },
+  {
     id: "changelog-20261113-translation-concurrency",
     title: "Control simultaneous translations",
     details:

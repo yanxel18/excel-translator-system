@@ -1,7 +1,7 @@
 # Version 3 implementation plan
 
 Created: 2026-11-13 (Asia/Tokyo)
-Status: V3 implementation is in progress; the checklist records verified completion.
+Status: V3 implementation and integrated checks are complete; the checklist records verification evidence and limitations.
 Task tracker: [todo-v3.md](todo-v3.md). The previous plan remains in [plan-v2.md](plan-v2.md).
 
 ## Objectives and scope
