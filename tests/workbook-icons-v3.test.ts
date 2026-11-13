@@ -46,7 +46,9 @@ test("workbooks use decorative Excel-style SVG icons across pages", async ({ pag
     await expect(page.locator("svg.lucide-file-spreadsheet")).toHaveCount(0);
   }
   await page.setViewportSize({ width: 320, height: 768 });
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page.getByRole("button", { name: "Toggle color theme" }).click();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await expect(page.locator("main svg.workbook-icon").first()).toBeVisible();
   await expect(page.locator("main svg.workbook-icon").first()).toHaveAttribute("aria-hidden", "true");
 });

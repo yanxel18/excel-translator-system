@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v4-shell",
+    title: "Simplify navigation and account controls",
+    details:
+      "A compact navigation rail now holds the profile avatar and theme control, with one language selector and a clearer workspace icon.",
+    publishedAt: "2026-11-13T12:39:00.000Z",
+  },
+  {
     id: "changelog-20261113-v4-roadmap",
     title: "Plan version 4 interface improvements",
     details:

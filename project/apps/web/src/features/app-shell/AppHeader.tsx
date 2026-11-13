@@ -75,6 +75,8 @@ export default function AppHeader({
             opened={navigationOpen}
             onClick={onToggleNavigation}
             aria-label={t("Toggle navigation")}
+            aria-expanded={navigationOpen}
+            aria-controls="app-navigation"
             size="sm"
           />
           <UnstyledButton onClick={onHome} aria-label={t("Home")}>

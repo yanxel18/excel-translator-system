@@ -8,6 +8,7 @@ import {
 } from "@mantine/core";
 import {
   Check,
+  ChevronUp,
   Globe2,
   LogOut,
   Moon,
@@ -29,13 +30,12 @@ function initialsFor(name: string): string {
   return Array.from(name.trim()).slice(0, 2).join("").toUpperCase();
 }
 
-export default function ShellControls({
+export function AccountControls({
   isAdmin,
   profile,
   profileLoading,
   profileLoadError,
   onNavigate,
-  onSettings,
   onSignOut,
 }: {
   isAdmin: boolean;
@@ -43,12 +43,10 @@ export default function ShellControls({
   profileLoading: boolean;
   profileLoadError: boolean;
   onNavigate: (view: View) => void;
-  onSettings: () => void;
   onSignOut: () => void;
 }) {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const { locale, setLocale, t } = useLocale();
-  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const { t } = useLocale();
   const displayName = profileLoadError
     ? t("Profile unavailable")
     : profile?.fullName?.trim() ||
@@ -60,19 +58,25 @@ export default function ShellControls({
   );
 
   return (
-    <div className="shell-controls">
-      <div className="shell-profile-controls">
+    <div className="shell-profile-controls">
+        <ActionIcon
+          variant="subtle"
+          color="blue"
+          size="lg"
+          aria-label={t("Toggle color theme")}
+          aria-pressed={colorScheme === "dark"}
+          title={t(colorScheme === "dark" ? "Use light theme" : "Use dark theme")}
+          onClick={() => toggleColorScheme()}
+        >
+          {colorScheme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+        </ActionIcon>
         <div className="shell-account-wrap">
-          <Menu position="top-start" shadow="lg" withinPortal>
+          <Menu position="top-start" width={240} shadow="lg" withinPortal>
             <Menu.Target>
               <UnstyledButton
                 className="shell-account-trigger"
                 aria-label={t("Account")}
-                aria-describedby={
-                  profileLoadError
-                    ? "shell-account-copy shell-account-error"
-                    : "shell-account-copy"
-                }
+                aria-describedby="shell-account-status"
                 aria-busy={profileLoading}
               >
                 <Avatar
@@ -83,19 +87,21 @@ export default function ShellControls({
                 >
                   {initials || <UserRound size={18} />}
                 </Avatar>
-                <span className="shell-account-copy" id="shell-account-copy">
-                  <Text className="shell-account-name" size="sm" fw={600}>
-                    {displayName}
-                  </Text>
-                  {!profileLoadError && !profileLoading && (
-                    <Text className="shell-account-email" size="xs" c="dimmed">
-                      {email}
-                    </Text>
-                  )}
-                </span>
+                <ChevronUp className="shell-account-chevron" size={14} aria-hidden="true" />
               </UnstyledButton>
             </Menu.Target>
             <Menu.Dropdown>
+              <Menu.Label className="shell-account-details">
+                <Text className="shell-account-name" size="sm" fw={600}>{displayName}</Text>
+                {!profileLoadError && !profileLoading && (
+                  <Text className="shell-account-email" size="xs" c="dimmed">{email}</Text>
+                )}
+                {profileLoadError && (
+                  <Text className="shell-account-error" size="xs" c="red">
+                    {t("Could not load profile.")}
+                  </Text>
+                )}
+              </Menu.Label>
               <Menu.Item
                 leftSection={<UserRound size={16} />}
                 onClick={() => onNavigate("profile")}
@@ -110,12 +116,6 @@ export default function ShellControls({
                   {t("System Settings")}
                 </Menu.Item>
               )}
-              <Menu.Item
-                leftSection={<Settings size={16} />}
-                onClick={onSettings}
-              >
-                {t("Settings")}
-              </Menu.Item>
               <Menu.Item
                 leftSection={<Volume2 size={16} />}
                 onClick={() => onNavigate("changelog")}
@@ -132,30 +132,18 @@ export default function ShellControls({
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          {profileLoadError && (
-            <Text
-              id="shell-account-error"
-              className="shell-account-error"
-              size="xs"
-              c="red"
-              role="alert"
-            >
-              {t("Could not load profile.")}
-            </Text>
-          )}
+          <span id="shell-account-status" className="shell-visually-hidden" role={profileLoadError ? "alert" : undefined}>
+            {displayName}{profileLoadError ? ` ${t("Could not load profile.")}` : ""}
+          </span>
         </div>
-        <ActionIcon
-          variant="subtle"
-          color="blue"
-          size="lg"
-          aria-label={t("Toggle color theme")}
-          aria-pressed={colorScheme === "dark"}
-          title={t(colorScheme === "dark" ? "Use light theme" : "Use dark theme")}
-          onClick={() => toggleColorScheme()}
-        >
-          {colorScheme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
-        </ActionIcon>
-      </div>
+    </div>
+  );
+}
+
+export function LanguageControl() {
+  const { locale, setLocale, t } = useLocale();
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  return (
       <div className="shell-language-control">
         <Menu
           opened={languageMenuOpen}
@@ -193,6 +181,5 @@ export default function ShellControls({
           </Menu.Dropdown>
         </Menu>
       </div>
-    </div>
   );
 }

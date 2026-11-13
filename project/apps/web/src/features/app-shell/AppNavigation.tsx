@@ -1,11 +1,10 @@
 import { NavLink, Text, Box, Tooltip } from "@mantine/core";
-import { BookOpen, History } from "lucide-react";
+import { BookOpen, History, LayoutDashboard } from "lucide-react";
 import type { View } from "./types";
 import { useLocale } from "../shared/LocaleProvider";
-import WorkbookIcon from "../shared/WorkbookIcon";
 
 const items = [
-  { view: "workspace", label: "Workspace", icon: WorkbookIcon },
+  { view: "workspace", label: "Workspace", icon: LayoutDashboard },
   { view: "history", label: "History", icon: History },
   { view: "vocabulary", label: "Vocabulary", icon: BookOpen },
 ] as const;
@@ -43,6 +42,7 @@ export default function AppNavigation({
             type="button"
             key={destination}
             active={view === destination}
+            aria-current={view === destination ? "page" : undefined}
             label={t(label)}
             leftSection={<Icon size={19} />}
             onClick={() => onNavigate(destination)}
