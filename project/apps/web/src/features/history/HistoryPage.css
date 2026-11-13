@@ -1,3 +1,49 @@
+.mantine-AppShell-root .main-content:has(> .history-page) {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 1rem;
+}
+
+.history-page {
+  flex: 1;
+  min-height: 0;
+}
+
+.history-table-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.history-table-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-height: 36em) {
+  /* Use the page as the only scroll container when controls cannot fit. */
+  .mantine-AppShell-root .main-content:has(> .history-page) {
+    overflow: auto;
+  }
+
+  .history-page,
+  .history-table-card,
+  .history-table-scroll {
+    flex: none;
+  }
+
+  .history-table-card,
+  .history-table-scroll,
+  .history-table-scroll .mantine-ScrollArea-viewport {
+    overflow: visible !important;
+  }
+
+  .history-table-scroll .mantine-ScrollArea-viewport {
+    height: auto !important;
+  }
+}
+
 .history-page-size {
   flex: 0 0 4.25rem;
   min-width: 0;

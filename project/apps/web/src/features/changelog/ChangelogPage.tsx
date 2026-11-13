@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-history-single-scroll",
+    title: "Simplify history scrolling",
+    details:
+      "Translation history now uses one vertical scroll area, making rows and pagination easier to navigate.",
+    publishedAt: "2026-11-13T14:15:00.000Z",
+  },
+  {
     id: "changelog-20261113-v5-verification",
     title: "Verify version 5 workflows",
     details:
