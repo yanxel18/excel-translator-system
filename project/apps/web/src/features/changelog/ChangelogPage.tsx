@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-translation-settings-start",
+    title: "Restore saving and starting translations",
+    details:
+      "Fixed an error that prevented translation settings from saving and jobs from starting when extra job details were sent with the settings.",
+    publishedAt: "2026-11-13T10:55:00.000Z",
+  },
+  {
     id: "changelog-20261113-v3-implementation-plan",
     title: "Document the Version 3 implementation plan",
     details:

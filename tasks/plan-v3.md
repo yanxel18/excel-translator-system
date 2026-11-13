@@ -6,7 +6,7 @@ Task tracker: [todo-v3.md](todo-v3.md). The previous plan remains in [plan-v2.md
 
 ## Objectives and scope
 
-Improve vocabulary group selection and actions, translation history, profile and language controls, workbook presentation, and control of concurrent translations. Preserve existing authentication, owner-scoped data, session handling, localization, and responsive layouts. The V3 checklist contains the implementation slices, acceptance criteria, dependencies, and verification steps; it remains the source of task status.
+Improve vocabulary group selection and actions, translation history, profile and language controls, workbook presentation, and control of concurrent translations. Restore saving translation settings and starting jobs (V3-14). Preserve existing authentication, owner-scoped data, session handling, localization, and responsive layouts. The V3 checklist contains the implementation slices, acceptance criteria, dependencies, and verification steps; it remains the source of task status.
 
 ## Current foundation
 
