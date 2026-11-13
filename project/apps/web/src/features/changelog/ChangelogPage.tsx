@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-history-pagination-layout",
+    title: "Keep history pagination controls together",
+    details:
+      "Moved the rows-per-page selector below the history list beside the page controls, while preserving filters and shareable page settings.",
+    publishedAt: "2026-11-13T10:58:00.000Z",
+  },
+  {
     id: "changelog-20261113-translation-settings-start",
     title: "Restore saving and starting translations",
     details:
