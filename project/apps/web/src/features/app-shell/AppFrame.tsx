@@ -3,8 +3,7 @@ import { AppShell, Box } from "@mantine/core";
 import type { View } from "./types";
 import AppHeader from "./AppHeader";
 import AppNavigation from "./AppNavigation";
-import PreferencesModal from "./PreferencesModal";
-import ShellControls from "./ShellControls";
+import { AccountControls, LanguageControl } from "./ShellControls";
 import ApiService from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import type { UserProfile } from "../../api";
@@ -17,9 +16,6 @@ export default function AppFrame({
   mobileOpen,
   onToggleMobile,
   onCloseMobile,
-  settingsOpen,
-  onSettingsOpen,
-  onSettingsClose,
   children,
   token,
   onOpenNotification,
@@ -39,9 +35,6 @@ export default function AppFrame({
   mobileOpen: boolean;
   onToggleMobile: () => void;
   onCloseMobile: () => void;
-  settingsOpen: boolean;
-  onSettingsOpen: () => void;
-  onSettingsClose: () => void;
   children: ReactNode;
 }) {
   const { t } = useLocale();
@@ -96,7 +89,7 @@ export default function AppFrame({
           }}
         />
       </AppShell.Header>
-      <AppShell.Navbar p="xs" className="navigation-rail">
+      <AppShell.Navbar id="app-navigation" p="xs" className="navigation-rail">
         <AppNavigation
           view={view}
           onNavigate={(destination) => {
@@ -104,14 +97,7 @@ export default function AppFrame({
             onCloseMobile();
           }}
         />
-      </AppShell.Navbar>
-      <AppShell.Main>
-        <Box className="main-content">{children}</Box>
-        <footer className="app-footer" role="contentinfo">
-          {t("Translation System Taiyo Yuden Co. Ltd")} ©{" "}
-          {year ?? (yearUnavailable ? t("Year unavailable") : "…")}
-        </footer>
-        <ShellControls
+        <AccountControls
           isAdmin={isAdmin}
           profile={profile}
           profileLoading={profileLoading}
@@ -120,11 +106,17 @@ export default function AppFrame({
             onNavigate(destination);
             onCloseMobile();
           }}
-          onSettings={onSettingsOpen}
           onSignOut={onSignOut}
         />
+      </AppShell.Navbar>
+      <AppShell.Main>
+        <Box className="main-content">{children}</Box>
+        <footer className="app-footer" role="contentinfo">
+          {t("Translation System Taiyo Yuden Co. Ltd")} ©{" "}
+          {year ?? (yearUnavailable ? t("Year unavailable") : "…")}
+        </footer>
+        <LanguageControl />
       </AppShell.Main>
-      <PreferencesModal opened={settingsOpen} onClose={onSettingsClose} />
     </AppShell>
   );
 }

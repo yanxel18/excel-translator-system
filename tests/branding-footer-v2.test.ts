@@ -58,6 +58,7 @@ test("original branding assets load from a nested route and remain labeled", asy
 
   const brand = page.locator("img.app-brand-mark");
   await expect(brand).toBeVisible();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   for (let scheme = 0; scheme < 2; scheme += 1) {
     await page.getByRole("button", { name: "Toggle color theme" }).click();
     await expect(brand).toBeVisible();

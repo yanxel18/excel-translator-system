@@ -7,18 +7,20 @@ Keep authentication, permissions, saved data, translation workflows, localizatio
 
 ## Application shell
 
-- [ ] **V4-01 — Redesign navigation and profile controls (M)**
+- [x] **V4-01 — Redesign navigation and profile controls (M)**
   - Use a Lucide workspace icon and a compact, consistent circular navigation treatment.
   - Put the circular profile avatar at the lower left of the navigation rail; an upward control expands account details and actions. Use the supplied image as inspiration, not copied branding or imagery.
   - Acceptance: navigation, profile, administrator settings, sign-out, theme, loading/error states, keyboard access, and mobile navigation continue to work.
   - Verify: focused browser checks for collapse/expand, navigation, account actions, both themes, and 320px and desktop layouts.
   - Dependencies: none. Files: app-shell components, related styles and tests.
+  - Evidence: browser checks cover profile details, actions and failures, admin access, keyboard use, themes, and desktop/mobile navigation.
 
-- [ ] **V4-02 — Remove duplicate language settings (S)**
+- [x] **V4-02 — Remove duplicate language settings (S)**
   - Retain one accessible, persistent three-language selector and remove the duplicate settings entry that serves only the same purpose.
   - Acceptance: English, Japanese, and Chinese remain selectable and persistent without duplicate controls or dead menu actions.
   - Verify: browser checks for each locale, persistence, keyboard access, and mobile placement.
   - Dependencies: coordinate with V4-01. Files: app-shell preferences and tests.
+  - Evidence: browser checks cover the globe selector, all three locales, persistence, dismissal, and absence of the duplicate menu entry.
 
 ## Visual refinement
 

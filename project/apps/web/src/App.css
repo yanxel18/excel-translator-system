@@ -104,73 +104,66 @@ input {
   font-size: var(--mantine-font-size-sm);
   text-align: center;
 }
-.shell-controls {
-  position: fixed;
-  z-index: 210;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  left: 12px;
-  right: 12px;
-  pointer-events: none;
-}
 .shell-profile-controls {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  width: min(252px, calc(100vw - 76px));
-  min-width: 0;
-  padding: 8px;
-  border: 1px solid light-dark(#dce5ed, #324359);
-  border-radius: 12px;
-  background: light-dark(rgb(255 255 255 / 96%), rgb(20 32 48 / 96%));
-  box-shadow: 0 4px 16px rgb(21 42 61 / 10%);
-  backdrop-filter: blur(16px);
-  pointer-events: auto;
+  gap: 12px;
+  margin-top: auto;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
 }
 .shell-account-trigger {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 2px;
-  border-radius: 8px;
-  text-align: left;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
 }
 .shell-account-wrap {
-  flex: 1 1 auto;
-  min-width: 0;
+  position: relative;
 }
-.shell-account-wrap .mantine-Menu-root {
-  width: 100%;
+.shell-account-chevron {
+  position: absolute;
+  right: -3px;
+  bottom: -1px;
+  border-radius: 50%;
+  background: light-dark(#fff, #25364a);
+  color: light-dark(#334c62, #e1edf8);
 }
-.shell-account-error {
-  margin-left: 48px;
-  line-height: 1.3;
+.shell-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .shell-account-trigger:focus-visible {
   outline: 2px solid var(--mantine-color-blue-5);
   outline-offset: 2px;
 }
-.shell-account-copy {
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-}
 .shell-account-name,
 .shell-account-email {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.shell-account-details {
+  text-transform: none;
+  letter-spacing: normal;
 }
 .shell-profile-controls > .mantine-ActionIcon-root {
   flex: 0 0 auto;
   border-radius: 50%;
 }
 .shell-language-control {
-  pointer-events: auto;
+  position: fixed;
+  z-index: 210;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 .shell-language-button {
   width: 44px;
@@ -629,23 +622,13 @@ input {
     transform: translateY(0);
   }
 }
-@media (max-width: 48em) {
+@media (max-width: 47.99em) {
   .mantine-AppShell-root {
     --app-shell-navbar-offset: 0rem !important;
   }
   .mantine-AppShell-main {
     padding-inline: 16px !important;
-    padding-bottom: 0;
-  }
-  .shell-controls {
-    position: static;
-    align-items: center;
-    margin-top: 12px;
-    padding-bottom: 8px;
-    pointer-events: auto;
-  }
-  .shell-profile-controls {
-    width: min(252px, calc(100vw - 84px));
+    padding-bottom: 5.25rem;
   }
   .mantine-AppShell-root[data-mobile-navigation="closed"] .navigation-rail {
     transform: translateX(-100%) !important;
@@ -692,16 +675,36 @@ input {
     align-items: stretch;
     padding: 16px !important;
   }
+  .shell-profile-controls {
+    align-items: flex-start;
+  }
   .navigation-rail .mantine-NavLink-root {
     width: 100%;
-    border-radius: 12px;
-    padding: 12px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+  }
+  .navigation-rail .mantine-NavLink-root[data-active] {
+    color: light-dark(#122b35, #e1edf8);
+    background: transparent;
   }
   .navigation-rail .mantine-NavLink-body {
     display: block;
   }
   .navigation-rail .mantine-NavLink-section {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
     margin-right: 12px;
+    border-radius: 50%;
+    background: light-dark(rgb(255 255 255 / 75%), #203045);
+  }
+  .navigation-rail .mantine-NavLink-root[data-active] .mantine-NavLink-section {
+    background: #122b35;
+    color: white;
   }
   .rail-caption {
     display: block;

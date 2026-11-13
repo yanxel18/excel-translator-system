@@ -44,10 +44,6 @@ export default function ModernApp() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState(false);
-  const [
-    settingsOpen,
-    { open: openSettingsDialog, close: closeSettingsDialog },
-  ] = useDisclosure(false);
   const [settingsJob, setSettingsJob] = useState<Job | null>(null);
   const [vocabularyGroups, setVocabularyGroups] = useState<VocabularyGroup[]>(
     [],
@@ -372,9 +368,6 @@ export default function ModernApp() {
       mobileOpen={mobileNavigationOpen}
       onToggleMobile={toggleMobileNavigation}
       onCloseMobile={closeMobileNavigation}
-      settingsOpen={settingsOpen}
-      onSettingsOpen={openSettingsDialog}
-      onSettingsClose={closeSettingsDialog}
     >
       {settingsError && !settingsJob && (
         <Alert

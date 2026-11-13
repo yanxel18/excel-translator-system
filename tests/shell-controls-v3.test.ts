@@ -48,6 +48,9 @@ async function openWorkspace(
     await route.fulfill({ json: body });
   });
   await page.goto(`${webBasePath}workspace`);
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await page.getByRole("button", { name: "Toggle navigation" }).click();
+  }
   await expect(page.locator(".shell-account-trigger")).toBeVisible();
 }
 
@@ -58,16 +61,16 @@ test("failed profile load exposes an accessible error and keeps account actions 
   await openWorkspace(page, undefined, 0, true);
 
   const account = page.locator(".shell-account-trigger");
-  await expect(account).toContainText("Profile unavailable");
-  await expect(account).not.toContainText("Email not provided");
-  await expect(page.getByRole("alert")).toHaveText("Could not load profile.");
-
   await account.click();
+  await expect(page.getByRole("menu")).toContainText("Profile unavailable");
+  await expect(page.getByRole("menu")).not.toContainText("Email not provided");
+  await expect(page.getByRole("alert")).toContainText("Could not load profile.");
   await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Profile" }).click();
   await expect(page).toHaveURL(/\/profile$/);
 
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await account.click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
@@ -79,10 +82,11 @@ for (const [locale, unavailable, error] of [
 ] as const) {
   test(`profile failure is localized for ${locale}`, async ({ page }) => {
     await openWorkspace(page, undefined, 0, true, locale);
-    await expect(page.locator(".shell-account-trigger")).toContainText(
+    await page.locator(".shell-account-trigger").click();
+    await expect(page.getByRole("menu")).toContainText(
       unavailable,
     );
-    await expect(page.getByRole("alert")).toHaveText(error);
+    await expect(page.getByRole("alert")).toContainText(error);
   });
 }
 
@@ -102,12 +106,12 @@ test("profile controls stay available while account details are loading", async 
     400,
   );
   const account = page.getByRole("button", { name: "Account", exact: true });
-  await expect(account).toContainText("Loading profile…");
-  await expect(account).not.toContainText("Email not provided");
   await account.click();
+  await expect(page.getByRole("menu")).toContainText("Loading profile…");
+  await expect(page.getByRole("menu")).not.toContainText("Email not provided");
   await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
+  await expect(page.getByRole("menu")).toContainText("loading-user");
   await page.keyboard.press("Escape");
-  await expect(account).toContainText("loading-user");
 });
 
 test("bottom-left account menu preserves profile, admin, sign-out, and theme controls", async ({
@@ -117,8 +121,6 @@ test("bottom-left account menu preserves profile, admin, sign-out, and theme con
   await openWorkspace(page);
 
   const account = page.getByRole("button", { name: "Account", exact: true });
-  await expect(account).toContainText("alice");
-  await expect(account).toContainText("Email not provided");
   await expect(page.getByText("AL", { exact: true })).toBeVisible();
 
   const themeToggle = page.getByRole("button", {
@@ -136,6 +138,8 @@ test("bottom-left account menu preserves profile, admin, sign-out, and theme con
   );
 
   await account.click();
+  await expect(page.getByRole("menu")).toContainText("alice");
+  await expect(page.getByRole("menu")).toContainText("Email not provided");
   await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: "System Settings" }),
@@ -169,12 +173,12 @@ test("bottom-right language menu opens upward, persists each locale, and dismiss
 
   const languageButton = page.locator(".shell-language-button");
   const account = page.getByRole("button", { name: "Account", exact: true });
-  await expect(account).toContainText("Hana Yamada");
-  await expect(account).toContainText("hana@example.com");
   await expect(page.getByText("HY", { exact: true })).toBeVisible();
   await account.click();
   const accountMenu = page.getByRole("menu");
   await expect(accountMenu).toBeVisible();
+  await expect(accountMenu).toContainText("Hana Yamada");
+  await expect(accountMenu).toContainText("hana@example.com");
   await page.keyboard.press("Escape");
   await expect(accountMenu).toBeHidden();
 

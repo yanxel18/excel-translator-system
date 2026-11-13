@@ -69,18 +69,17 @@ test("workspace navigation, preferences, and Japanese localization work on a nar
   await expect(page.getByRole("heading", { name: "Vocabulary" })).toBeVisible();
   await page.getByRole("button", { name: "Open notifications" }).click();
   await expect(page.getByText("No notifications yet.")).toBeVisible();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page.getByRole("button", { name: "Account" }).click();
   await page.getByRole("menuitem", { name: "Profile" }).click();
   await expect(page.getByText("@ui-test")).toBeVisible();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page.getByRole("button", { name: "Account" }).click();
   await page.getByRole("menuitem", { name: "Changelog" }).click();
   await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Account" }).click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
-  await page.getByRole("textbox", { name: "Language" }).click();
-  await page.getByRole("option").nth(1).click();
-  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Change language" }).click();
+  await page.getByRole("menuitem", { name: "日本語" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByRole("button", { name: "ホーム" })).toBeVisible();
 });
@@ -710,7 +709,7 @@ test("V2-17 Profile keeps details read-only until edited and uses owner-scoped a
     ).toBeVisible();
     await expect(page.getByText("@alice")).toBeVisible();
     await expect(
-      page.getByText("Alice", { exact: true }).first(),
+      page.getByRole("heading", { name: "Alice", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("textbox", { name: labels.fullName }),
@@ -730,7 +729,7 @@ test("V2-17 Profile keeps details read-only until edited and uses owner-scoped a
       .fill("alice@example.test");
     await page.getByRole("button", { name: labels.save }).click();
     await expect(
-      page.getByText("Alice Example", { exact: true }).first(),
+      page.getByRole("heading", { name: "Alice Example", exact: true }),
     ).toBeVisible();
     expect(saved).toEqual({
       fullName: "Alice Example",
