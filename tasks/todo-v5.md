@@ -3,10 +3,11 @@
 Created: 2026-11-13. Status: In progress.
 Plan: [plan-v5.md](plan-v5.md).
 
-- [ ] **V5-01 — Keep the footer visible**
+- [x] **V5-01 — Keep the footer visible**
   - Acceptance: footer stays at the bottom during scrolling without covering content, controls, or focus at desktop and mobile sizes.
   - Verify: browser tests on short and long pages, small screens, and keyboard navigation.
   - Dependencies: none. Files: app shell layout, styles, focused tests.
+  - Evidence: browser checks cover short and long pages, small viewports, scrolling, and keyboard focus.
 
 - [x] **V5-02 — Make history easier to scan**
   - Acceptance: table headers remain visible on table scroll, localized labels do not render as vertical text, and history has no breadcrumbs or duplicate total badge.
@@ -26,10 +27,11 @@ Plan: [plan-v5.md](plan-v5.md).
   - Dependencies: coordinate with V5-02. Files: shared breadcrumbs/routing, focused tests.
   - Evidence: browser checks cover pointer and keyboard navigation, Japanese labels, and browser history.
 
-- [ ] **V5-05 — Unify button theming**
+- [x] **V5-05 — Unify button theming**
   - Acceptance: comparable left navigation, avatar, theme and action controls share cohesive theme styling and typography, with distinguishable active, focus, disabled and destructive states in light and dark modes.
   - Verify: browser checks and screenshots at mobile and desktop widths in both themes.
   - Dependencies: coordinate with V5-01. Files: shared shell styles/components, focused tests.
+  - Evidence: browser checks and screenshots cover mobile and desktop controls in both themes, including active and destructive states.
 
 - [ ] **V5-06 — Verify the combined redesign**
   - Acceptance: all preceding tasks pass together; translation, permissions, localization, session expiry and mobile controls remain functional; database and built-in changelog entries match.

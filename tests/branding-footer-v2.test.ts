@@ -74,36 +74,50 @@ test("original branding assets load from a nested route and remain labeled", asy
   ).toEqual([38, 38]);
 });
 
-test("backend-year footer fits short and long pages across viewport sizes", async ({
-  page,
-}) => {
-  await openWorkspace(page, { status: 200, body: { year: 2026 } });
-  const footer = page.getByRole("contentinfo");
-  await expect(footer).toHaveText("Translation System Taiyo Yuden Co. Ltd © 2026");
+test(
+  "backend-year footer stays viewport-anchored as content scrolls across widths",
+  async ({ page }) => {
+    await openWorkspace(page, { status: 200, body: { year: 2026 } });
+    const footer = page.getByRole("contentinfo");
+    await expect(footer).toHaveText(
+      "Translation System Taiyo Yuden Co. Ltd © 2026",
+    );
 
-  for (const width of [320, 768, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 800 });
-    const box = await footer.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.width).toBeGreaterThan(0);
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-    expect(
-      await footer.evaluate((element) => getComputedStyle(element).position),
-    ).toBe("static");
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBeLessThanOrEqual(width);
-  }
+    for (const width of [320, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 800 });
+      const box = await footer.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThan(0);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      expect(box!.y + box!.height).toBeCloseTo(800, 0);
+      expect(
+        await footer.evaluate((element) => getComputedStyle(element).position),
+      ).toBe("static");
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+    }
 
-  const sentinel = await page.evaluate(() => {
-    const element = document.createElement("div");
-    element.style.height = "1200px";
-    document.querySelector(".main-content")?.append(element);
-    return element.getBoundingClientRect().bottom;
-  });
-  expect((await footer.boundingBox())!.y).toBeGreaterThanOrEqual(sentinel);
-});
+    const scrollState = await page.evaluate(() => {
+      const element = document.createElement("div");
+      element.style.height = "1200px";
+      const content = document.querySelector(".main-content")!;
+      content.append(element);
+      content.scrollTop = content.scrollHeight;
+      return {
+        footerBottom: document
+          .querySelector(".app-footer")!
+          .getBoundingClientRect().bottom,
+        contentScrollTop: content.scrollTop,
+        documentScrollTop: document.scrollingElement!.scrollTop,
+      };
+    });
+    expect(scrollState.footerBottom).toBeCloseTo(800, 0);
+    expect(scrollState.contentScrollTop).toBeGreaterThan(0);
+    expect(scrollState.documentScrollTop).toBe(0);
+  },
+);
 
 test("footer clearly indicates when backend year metadata is unavailable", async ({
   page,

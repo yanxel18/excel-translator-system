@@ -66,6 +66,25 @@ async function openWorkspace(page: Page, mode: "list" | "empty" | "error" | "loa
   return { recover: () => { failed = false; }, release, runtimeErrors };
 }
 
+async function expectFooterAtViewportBottom(page: Page) {
+  const geometry = await page.evaluate(() => {
+    const footer = document.querySelector(".app-footer");
+    const content = document.querySelector(".main-content");
+    if (!footer || !content) return null;
+    return {
+      footerTop: footer.getBoundingClientRect().top,
+      footerBottom: footer.getBoundingClientRect().bottom,
+      contentBottom: content.getBoundingClientRect().bottom,
+      viewportBottom: document.documentElement.clientHeight,
+    };
+  });
+  if (!geometry) throw new Error("Expected the application footer and scrollable content.");
+  // The shell grid deliberately places adjacent rows; reserved inner scroll space
+  // replaces the old external margin so the footer can stay viewport-anchored.
+  expect(Math.abs(geometry.footerTop - geometry.contentBottom)).toBeLessThanOrEqual(1);
+  expect(Math.abs(geometry.footerBottom - geometry.viewportBottom)).toBeLessThanOrEqual(1);
+}
+
 for (const width of [320, 768, 1024, 1440]) {
   test(`restrained surfaces and compact preview fit ${width}px in both themes`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
@@ -77,11 +96,7 @@ for (const width of [320, 768, 1024, 1440]) {
         if (width < 768) await page.getByRole("button", { name: "Toggle navigation" }).click();
       }
       await expect(page.locator("html")).toHaveAttribute("data-mantine-color-scheme", theme);
-      const footerGap = await page.locator(".app-footer").evaluate((footer) => {
-        const content = document.querySelector(".main-content")!;
-        return footer.getBoundingClientRect().top - content.getBoundingClientRect().bottom;
-      });
-      expect(footerGap).toBeGreaterThanOrEqual(32);
+      await expectFooterAtViewportBottom(page);
       const trigger = page.getByRole("button", { name: "Open notifications" });
       await trigger.click();
       const preview = page.locator(".notification-popover");
@@ -166,12 +181,23 @@ test("long notification page keeps footer spacing and complete messages at 320px
   await page.locator(".notification-preview-footer").click();
   // The full-page feed intentionally renders ten entries per page.
   await expect(page.locator(".notification-card")).toHaveCount(10);
-  expect(await page.locator(".main-content").evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThan(900);
-  const gap = await page.locator(".app-footer").evaluate((footer) =>
-    footer.getBoundingClientRect().top - document.querySelector(".main-content")!.getBoundingClientRect().bottom);
-  expect(gap).toBeGreaterThanOrEqual(32);
+  const scrollMetrics = await page.locator(".main-content").evaluate((element) => ({
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+  }));
+  expect(scrollMetrics.scrollHeight).toBeGreaterThan(scrollMetrics.clientHeight);
+  await expectFooterAtViewportBottom(page);
   await expect(page.locator(".notification-card").last()).toContainText(notices[0].message);
-  await page.locator(".app-footer").scrollIntoViewIfNeeded();
+  await page.locator(".main-content").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  const finalCard = await page.locator(".notification-card").last().boundingBox();
+  const content = await page.locator(".main-content").boundingBox();
+  const footer = await page.locator(".app-footer").boundingBox();
+  expect(finalCard).not.toBeNull();
+  expect(content).not.toBeNull();
+  expect(footer).not.toBeNull();
+  expect(finalCard!.y).toBeGreaterThanOrEqual(content!.y - 1);
+  expect(finalCard!.y + finalCard!.height).toBeLessThanOrEqual(content!.y + content!.height + 1);
+  expect(finalCard!.y + finalCard!.height).toBeLessThanOrEqual(footer!.y + 1);
   await page.screenshot({ path: testInfo.outputPath("v4-long-page-footer.png") });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });
@@ -197,9 +223,7 @@ test("search, unread filtering, mark-all and keyboard selection preserve notific
   await expect(page).toHaveURL(/\/notifications$/);
   // Full-page messages remain readable rather than adopting preview truncation.
   await expect(page.locator(".notification-selected .notification-message")).toHaveText(notices[0].message);
-  const gap = await page.locator(".app-footer").evaluate((footer) =>
-    footer.getBoundingClientRect().top - document.querySelector(".main-content")!.getBoundingClientRect().bottom);
-  expect(gap).toBeGreaterThanOrEqual(32);
+  await expectFooterAtViewportBottom(page);
 });
 
 for (const mode of ["empty", "error", "loading"] as const) {

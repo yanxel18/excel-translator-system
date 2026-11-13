@@ -103,6 +103,16 @@ async function expectExpiredLogin(page: Page) {
 test("expired session during a list load returns to Login and restores a validated internal route", async ({
   page,
 }) => {
+  const restoredHistoryRequests: URLSearchParams[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (
+      url.pathname === `${new URL(api).pathname}/history` &&
+      request.headers().authorization === "Bearer fresh-app-session"
+    ) {
+      restoredHistoryRequests.push(url.searchParams);
+    }
+  });
   await installApi(page, "/history");
   await startWithSession(
     page,
@@ -120,12 +130,14 @@ test("expired session during a list load returns to Login and restores a validat
   await expect(
     page.getByRole("searchbox", { name: "Search workbooks" }),
   ).toHaveValue("monthly");
-  await expect(
-    page.getByRole("textbox", { name: "Source language" }),
-  ).toHaveValue("Japanese");
-  await expect(
-    page.getByRole("textbox", { name: "Target language" }),
-  ).toHaveValue("Chinese");
+  await expect.poll(() =>
+    restoredHistoryRequests.some(
+      (params) =>
+        params.get("sourceLanguage") === "JAPANESE" &&
+        params.get("targetLanguage") === "CHINESE" &&
+        params.get("q") === "monthly",
+    ),
+  ).toBe(true);
   await expect(
     page.getByRole("textbox", { name: "Rows per page" }),
   ).toHaveValue("20");
