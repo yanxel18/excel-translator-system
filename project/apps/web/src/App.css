@@ -653,3 +653,8 @@ input {
   outline: 2px solid var(--mantine-color-blue-6);
   outline-offset: 2px;
 }
+
+/* Allow the autosize flex child to shrink for horizontal scrolling. */
+.history-table-scroll > div {
+  min-width: 0;
+}

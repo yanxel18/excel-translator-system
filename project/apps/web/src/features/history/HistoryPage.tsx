@@ -386,7 +386,15 @@ export default function HistoryPage({
               {total}
             </Badge>
           </Group>
-          <ScrollArea>
+          <ScrollArea.Autosize
+            className="history-table-scroll"
+            mah="min(60vh, 36rem)"
+            viewportProps={{
+              role: "region",
+              "aria-label": t("Translation history"),
+              tabIndex: 0,
+            }}
+          >
             <Table
               highlightOnHover
               verticalSpacing="md"
@@ -514,7 +522,7 @@ export default function HistoryPage({
                 ))}
               </Table.Tbody>
             </Table>
-          </ScrollArea>
+          </ScrollArea.Autosize>
         </Paper>
       )}
 
