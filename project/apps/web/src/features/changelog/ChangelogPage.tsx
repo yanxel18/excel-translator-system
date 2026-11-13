@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v5-verification",
+    title: "Verify version 5 workflows",
+    details:
+      "The updated footer, history, breadcrumbs, navigation, and translation workflows have been checked together.",
+    publishedAt: "2026-11-13T14:00:00.000Z",
+  },
+  {
     id: "changelog-20261113-v5-shell",
     title: "Keep the footer visible and refine controls",
     details:
