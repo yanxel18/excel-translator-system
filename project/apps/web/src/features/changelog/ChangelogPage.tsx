@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-vocabulary-group-search",
+    title: "Search and select vocabulary groups",
+    details:
+      "Vocabulary groups now appear in a searchable selector, so users can quickly find a group and manage its protected terms.",
+    publishedAt: "2026-11-13T11:10:00.000Z",
+  },
+  {
     id: "changelog-20261113-history-automatic-updates",
     title: "Keep translation history up to date automatically",
     details:
