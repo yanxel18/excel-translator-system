@@ -632,6 +632,7 @@ input {
   }
   .shell-language-control {
     position: static;
+    z-index: auto;
     display: flex;
     justify-content: flex-end;
     padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));

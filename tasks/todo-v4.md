@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 4
 
-Created: 2026-11-13. Status: Planned.
+Created: 2026-11-13. Status: Complete.
 Plan: [plan-v4.md](plan-v4.md). Previous version: [todo-v3.md](todo-v3.md).
 
 Keep authentication, permissions, saved data, translation workflows, localization, and responsive behavior intact.
@@ -56,8 +56,9 @@ Keep authentication, permissions, saved data, translation workflows, localizatio
 
 ## Integration
 
-- [ ] **V4-07 — Verify the complete redesign (M)**
+- [x] **V4-07 — Verify the complete redesign (M)**
   - Verify the combined V4 experience, including desktop/mobile, both themes, localization, account access, session expiry, and existing translation workflows.
   - Acceptance: all V4 tasks pass, the built-in and database Changelog entries agree, and no existing functionality is lost.
   - Verify: relevant browser regressions, web typecheck/build, and migration/Changelog parity.
   - Dependencies: V4-01–V4-06.
+  - Evidence: 112 integrated browser checks passed; web typecheck and build passed; all five V4 Changelog migrations matched the built-in entries in an isolated PostgreSQL database.
