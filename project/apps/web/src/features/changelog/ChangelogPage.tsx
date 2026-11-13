@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v5-shell",
+    title: "Keep the footer visible and refine controls",
+    details:
+      "The footer stays at the bottom while content scrolls, and navigation and account controls use more consistent styling.",
+    publishedAt: "2026-11-13T13:50:00.000Z",
+  },
+  {
     id: "changelog-20261113-v5-history",
     title: "Make translation history easier to scan",
     details:

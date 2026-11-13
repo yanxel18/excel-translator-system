@@ -6,6 +6,8 @@
   --visual-inset: light-dark(#f7f9fb, #162334);
   --visual-border: light-dark(#d5dfe8, #35485e);
   --visual-muted: light-dark(#526274, #afbed0);
+  --shell-control-hover: light-dark(#edf4fa, #263b51);
+  --shell-control-active: light-dark(#1d5664, #2d6177);
   --visual-radius: 1rem;
   --visual-focus: light-dark(#1864ab, #74c0fc);
 }
@@ -18,6 +20,11 @@
   --mantine-color-dimmed: var(--visual-muted);
 }
 .mantine-AppShell-root:has(.main-content) {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
   background: var(--visual-canvas);
 }
 .mantine-AppShell-root .app-header {
@@ -34,18 +41,99 @@
 .app-header .app-notification-trigger {
   width: 44px;
   height: 44px;
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-root,
+.mantine-AppShell-root .shell-profile-controls > .mantine-ActionIcon-root,
+.mantine-AppShell-root .shell-account-trigger,
+.mantine-AppShell-root .shell-language-button,
+.mantine-AppShell-root .app-header .app-notification-trigger,
+.mantine-AppShell-root .app-header .mantine-Burger-root {
+  border: 1px solid var(--visual-border);
+  border-radius: 50%;
   background: var(--visual-surface);
-  border-color: var(--visual-border);
+  color: var(--visual-muted);
+  box-shadow: none;
+  font-family: var(--mantine-font-family);
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-root {
+  width: 44px;
+  min-height: 44px;
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-root:not([data-active]):hover,
+.mantine-AppShell-root .shell-profile-controls > .mantine-ActionIcon-root:hover,
+.mantine-AppShell-root .shell-account-trigger:hover,
+.mantine-AppShell-root .shell-language-button:hover,
+.mantine-AppShell-root .app-header .app-notification-trigger:hover,
+.mantine-AppShell-root .app-header .mantine-Burger-root:hover {
+  border-color: var(--visual-focus);
+  background: var(--shell-control-hover);
+  color: var(--visual-focus);
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-root[data-active],
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-root[data-active]:hover {
+  border-color: transparent;
+  background: var(--shell-control-active);
+  color: #fff;
+  box-shadow: none;
+}
+.mantine-AppShell-root .shell-account-trigger .mantine-Avatar-root {
+  border: 1px solid var(--visual-border);
+  background: light-dark(#e2edf6, #30465e);
+  color: light-dark(#204c68, #e1eef8);
+  font-weight: 600;
+}
+.mantine-AppShell-root .shell-account-chevron {
+  border: 1px solid var(--visual-border);
+  background: var(--visual-surface);
+  color: var(--visual-muted);
+}
+.mantine-AppShell-root :is(
+    .mantine-NavLink-root,
+    .mantine-ActionIcon-root,
+    .mantine-Button-root
+  ):is(:disabled, [data-disabled], [aria-disabled="true"]) {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 .mantine-AppShell-root .main-content {
   --mantine-color-dimmed: var(--visual-muted);
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 1rem;
   padding-top: 1.5rem;
+  padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+.mantine-AppShell-root .mantine-AppShell-main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+.mantine-AppShell-root .shell-language-control {
+  position: fixed;
+  z-index: 210;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 .mantine-AppShell-root .app-footer {
-  margin-top: 2.5rem;
+  flex: 0 0 auto;
+  margin-top: 0;
   border-color: var(--visual-border);
   color: var(--visual-muted);
-  padding-block: 1.25rem;
+  padding: 1rem 5.25rem calc(1rem + env(safe-area-inset-bottom, 0px)) 1rem;
   line-height: 1.6;
 }
 .main-content .mantine-Paper-root.mantine-Paper-root {
@@ -88,10 +176,24 @@
   border-radius: 50%;
 }
 .app-header .app-home-button:focus-visible,
-.app-header .app-notification-trigger:focus-visible,
+.mantine-AppShell-root .app-header .app-notification-trigger:focus-visible,
+.mantine-AppShell-root .app-header .mantine-Burger-root:focus-visible,
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-root:focus-visible,
+.mantine-AppShell-root .shell-profile-controls > .mantine-ActionIcon-root:focus-visible,
+.mantine-AppShell-root .shell-account-trigger:focus-visible,
+.mantine-AppShell-root .shell-language-button:focus-visible,
 .main-content :is(button, a, input, textarea, select):focus-visible {
   outline: 2px solid var(--visual-focus);
   outline-offset: 3px;
+}
+.main-content :focus-visible {
+  scroll-margin-block: 0.5rem;
+}
+@media (max-width: 47.99em) {
+  .mantine-AppShell-root .navigation-rail .mantine-NavLink-root {
+    width: 100%;
+    border-radius: 8px;
+  }
 }
 @media (max-width: 36em) {
   .app-header .app-header-content {
@@ -101,7 +203,7 @@
     padding-inline: 0;
   }
   .mantine-AppShell-root .app-footer {
-    margin-top: 2rem;
+    padding-inline-end: 4.5rem;
   }
   .main-content .upload-panel.upload-dropzone {
     padding: 1.25rem 1rem;
