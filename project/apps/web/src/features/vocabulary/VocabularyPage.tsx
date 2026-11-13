@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActionIcon,
+  Anchor,
   Badge,
   Box,
   Breadcrumbs,
@@ -202,9 +203,14 @@ export default function VocabularyPage({ token }: { token: string }) {
   return (
     <Stack gap="lg" className="vocabulary-page">
       <Breadcrumbs separator={<ChevronRight size={14} />}>
-        <Text size="sm" c="dimmed">
+        <Anchor
+          href={import.meta.env.BASE_URL}
+          size="sm"
+          c="dimmed"
+          underline="hover"
+        >
           {t("Workspace")}
-        </Text>
+        </Anchor>
         <Text size="sm">{t("Vocabulary")}</Text>
       </Breadcrumbs>
       <Group justify="space-between" align="end" className="vocabulary-heading">

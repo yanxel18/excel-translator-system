@@ -18,10 +18,11 @@ Plan: [plan-v5.md](plan-v5.md).
   - Verify: search and language URL/request regression tests, pagination and refresh.
   - Dependencies: coordinate with V5-02. Files: history page, localization, focused tests.
 
-- [ ] **V5-04 — Make ancestor breadcrumbs navigable**
+- [x] **V5-04 — Make ancestor breadcrumbs navigable**
   - Acceptance: ancestor paths return to the correct page, including Workspace on Vocabulary; current location is not a misleading link; History has no breadcrumbs.
   - Verify: keyboard and pointer navigation, localized labels and routes.
   - Dependencies: coordinate with V5-02. Files: shared breadcrumbs/routing, focused tests.
+  - Evidence: browser checks cover pointer and keyboard navigation, Japanese labels, and browser history.
 
 - [ ] **V5-05 — Unify button theming**
   - Acceptance: comparable left navigation, avatar, theme and action controls share cohesive theme styling and typography, with distinguishable active, focus, disabled and destructive states in light and dark modes.

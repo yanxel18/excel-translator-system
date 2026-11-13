@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v5-breadcrumbs",
+    title: "Navigate from vocabulary breadcrumbs",
+    details:
+      "The Workspace breadcrumb on Vocabulary now takes you back to your workspace.",
+    publishedAt: "2026-11-13T13:30:00.000Z",
+  },
+  {
     id: "changelog-20261113-v5-plan",
     title: "Plan version 5 interface refinements",
     details:
