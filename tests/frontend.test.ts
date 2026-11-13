@@ -850,11 +850,14 @@ test("V2-19 history controls combine URL filters, sorting, page size, and browse
     page.getByRole("searchbox", { name: "Search workbooks" }),
   ).toHaveValue("contract");
   await expect(
-    page.getByRole("textbox", { name: "Source language" }),
-  ).toHaveValue("Japanese");
+    page.getByRole("combobox", { name: "Source language" }),
+  ).toHaveCount(0);
   await expect(
-    page.getByRole("textbox", { name: "Target language" }),
-  ).toHaveValue("English");
+    page.getByRole("combobox", { name: "Target language" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("searchbox", { name: "Search workbooks" }),
+  ).toHaveAttribute("placeholder", "Search by Excel filename");
   await expect(
     page.getByRole("textbox", { name: "Rows per page" }),
   ).toHaveValue("20");
@@ -869,14 +872,28 @@ test("V2-19 history controls combine URL filters, sorting, page size, and browse
   });
 
   const search = page.getByRole("searchbox", { name: "Search workbooks" });
-  await search.fill("metadata");
-  await expect(page).toHaveURL(/q=metadata/);
+  await search.fill("final-page.xlsx");
+  await expect(page).toHaveURL(/q=final-page\.xlsx/);
   await expect(page).not.toHaveURL(/page=3/);
-  await expect.poll(() => requests.at(-1)?.get("q")).toBe("metadata");
-  await page.getByRole("textbox", { name: "Source language" }).click();
-  await page.getByRole("option", { name: "Chinese" }).click();
-  await expect(page).toHaveURL(/sourceLanguage=CHINESE/);
-  await expect(page).not.toHaveURL(/page=3/);
+  await expect.poll(() => requests.at(-1)?.get("q")).toBe("final-page.xlsx");
+  await expect.poll(() => requests.at(-1)?.get("sourceLanguage")).toBe(
+    "JAPANESE",
+  );
+  await expect.poll(() => requests.at(-1)?.get("targetLanguage")).toBe(
+    "ENGLISH",
+  );
+  await expect.poll(() => requests.at(-1)?.get("pageSize")).toBe("20");
+  await expect.poll(() => requests.at(-1)?.get("sort")).toBe("fileName");
+  const historyPages = page.getByLabel("History pages");
+  await historyPages.getByRole("button", { name: "2", exact: true }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect.poll(() => requests.at(-1)?.get("page")).toBe("2");
+  await expect.poll(() => requests.at(-1)?.get("sourceLanguage")).toBe(
+    "JAPANESE",
+  );
+  await expect.poll(() => requests.at(-1)?.get("targetLanguage")).toBe(
+    "ENGLISH",
+  );
   await page.getByRole("textbox", { name: "Rows per page" }).click();
   for (const size of ["10", "20", "30", "40", "50"]) {
     await expect(
@@ -885,12 +902,27 @@ test("V2-19 history controls combine URL filters, sorting, page size, and browse
   }
   await page.getByRole("option", { name: "50" }).click();
   await expect(page).toHaveURL(/pageSize=50/);
-  await expect(page).not.toHaveURL(/page=3/);
+  await expect(page).not.toHaveURL(/page=2/);
+  await expect.poll(() => requests.at(-1)?.get("sourceLanguage")).toBe(
+    "JAPANESE",
+  );
+  await expect.poll(() => requests.at(-1)?.get("targetLanguage")).toBe(
+    "ENGLISH",
+  );
 
   const sortByStatus = page.getByRole("button", { name: "Sort by Status" });
   await sortByStatus.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/sort=status/);
+  await expect.poll(() => requests.at(-1)?.get("sort")).toBe("status");
+  await expect.poll(() => requests.at(-1)?.get("direction")).toBe("asc");
+  await expect.poll(() => requests.at(-1)?.get("sourceLanguage")).toBe(
+    "JAPANESE",
+  );
+  await expect.poll(() => requests.at(-1)?.get("targetLanguage")).toBe(
+    "ENGLISH",
+  );
+  await expect.poll(() => requests.at(-1)?.get("pageSize")).toBe("50");
   await expect(
     page.getByRole("columnheader", { name: /Status/ }),
   ).toHaveAttribute("aria-sort", "ascending");
@@ -899,17 +931,35 @@ test("V2-19 history controls combine URL filters, sorting, page size, and browse
     page.getByRole("textbox", { name: "Rows per page" }),
   ).toHaveValue("50");
   await expect(
-    page.getByRole("textbox", { name: "Source language" }),
-  ).toHaveValue("Chinese");
+    page.getByRole("combobox", { name: "Source language" }),
+  ).toHaveCount(0);
+  await expect(page).not.toHaveURL(/sort=status/);
+  await expect(page).not.toHaveURL(/page=2/);
+  await expect.poll(() => requests.at(-1)?.get("sourceLanguage")).toBe(
+    "JAPANESE",
+  );
+  await expect.poll(() => requests.at(-1)?.get("targetLanguage")).toBe(
+    "ENGLISH",
+  );
   await page.goBack();
   await expect(
     page.getByRole("textbox", { name: "Rows per page" }),
   ).toHaveValue("20");
   await expect(
     page.getByRole("searchbox", { name: "Search workbooks" }),
-  ).toHaveValue("metadata");
+  ).toHaveValue("final-page.xlsx");
+  await expect(page).toHaveURL(/page=2/);
+  await expect.poll(() => requests.at(-1)?.get("page")).toBe("2");
+  await expect.poll(() => requests.at(-1)?.get("pageSize")).toBe("20");
+  await expect.poll(() => requests.at(-1)?.get("sourceLanguage")).toBe(
+    "JAPANESE",
+  );
+  await expect.poll(() => requests.at(-1)?.get("targetLanguage")).toBe(
+    "ENGLISH",
+  );
   await page.goForward();
   await expect(page).toHaveURL(/pageSize=50/);
+  await expect(page).not.toHaveURL(/page=2/);
   await page
     .getByRole("button", { name: "Preview source final-page.xlsx" })
     .click();
@@ -1053,21 +1103,31 @@ test("V2-19 ignores superseded history responses and renders final and empty res
   await expect(page.getByText("No matching workbooks.")).toBeVisible();
 });
 
-test("V2-19 history controls are localized and fit a mobile viewport", async ({
+test("V2-19 history search is localized and fits a mobile viewport", async ({
   page,
 }) => {
   const labels = {
     en: {
       search: "Search workbooks",
+      placeholder: "Search by Excel filename",
       source: "Source language",
+      target: "Target language",
       rows: "Rows per page",
     },
     ja: {
       search: "ワークブックを検索",
+      placeholder: "Excelファイル名で検索",
       source: "原文の言語",
+      target: "翻訳先の言語",
       rows: "1ページの表示件数",
     },
-    zh: { search: "搜索工作簿", source: "源语言", rows: "每页行数" },
+    zh: {
+      search: "搜索工作簿",
+      placeholder: "按 Excel 文件名搜索",
+      source: "源语言",
+      target: "目标语言",
+      rows: "每页行数",
+    },
   } as const;
   for (const locale of ["en", "ja", "zh"] as const) {
     const localizedPage = await page.context().newPage();
@@ -1103,8 +1163,21 @@ test("V2-19 history controls are localized and fit a mobile viewport", async ({
       localizedPage.getByRole("searchbox", { name: labels[locale].search }),
     ).toBeVisible();
     await expect(
-      localizedPage.getByRole("textbox", { name: labels[locale].source }),
+      localizedPage.getByText(labels[locale].search, { exact: true }),
     ).toBeVisible();
+    const search = localizedPage.getByRole("searchbox", {
+      name: labels[locale].search,
+    });
+    await expect(search).toHaveAttribute(
+      "placeholder",
+      labels[locale].placeholder,
+    );
+    await expect(
+      localizedPage.getByRole("combobox", { name: labels[locale].source }),
+    ).toHaveCount(0);
+    await expect(
+      localizedPage.getByRole("combobox", { name: labels[locale].target }),
+    ).toHaveCount(0);
     await expect(
       localizedPage.getByRole("textbox", { name: labels[locale].rows }),
     ).toBeVisible();

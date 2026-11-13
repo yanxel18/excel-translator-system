@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v5-history",
+    title: "Make translation history easier to scan",
+    details:
+      "History now keeps table headings visible while scrolling, uses a clearer filename search, and removes redundant filters and totals.",
+    publishedAt: "2026-11-13T13:40:00.000Z",
+  },
+  {
     id: "changelog-20261113-v5-breadcrumbs",
     title: "Navigate from vocabulary breadcrumbs",
     details:
