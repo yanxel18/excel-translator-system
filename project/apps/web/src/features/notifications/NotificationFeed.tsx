@@ -129,7 +129,7 @@ export default function NotificationFeed({
                   >
                     {item.title}
                   </Text>
-                  <Text size="xs" c="blue" className="notification-time">
+                  <Text size="xs" c="dimmed" className="notification-time">
                     {timeLabel(item.createdAt)}
                   </Text>
                 </div>

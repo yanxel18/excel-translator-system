@@ -82,7 +82,7 @@ export default function NotificationPreview({
           {visibleItems.length}
         </Text>
       </Group>
-      <ScrollArea.Autosize mah={410} className="notification-preview-scroll">
+      <ScrollArea.Autosize mah={320} className="notification-preview-scroll">
         <NotificationFeed
           {...feed}
           items={visibleItems}

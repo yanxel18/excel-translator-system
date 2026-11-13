@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v4-visual",
+    title: "Refresh the workspace appearance",
+    details:
+      "The application now has more consistent surfaces and spacing, a compact notification panel, and breathing room above the footer.",
+    publishedAt: "2026-11-13T12:44:00.000Z",
+  },
+  {
     id: "changelog-20261113-v4-page-controls",
     title: "Refine history and vocabulary controls",
     details:

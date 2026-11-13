@@ -24,17 +24,19 @@ Keep authentication, permissions, saved data, translation workflows, localizatio
 
 ## Visual refinement
 
-- [ ] **V4-03 — Refresh the application visual system (M)**
+- [x] **V4-03 — Refresh the application visual system (M)**
   - Improve hierarchy, density, surfaces, spacing, and cohesive controls across the application, using the reference's restrained rounded surfaces and circular affordances while retaining the product's own identity.
   - Acceptance: workspace and shared surfaces are cohesive in light/dark themes, legible, and responsive without changing functionality.
   - Verify: desktop/mobile browser screenshots and layout/accessibility checks; web build and typecheck.
   - Dependencies: coordinate styles with V4-01. Files: shared styles, workspace presentation, focused tests.
+  - Evidence: browser checks and screenshots cover populated/empty workspace views at 320px, 768px, 1024px, and 1440px in both themes.
 
-- [ ] **V4-04 — Compact notifications and separate footer (M)**
+- [x] **V4-04 — Compact notifications and separate footer (M)**
   - Make the notification popover slim and compact while preserving all notification interactions; add clear spacing above the footer.
   - Acceptance: list, loading, empty, error, and navigation states remain usable; footer does not touch preceding content on short or long pages.
   - Verify: browser checks with long notification text, desktop/mobile sizes, and footer spacing.
   - Dependencies: coordinate shared styles with V4-01. Files: notification preview, shell styles, tests.
+  - Evidence: browser checks cover compact sizing, long text, focus, notification actions and states, localized mobile views, and short/long page footer spacing.
 
 ## History and vocabulary
 
