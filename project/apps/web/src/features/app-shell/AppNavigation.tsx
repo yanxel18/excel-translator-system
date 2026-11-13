@@ -15,8 +15,6 @@ export default function AppNavigation({
 }: {
   view: View;
   onNavigate: (view: View) => void;
-  onSettings: () => void;
-  onSignOut: () => void;
 }) {
   const { t } = useLocale();
   return (

@@ -4,6 +4,7 @@ import Keycloak from "keycloak-js";
 import ApiService, {
   type Job,
   type OidcPublicConfig,
+  type UserProfile,
   type VocabularyGroup,
 } from "./api";
 import { SESSION_EXPIRED_EVENT, SessionExpiredError } from "./api/client";
@@ -40,6 +41,9 @@ export default function ModernApp() {
     useState<string>();
   const { view, page, search, navigate: setView } = useAppRoute();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState(false);
   const [
     settingsOpen,
     { open: openSettingsDialog, close: closeSettingsDialog },
@@ -95,14 +99,32 @@ export default function ModernApp() {
   useEffect(() => {
     let active = true;
     setIsAdmin(null);
-    if (token)
-      void ApiService.getProfile(token)
-        .then((profile) => {
-          if (active) setIsAdmin(profile.isAdmin);
-        })
-        .catch(() => {
-          if (active) setIsAdmin(false);
-        });
+    setProfile(null);
+    setProfileLoadError(false);
+    if (!token) {
+      setProfileLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+    setProfileLoading(true);
+    void ApiService.getProfile(token)
+      .then((loadedProfile) => {
+        if (active) {
+          setProfile(loadedProfile);
+          setIsAdmin(loadedProfile.isAdmin);
+          setProfileLoadError(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setIsAdmin(false);
+          setProfileLoadError(true);
+        }
+      })
+      .finally(() => {
+        if (active) setProfileLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -336,6 +358,9 @@ export default function ModernApp() {
   return (
     <AppFrame
       isAdmin={isAdmin === true}
+      profile={profile}
+      profileLoading={profileLoading}
+      profileLoadError={profileLoadError}
       onOpenNotification={(id) => {
         setSelectedNotificationId(id);
         setView("notifications");

@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-shell-controls",
+    title: "Move account and language controls",
+    details:
+      "The account avatar, profile details, and theme toggle are now at the lower left, with a language selector at the lower right.",
+    publishedAt: "2026-11-13T11:40:00.000Z",
+  },
+  {
     id: "changelog-20261113-recent-translation-columns",
     title: "Align recent translation details",
     details:

@@ -4,22 +4,12 @@ import {
   Burger,
   Group,
   Indicator,
-  Menu,
   Popover,
   Text,
   UnstyledButton,
-  useMantineColorScheme,
 } from "@mantine/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import {
-  Bell,
-  LogOut,
-  Moon,
-  Settings,
-  Sun,
-  UserRound,
-  Volume2,
-} from "lucide-react";
+import { Bell } from "lucide-react";
 import ApiService from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import NotificationPreview from "../notifications/NotificationPreview";
@@ -29,31 +19,18 @@ import {
 } from "../../api/request-progress";
 
 export default function AppHeader({
-  isAdmin,
-  onSystemSettings,
   token,
   navigationOpen,
   onToggleNavigation,
   onOpenNotifications,
-  onOpenProfile,
-  onSettings,
-  onSignOut,
-  onChangelog,
   onHome,
 }: {
-  isAdmin: boolean;
-  onSystemSettings: () => void;
   token: string;
   navigationOpen: boolean;
   onToggleNavigation: () => void;
   onOpenNotifications: (id?: string) => void;
   onHome: () => void;
-  onOpenProfile: () => void;
-  onSettings: () => void;
-  onSignOut: () => void;
-  onChangelog: () => void;
 }) {
-  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const { t } = useLocale();
   const requestsActive = useSyncExternalStore(
     subscribeToRequests,
@@ -159,63 +136,6 @@ export default function AppHeader({
               )}
             </Popover.Dropdown>
           </Popover>
-          <ActionIcon
-            variant="subtle"
-            color="blue"
-            size="lg"
-            aria-label={t("Toggle color theme")}
-            onClick={() => toggleColorScheme()}
-          >
-            {colorScheme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
-          </ActionIcon>
-          <Menu position="bottom-end" shadow="lg" withinPortal>
-            <Menu.Target>
-              <ActionIcon
-                variant="light"
-                color="blue"
-                size="lg"
-                aria-label={t("Account")}
-              >
-                <UserRound size={19} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item
-                leftSection={<UserRound size={16} />}
-                onClick={onOpenProfile}
-              >
-                {t("Profile")}
-              </Menu.Item>
-              {isAdmin && (
-                <Menu.Item
-                  leftSection={<Settings size={16} />}
-                  onClick={onSystemSettings}
-                >
-                  {t("System Settings")}
-                </Menu.Item>
-              )}
-              <Menu.Item
-                leftSection={<Settings size={16} />}
-                onClick={onSettings}
-              >
-                {t("Settings")}
-              </Menu.Item>
-              <Menu.Item
-                leftSection={<Volume2 size={16} />}
-                onClick={onChangelog}
-              >
-                {t("Changelog")}
-              </Menu.Item>
-              <Menu.Divider />
-              <Menu.Item
-                color="red"
-                leftSection={<LogOut size={16} />}
-                onClick={onSignOut}
-              >
-                {t("Sign out")}
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
         </Group>
       </Group>
       {showProgress && (

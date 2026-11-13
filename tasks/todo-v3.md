@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-01–V3-06, V3-09–V3-10, and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-01–V3-10 and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -63,17 +63,19 @@ This checklist records the requested changes; it does not claim they are impleme
 
 ## Application shell
 
-- [ ] **V3-07 — Move profile controls to the lower left (M)**
+- [x] **V3-07 — Move profile controls to the lower left (M)**
   - Replace the upper profile control with a GitHub-like lower-left profile area showing an avatar, name, and email, including a sun/moon light-dark toggle.
   - Acceptance: new and existing accounts have an appropriate avatar as agreed; profile navigation, sign-out, theme persistence, loading, and missing-name/email states remain usable on desktop and mobile.
   - Verify: browser checks for both themes, new and existing accounts, keyboard access, and responsive navigation.
   - Dependencies: profile avatar decision. Files: app-shell components, profile data integration, relevant styles/tests.
+  - Evidence: browser checks cover profile details, missing and failed loads, avatar initials, menu actions, theme persistence, keyboard access, and narrow layouts.
 
-- [ ] **V3-08 — Add a bottom-right language selector (M)**
+- [x] **V3-08 — Add a bottom-right language selector (M)**
   - Place a globe icon at the bottom right that opens upward to select English, Japanese, or Chinese.
   - Acceptance: selecting a language updates and persists the existing locale; the selector supports keyboard use and does not obstruct content on mobile.
   - Verify: browser checks for all three languages, saved preference, popup positioning, and keyboard dismissal.
   - Dependencies: coordinate placement with V3-07. Files: app shell, existing locale provider, relevant styles/tests.
+  - Evidence: browser checks cover all three locales, persistence, upward popup placement, keyboard dismissal, and responsive widths.
 
 ## Workbook presentation
 
