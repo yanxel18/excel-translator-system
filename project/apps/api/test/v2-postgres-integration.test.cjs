@@ -66,6 +66,14 @@ const changelogEntries = [
       'ADD COLUMN "providerUsername" TEXT',
     ],
   },
+  {
+    id: "changelog-20261113-restore-rest-json",
+    title: "Restore password sign-in and API requests",
+    details:
+      "Fixed a startup issue that prevented password sign-in and other REST requests from reading their JSON data while GraphQL was enabled.",
+    publishedAt: "2026-11-13T09:12:00.000Z",
+    migration: "20261113091200_restore_rest_json",
+  },
 ];
 const searchChangelogEntry = changelogEntries[0];
 

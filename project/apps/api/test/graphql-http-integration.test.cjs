@@ -15,6 +15,12 @@ const {
   AuthenticationService,
 } = require("../dist/modules/authentication/authentication.service");
 const {
+  AuthenticationController,
+} = require("../dist/modules/authentication/authentication.controller");
+const {
+  KeycloakVerifierService,
+} = require("../dist/modules/authentication/keycloak-verifier.service");
+const {
   mountProductSurfacesGraphql,
 } = require("../dist/modules/product-surfaces/graphql-http");
 
@@ -48,6 +54,7 @@ test("GraphQL HTTP authenticates, forwards owner and validates inputs", async ()
   };
   const moduleRef = await Test.createTestingModule({
     imports: [GraphQLSchemaBuilderModule],
+    controllers: [AuthenticationController],
     providers: [
       ProductSurfacesResolver,
       { provide: ProductSurfacesService, useValue: surfaces },
@@ -55,18 +62,51 @@ test("GraphQL HTTP authenticates, forwards owner and validates inputs", async ()
       {
         provide: AuthenticationService,
         useValue: {
+          validateUser: async (username, password) =>
+            username === "test-user" && password === "test-password"
+              ? { username }
+              : null,
+          login: async () => ({ access_token: "test-token" }),
           verifySession: async (token) => {
             if (token !== "valid") throw new Error();
             return { userId: "owner-id" };
           },
         },
       },
+      { provide: KeycloakVerifierService, useValue: {} },
     ],
   }).compile();
   const app = moduleRef.createNestApplication();
   await mountProductSurfacesGraphql(app);
   await app.listen(0);
   try {
+    const loginUrl = `http://127.0.0.1:${app.getHttpServer().address().port}/auth/login`;
+    const login = (body) =>
+      fetch(loginUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    const validLogin = await login({
+      username: "test-user",
+      password: "test-password",
+    });
+    assert.equal(validLogin.status, 201);
+    assert.deepEqual(await validLogin.json(), { access_token: "test-token" });
+    assert.equal(
+      (await login({ username: "test-user", password: "wrong" })).status,
+      401,
+    );
+    assert.equal(
+      (
+        await login({
+          username: "test-user",
+          password: "test-password",
+          extra: true,
+        })
+      ).status,
+      400,
+    );
     const url = `http://127.0.0.1:${app.getHttpServer().address().port}/excel-convert/graphql`;
     const request = (query, token) =>
       fetch(url, {
