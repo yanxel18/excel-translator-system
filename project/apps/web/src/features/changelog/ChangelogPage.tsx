@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-restore-rest-json",
+    title: "Restore password sign-in and API requests",
+    details:
+      "Fixed a startup issue that prevented password sign-in and other REST requests from reading their JSON data while GraphQL was enabled.",
+    publishedAt: "2026-11-13T09:12:00.000Z",
+  },
+  {
     id: "changelog-20261113-v2-branding-footer",
     title: "Add application branding and a backend-year footer",
     details:
