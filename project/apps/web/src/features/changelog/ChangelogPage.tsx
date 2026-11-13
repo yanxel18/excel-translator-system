@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-history-automatic-updates",
+    title: "Keep translation history up to date automatically",
+    details:
+      "Translation history now checks for new jobs and status changes automatically, preserves the current filters and page, and shows an error when an update fails.",
+    publishedAt: "2026-11-13T11:08:00.000Z",
+  },
+  {
     id: "changelog-20261113-history-table-scrolling",
     title: "Keep history lists easy to scroll",
     details:

@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-03, V3-05, V3-06, and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-03–V3-06 and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -9,9 +9,7 @@ This checklist records the requested changes; it does not claim they are impleme
 ## Decisions needed before implementation
 
 - **Translation concurrency:** Confirm whether five is the default that operators may raise, or a hard maximum with a configurable value from one to five. Define what happens when the limit is reached (queue or reject), whether it applies across API instances, and how queued or interrupted jobs recover.
-- **History refresh:** Agree on a measurable maximum update delay and whether polling or a push connection should provide the requested real-time updates.
 - **Profile avatar:** Confirm whether an initials/default avatar is sufficient for new accounts or whether uploading and storing profile images is required. Image uploads would need separate storage, validation, privacy, and migration requirements.
-- **History scrolling:** Confirm whether the intended desktop layout keeps the search card outside the table's scroll container while allowing the page itself to scroll.
 
 ## Vocabulary
 
@@ -38,11 +36,12 @@ This checklist records the requested changes; it does not claim they are impleme
   - Dependencies: none. Files: `project/apps/web/src/features/history/HistoryPage.tsx`, relevant UI tests.
   - Evidence: browser checks cover placement, page size and URL restoration, an empty result, and a 320px layout.
 
-- [ ] **V3-04 — Refresh history automatically (M)**
+- [x] **V3-04 — Refresh history automatically (M)**
   - Remove the Refresh button and automatically update history when jobs are added or their status or completion changes, using the agreed refresh strategy.
   - Acceptance: new data appears within the agreed delay without losing search, filters, sort, or pagination; failures are visible and refresh stops on unmount or session expiry.
   - Verify: browser/API checks for newly added, progressing, and completed jobs, failed requests, and cleanup.
   - Dependencies: history refresh decision. Files: history page, existing API/refresh helpers, relevant tests.
+  - Evidence: browser checks cover processing-to-completed changes, new jobs, visible errors and retry, preserved URL state, unmount cleanup, and session expiry.
 
 - [x] **V3-05 — Open history previews from filenames (S)**
   - Make each filename open the same view as its existing View action, with an underline on hover.
