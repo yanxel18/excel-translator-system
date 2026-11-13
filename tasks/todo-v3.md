@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-03, V3-05, and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-03, V3-05, V3-06, and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -51,11 +51,12 @@ This checklist records the requested changes; it does not claim they are impleme
   - Dependencies: none. Files: history page and relevant UI tests.
   - Evidence: browser checks cover hover, keyboard activation, and matching original-preview behavior for a processing job.
 
-- [ ] **V3-06 — Correct history scrolling (S)**
+- [x] **V3-06 — Correct history scrolling (S)**
   - Remove sticky behavior from the search card and confine the translation list's scrolling to its table or card as agreed.
   - Acceptance: search controls do not stick during scrolling; table content and pagination remain reachable on desktop and mobile.
   - Verify: browser scrolling checks at desktop and mobile viewport sizes.
   - Dependencies: history scrolling decision; coordinate with V3-03. Files: history page and relevant styles/tests.
+  - Evidence: browser checks cover keyboard scrolling, search and pagination placement, and horizontal scrolling at 320px.
 
 **Checkpoint B:** History updates automatically, filenames open previews, and filters and pagination remain usable while scrolling.
 

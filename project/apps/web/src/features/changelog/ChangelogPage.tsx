@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-history-table-scrolling",
+    title: "Keep history lists easy to scroll",
+    details:
+      "Long translation history lists now scroll within the table, while search controls and pagination remain outside the scrolling area and accessible on narrow screens.",
+    publishedAt: "2026-11-13T11:05:00.000Z",
+  },
+  {
     id: "changelog-20261113-history-filename-preview",
     title: "Open workbook previews from history filenames",
     details:
