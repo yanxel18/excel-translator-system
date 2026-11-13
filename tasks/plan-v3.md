@@ -1,7 +1,7 @@
 # Version 3 implementation plan
 
 Created: 2026-11-13 (Asia/Tokyo)
-Status: Planned; no V3 feature in this document is claimed as implemented.
+Status: V3 implementation is in progress; the checklist records verified completion.
 Task tracker: [todo-v3.md](todo-v3.md). The previous plan remains in [plan-v2.md](plan-v2.md).
 
 ## Objectives and scope
@@ -15,12 +15,10 @@ Improve vocabulary group selection and actions, translation history, profile and
 - The app shell has header profile and theme controls, a navigation rail, persisted locale selection, and a backend-year footer. Workspace already polls while a job is processing.
 - The database job service claims pending or failed jobs before starting work. On startup, it currently marks all processing jobs as interrupted and retryable; this behavior must be assessed before supporting multiple API instances.
 
-## Decisions required before affected work
+## Implementation decisions
 
-1. **Concurrency (V3-11–V3-12):** Is five the default that operators may raise, or the maximum with a configurable value from one to five? When full, should a start/retry be queued or rejected? Is the limit per API instance or global across instances? Agree on restart, cancellation, and recovery behavior.
-2. **Profile avatar (V3-07):** Confirm whether initials/default artwork meets the request or whether user-provided image upload and persistent storage are required. Uploads would need a separate design for validation, authorization, privacy, and migration.
-
-These are open decisions, not implemented behavior. Other independent tasks can proceed without resolving them.
+1. **Concurrency (V3-11–V3-12):** The limit is configurable from one to five, defaults to five, and rejects starts and retries at capacity. One API instance per database is enforced; interrupted jobs become failed and retryable.
+2. **Profile avatar (V3-07):** Use initials or a default avatar; user-provided image upload is outside this update.
 
 ## Interface and behavior
 
