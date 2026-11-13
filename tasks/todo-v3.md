@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-01–V3-06, V3-09, and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-01–V3-06, V3-09–V3-10, and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -84,11 +84,12 @@ This checklist records the requested changes; it does not claim they are impleme
   - Dependencies: none. Files: workbook icon asset/components, relevant UI tests.
   - Evidence: browser checks cover Workspace, History, and Profile, including mobile, dark mode, and decorative accessibility.
 
-- [ ] **V3-10 — Align recent translation columns (S)**
+- [x] **V3-10 — Align recent translation columns (S)**
   - Give filename, status, and View/Download actions separate, aligned columns in Workspace recent translations.
   - Acceptance: rows remain readable with long filenames and narrow screens; existing preview/download availability is unchanged.
   - Verify: browser checks with multiple statuses, long filenames, and responsive layouts.
   - Dependencies: coordinate shared workbook icon work with V3-09. Files: `project/apps/web/src/features/workspace/JobList.tsx`, relevant styles/tests.
+  - Evidence: browser checks cover aligned columns for completed, failed, and cancelled jobs, long filenames, action availability, and a 320px layout.
 
 **Checkpoint C:** Profile and language controls remain accessible, localized, and responsive; workbook actions are unchanged.
 
