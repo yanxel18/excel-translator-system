@@ -22,7 +22,12 @@ export const JobsApi = {
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          selectedSheets: settings.selectedSheets,
+          sourceLanguage: settings.sourceLanguage,
+          targetLanguage: settings.targetLanguage,
+          vocabularyGroupId: settings.vocabularyGroupId,
+        }),
       },
       token,
     ),

@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: all tasks pending.
+Created: 2026-11-13. Status: V3-14 completed; V3-01–V3-13 pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -103,10 +103,19 @@ This checklist records the requested changes; it does not claim they are impleme
 
 **Checkpoint D:** The configured limit is demonstrably enforced and job recovery remains reliable.
 
+## Translation startup fix
+
+- [x] **V3-14 — Restore translation settings and start (M)**
+  - Fix the reported `Unexpected field.` response when saving translation settings or starting a job.
+  - Acceptance: Save settings, Save and start, and Start work with valid worksheet and language selections; invalid requests remain rejected.
+  - Verify: reproduce the reported failure, add focused regression coverage, and verify the start workflow.
+  - Dependencies: none. Files: translation settings and job-start client/API paths and relevant tests.
+  - Evidence: browser regressions reproduced the rejected extra fields and passed for all three actions after the fix; API boundary checks accept the complete settings payload and still reject unknown fields.
+
 ## Final verification
 
 - [ ] **V3-13 — Run integrated V3 checks (M)**
   - Verify the completed vocabulary, history, shell, workbook, and concurrent-job workflows together.
   - Acceptance: all V3 criteria are met, existing permissions and data are preserved, and synchronized Changelog entries describe completed updates.
   - Verify: relevant API tests and build, web typecheck/build, and desktop/mobile browser checks including localization, accessibility, and session expiry.
-  - Dependencies: V3-01–V3-12. Files: existing API and browser test suites.
+  - Dependencies: V3-01–V3-12 and V3-14. Files: existing API and browser test suites.

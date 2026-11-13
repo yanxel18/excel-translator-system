@@ -89,6 +89,17 @@ test("job, history and notification endpoints validate request boundaries", asyn
         .status,
       200,
     );
+    assert.equal(
+      (
+        await patch("/jobs/" + id + "/settings", {
+          selectedSheets: ["Sheet1"],
+          sourceLanguage: "JAPANESE",
+          targetLanguage: "ENGLISH",
+          vocabularyGroupId: null,
+        })
+      ).status,
+      200,
+    );
     for (const query of [
       "page=0",
       "page=1.5",
