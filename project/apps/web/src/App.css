@@ -204,6 +204,37 @@ input {
   animation: card-enter 200ms ease-out both;
   transition: border-color 160ms ease;
 }
+.recent-jobs-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.recent-jobs-status-column {
+  width: 105px;
+}
+.recent-jobs-actions-column {
+  width: 72px;
+}
+.recent-jobs-table th {
+  text-align: left;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+}
+.recent-jobs-table td {
+  padding: 0.5rem 0;
+  overflow: hidden;
+}
+.recent-jobs-table tbody tr:not(:last-child) {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.recent-job-icon {
+  flex: 0 0 auto;
+}
+@media (max-width: 36em) {
+  .recent-job-icon {
+    display: none;
+  }
+}
 .job-card:hover {
   border-color: light-dark(#b6cce2, #4a6484);
 }

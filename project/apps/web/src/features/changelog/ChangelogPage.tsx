@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-recent-translation-columns",
+    title: "Align recent translation details",
+    details:
+      "Recent translations now show filenames, statuses, and available file actions in separate aligned columns.",
+    publishedAt: "2026-11-13T11:19:00.000Z",
+  },
+  {
     id: "changelog-20261113-workbook-svg-icons",
     title: "Use workbook icons throughout the app",
     details:

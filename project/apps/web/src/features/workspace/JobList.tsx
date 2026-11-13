@@ -135,50 +135,64 @@ export default function JobList({
 
   if (compact)
     return (
-      <Stack gap={0}>
-        {jobs.map((job, index) => (
-          <Group
-            key={job.id}
-            justify="space-between"
-            wrap="nowrap"
-            py="xs"
-            style={
-              index < jobs.length - 1
-                ? {
-                    borderBottom:
-                      "1px solid var(--mantine-color-default-border)",
-                  }
-                : undefined
-            }
-          >
-            <Group wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
-              <ThemeIcon variant="light" color="blue" size={34} radius="md">
-                <WorkbookIcon size={17} />
-              </ThemeIcon>
-              <Box style={{ minWidth: 0 }}>
-                <Group gap="xs" wrap="nowrap">
-                  <Text fw={600} size="sm" truncate title={job.fileName}>
-                    {job.fileName}
-                  </Text>
-                  <JobBadge status={job.status} />
+      <table
+        className="recent-jobs-table"
+        aria-label={t("Recent translations")}
+      >
+        <colgroup>
+          <col />
+          <col className="recent-jobs-status-column" />
+          <col className="recent-jobs-actions-column" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">{t("File name")}</th>
+            <th scope="col">{t("Status")}</th>
+            <th scope="col">{t("Actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <tr key={job.id}>
+              <td>
+                <Group wrap="nowrap" gap="xs">
+                  <ThemeIcon
+                    variant="light"
+                    color="blue"
+                    size={34}
+                    radius="md"
+                    className="recent-job-icon"
+                  >
+                    <WorkbookIcon size={17} />
+                  </ThemeIcon>
+                  <Box style={{ minWidth: 0, flex: 1 }}>
+                    <Text fw={600} size="sm" truncate title={job.fileName}>
+                      {job.fileName}
+                    </Text>
+                    <Text c="dimmed" size="xs" mt={3} truncate>
+                      Added {new Date(job.createdAt).toLocaleString()}
+                    </Text>
+                  </Box>
                 </Group>
-                <Text c="dimmed" size="xs" mt={3}>
-                  Added {new Date(job.createdAt).toLocaleString()}
-                </Text>
-              </Box>
-            </Group>
-            {job.status === "COMPLETED" && (
-              <Group gap={4} wrap="nowrap">
-                <FileActions
-                  job={job}
-                  onView={onView}
-                  onDownload={onDownload}
-                />
-              </Group>
-            )}
-          </Group>
-        ))}
-      </Stack>
+              </td>
+              <td>
+                <JobBadge status={job.status} />
+              </td>
+              <td>
+                {job.status === "COMPLETED" && (
+                  <Group gap={4} wrap="nowrap">
+                    <FileActions
+                      job={job}
+                      onView={onView}
+                      onDownload={onDownload}
+                    />
+                  </Group>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     );
 
   return (
