@@ -36,7 +36,7 @@ import ApiService, {
   type Job,
   type Language,
 } from "../../api";
-import { trackedFetch } from "../../api/client";
+import { SessionExpiredError, trackedFetch } from "../../api/client";
 import IbisPreview from "./IbisPreview";
 import { useLocale } from "../shared/LocaleProvider";
 import { languageName } from "../shared/language-options";
@@ -123,6 +123,7 @@ export default function HistoryPage({
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+    let timer: number | undefined;
     const query: HistoryQuery = {
       q: queryText.trim() || undefined,
       sourceLanguage,
@@ -134,26 +135,39 @@ export default function HistoryPage({
     };
     setLoading(true);
     setError("");
-    void ApiService.getHistory(token, query, controller.signal)
-      .then((result) => {
+    const load = async (silent: boolean) => {
+      let expired = false;
+      try {
+        const result = await ApiService.getHistory(
+          token,
+          query,
+          controller.signal,
+          silent,
+        );
         if (!active) return;
         setJobs(result.data);
         setTotal(result.total);
-      })
-      .catch((reason) => {
-        if (active && !controller.signal.aborted)
+        setError("");
+      } catch (reason) {
+        expired = reason instanceof SessionExpiredError;
+        if (active && !controller.signal.aborted && !expired)
           setError(
             reason instanceof Error
               ? reason.message
               : "Could not load history.",
           );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+      } finally {
+        if (active) {
+          setLoading(false);
+          if (!expired) timer = window.setTimeout(() => void load(true), 1200);
+        }
+      }
+    };
+    void load(false);
     return () => {
       active = false;
       controller.abort();
+      window.clearTimeout(timer);
     };
   }, [
     direction,
@@ -291,14 +305,6 @@ export default function HistoryPage({
             {t("Review, preview, download, or remove your workbooks.")}
           </Text>
         </div>
-        <Button
-          variant="default"
-          size="xs"
-          onClick={() => setRefreshKey((value) => value + 1)}
-          loading={loading}
-        >
-          {t("Refresh")}
-        </Button>
       </Group>
 
       <Paper withBorder p="md" radius="md">

@@ -23,6 +23,7 @@ export const HistoryApi = {
     token: string,
     query: number | HistoryQuery = 1,
     signal?: AbortSignal,
+    silent = false,
   ) => {
     const params = new URLSearchParams();
     const options = typeof query === "number" ? { page: query } : query;
@@ -33,6 +34,7 @@ export const HistoryApi = {
       `/history?${params.toString()}`,
       { signal },
       token,
+      { silent },
     );
   },
   getWorkbookPreview: (

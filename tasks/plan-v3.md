@@ -18,9 +18,7 @@ Improve vocabulary group selection and actions, translation history, profile and
 ## Decisions required before affected work
 
 1. **Concurrency (V3-11–V3-12):** Is five the default that operators may raise, or the maximum with a configurable value from one to five? When full, should a start/retry be queued or rejected? Is the limit per API instance or global across instances? Agree on restart, cancellation, and recovery behavior.
-2. **History updates (V3-04):** Set a measurable maximum delay for new jobs and status/completion changes. Choose polling or a push transport based on that target and deployment constraints.
-3. **Profile avatar (V3-07):** Confirm whether initials/default artwork meets the request or whether user-provided image upload and persistent storage are required. Uploads would need a separate design for validation, authorization, privacy, and migration.
-4. **History scrolling (V3-06):** Confirm the intended desktop scrolling relationship between the search card, table/card, pagination, and overall page.
+2. **Profile avatar (V3-07):** Confirm whether initials/default artwork meets the request or whether user-provided image upload and persistent storage are required. Uploads would need a separate design for validation, authorization, privacy, and migration.
 
 These are open decisions, not implemented behavior. Other independent tasks can proceed without resolving them.
 
@@ -32,9 +30,9 @@ Use a searchable group dropdown with an explicit selected group and clear loadin
 
 ### Translation history — V3-03–V3-06
 
-Move Rows per page beside the lower pagination controls. Remove manual Refresh in favor of the agreed automatic update mechanism. Continue using the current owner-scoped history API and preserve URL search, filters, sort, page, and page size while refreshing; cancel or ignore stale requests, stop refresh after unmount or session expiry, and display failures without pretending data is current.
+Move Rows per page beside the lower pagination controls. Automatically poll the owner-scoped history API 1.2 seconds after each completed request; network latency can add to this delay. Preserve URL search, filters, sort, page, and page size while refreshing; cancel or ignore stale requests, stop refresh after unmount or session expiry, and display failures without pretending data is current.
 
-Make filenames activate the same preview behavior and availability as View, with hover underline and a visible keyboard focus state. Remove sticky behavior from the search area and implement the agreed table/card scrolling behavior without hiding pagination or making mobile content inaccessible.
+Make filenames activate the same preview behavior and availability as View, with hover underline and a visible keyboard focus state. Keep search outside the independently scrollable table and allow the page itself to scroll, without hiding pagination or making mobile content inaccessible.
 
 ### Application shell — V3-07–V3-08
 
