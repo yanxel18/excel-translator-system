@@ -70,6 +70,40 @@ async function openVocabulary(
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 }
 
+test("group edit, add and delete actions are compact and aligned", async ({ page }) => {
+  await openVocabulary(page, groups);
+  const edit = page.getByRole("button", { name: "Edit group", exact: true });
+  const add = page.getByRole("button", { name: "Add term", exact: true });
+  const remove = page.getByRole("button", { name: "Delete", exact: true });
+  for (const action of [edit, add, remove]) {
+    await expect(action).toBeVisible();
+    await expect(action).toHaveText("");
+  }
+  const [editBox, addBox] = await Promise.all([edit.boundingBox(), add.boundingBox()]);
+  expect(Math.abs(editBox!.y - addBox!.y)).toBeLessThan(3);
+  await edit.focus();
+  await expect(edit).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("textbox", { name: "Group name" })).toHaveValue("Product names");
+  await page.keyboard.press("Escape");
+  await add.click();
+  await expect(page.getByRole("dialog", { name: "Add protected term" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await remove.click();
+  await expect(page.getByRole("dialog", { name: "Confirm deletion" })).toContainText("Product names");
+});
+
+test("long group names leave icon actions reachable on narrow screens", async ({ page }) => {
+  await openVocabulary(page, [{ ...groups[0], name: "Long vocabulary group name ".repeat(8) }]);
+  for (const name of ["Edit group", "Add term", "Delete"]) {
+    const action = page.getByRole("button", { name, exact: true });
+    const bounds = await action.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
+  }
+});
+
 test("search and keyboard selection show only the selected group's terms and actions", async ({
   page,
 }) => {

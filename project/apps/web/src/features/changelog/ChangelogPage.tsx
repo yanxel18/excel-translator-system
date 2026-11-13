@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-vocabulary-icon-actions",
+    title: "Simplify vocabulary group actions",
+    details:
+      "Edit, add-term, and delete controls now sit together beside the vocabulary group name as accessible icon buttons.",
+    publishedAt: "2026-11-13T11:13:00.000Z",
+  },
+  {
     id: "changelog-20261113-vocabulary-group-search",
     title: "Search and select vocabulary groups",
     details:

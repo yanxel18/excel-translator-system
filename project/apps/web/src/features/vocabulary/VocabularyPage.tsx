@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActionIcon,
   Badge,
   Box,
   Breadcrumbs,
@@ -17,13 +18,16 @@ import {
   Textarea,
   TextInput,
   ThemeIcon,
+  Tooltip,
 } from "@mantine/core";
 import {
   ArrowRight,
   BookOpen,
   ChevronRight,
   Languages,
+  Pencil,
   Plus,
+  Trash2,
 } from "lucide-react";
 import ApiService, {
   Language,
@@ -295,8 +299,53 @@ export default function VocabularyPage({ token }: { token: string }) {
                     >
                       <Languages size={19} />
                     </ThemeIcon>
-                    <Box>
-                      <Text fw={650}>{group.name}</Text>
+                    <Box style={{ minWidth: 0, flex: 1 }}>
+                      <Group gap={4} wrap="nowrap">
+                        <Text fw={650} truncate style={{ minWidth: 0, flex: "0 1 auto" }}>
+                          {group.name}
+                        </Text>
+                        <Tooltip label={t("Edit group")}>
+                          <ActionIcon
+                            variant="subtle"
+                            aria-label={t("Edit group")}
+                            disabled={busy}
+                            onClick={() =>
+                              setGroupDraft({
+                                id: group.id,
+                                name: group.name,
+                                description: group.description ?? "",
+                                sourceLanguage: group.sourceLanguage,
+                                targetLanguage: group.targetLanguage,
+                              })
+                            }
+                          >
+                            <Pencil size={16} aria-hidden="true" />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label={t("Add term")}>
+                          <ActionIcon
+                            variant="light"
+                            aria-label={t("Add term")}
+                            disabled={busy}
+                            onClick={() =>
+                              setEntryDraft({ groupId: group.id, source: "", target: "" })
+                            }
+                          >
+                            <Plus size={16} aria-hidden="true" />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label={t("Delete")}>
+                          <ActionIcon
+                            color="red"
+                            variant="subtle"
+                            aria-label={t("Delete")}
+                            disabled={busy}
+                            onClick={() => void removeGroup(group)}
+                          >
+                            <Trash2 size={16} aria-hidden="true" />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
                       <Group
                         gap={6}
                         mt={4}
@@ -315,33 +364,6 @@ export default function VocabularyPage({ token }: { token: string }) {
                         </Badge>
                       </Group>
                     </Box>
-                  </Group>
-                  <Group gap="xs" className="vocabulary-group-actions">
-                    <Button
-                      size="xs"
-                      variant="default"
-                      disabled={busy}
-                      onClick={() =>
-                        setGroupDraft({
-                          id: group.id,
-                          name: group.name,
-                          description: group.description ?? "",
-                          sourceLanguage: group.sourceLanguage,
-                          targetLanguage: group.targetLanguage,
-                        })
-                      }
-                    >
-                      {t("Edit group")}
-                    </Button>
-                    <Button
-                      size="xs"
-                      color="red"
-                      variant="subtle"
-                      disabled={busy}
-                      onClick={() => void removeGroup(group)}
-                    >
-                      {t("Delete")}
-                    </Button>
                   </Group>
                 </Group>
                 {group.description && (
@@ -429,17 +451,6 @@ export default function VocabularyPage({ token }: { token: string }) {
                     {t("No protected terms yet.")}
                   </Text>
                 )}
-                <Button
-                  size="xs"
-                  variant="light"
-                  leftSection={<Plus size={14} />}
-                  className="vocabulary-add-term"
-                  onClick={() =>
-                    setEntryDraft({ groupId: group.id, source: "", target: "" })
-                  }
-                >
-                  {t("Add term")}
-                </Button>
               </Stack>
             </Paper>
           ))}

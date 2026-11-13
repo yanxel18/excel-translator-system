@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-01, V3-03–V3-06, and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-01–V3-06 and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -20,11 +20,12 @@ This checklist records the requested changes; it does not claim they are impleme
   - Dependencies: none. Files: `project/apps/web/src/features/vocabulary/VocabularyPage.tsx`, relevant UI tests.
   - Evidence: browser checks cover keyboard search and selection, empty/loading/no-match states, group creation and deletion, responsive layout, and Japanese and Chinese labels.
 
-- [ ] **V3-02 — Align and simplify vocabulary actions (S)**
+- [x] **V3-02 — Align and simplify vocabulary actions (S)**
   - Put Add term on the same level as Edit Group; show a pencil icon after the group name for editing, and use icon-only Add term and Delete actions.
   - Acceptance: actions retain existing edit, add, and delete behavior and confirmation; icon-only controls have localized accessible names and keyboard focus.
   - Verify: browser checks for group/term actions, confirmation, keyboard access, and narrow layouts.
   - Dependencies: V3-01. Files: vocabulary page and relevant UI tests.
+  - Evidence: browser checks cover icon labels, keyboard editing, adding and delete confirmation, and long names on narrow screens.
 
 **Checkpoint A:** Group search and vocabulary actions work with keyboard and touch, without changing saved data.
 

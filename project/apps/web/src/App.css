@@ -408,6 +408,8 @@ input {
 }
 .vocabulary-group-identity {
   min-width: 0;
+  width: 100%;
+  flex: 1;
 }
 .vocabulary-language-pair {
   color: var(--mantine-color-dimmed);
@@ -454,10 +456,6 @@ input {
 .vocabulary-actions-heading {
   display: block;
   text-align: right;
-}
-.vocabulary-add-term {
-  align-self: flex-start;
-  margin-top: 0.25rem;
 }
 .changelog-page {
   width: 100%;
@@ -622,9 +620,6 @@ input {
   .vocabulary-group-header {
     align-items: flex-start;
     flex-direction: column;
-  }
-  .vocabulary-group-actions {
-    align-self: flex-end;
   }
   .vocabulary-description {
     margin-left: 0;
