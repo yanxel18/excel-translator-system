@@ -1,10 +1,11 @@
 import { NavLink, Text, Box, Tooltip } from "@mantine/core";
-import { BookOpen, History, FileSpreadsheet } from "lucide-react";
+import { BookOpen, History } from "lucide-react";
 import type { View } from "./types";
 import { useLocale } from "../shared/LocaleProvider";
+import WorkbookIcon from "../shared/WorkbookIcon";
 
 const items = [
-  { view: "workspace", label: "Workspace", icon: FileSpreadsheet },
+  { view: "workspace", label: "Workspace", icon: WorkbookIcon },
   { view: "history", label: "History", icon: History },
   { view: "vocabulary", label: "Vocabulary", icon: BookOpen },
 ] as const;

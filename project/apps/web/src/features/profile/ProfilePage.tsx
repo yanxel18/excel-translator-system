@@ -3,7 +3,6 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  FileSpreadsheet,
   Languages,
   UserRound,
 } from "lucide-react";
@@ -28,6 +27,7 @@ import {
 import ApiService, { type Job, type UserProfile } from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import AdminKeycloakSettings from "./AdminKeycloakSettings";
+import WorkbookIcon from "../shared/WorkbookIcon";
 
 function ProfileIdenticon({ seed }: { seed: string }) {
   let hash = 0;
@@ -273,7 +273,7 @@ export default function ProfilePage({
     {
       label: t("Total workbooks"),
       value: jobs.length,
-      icon: FileSpreadsheet,
+      icon: WorkbookIcon,
       color: "blue",
     },
     {
@@ -564,7 +564,7 @@ export default function ProfilePage({
                               size="md"
                               radius="md"
                             >
-                              <FileSpreadsheet size={16} />
+                              <WorkbookIcon size={16} />
                             </ThemeIcon>
                             <Box style={{ minWidth: 0 }}>
                               <Text fw={600} size="sm" truncate>

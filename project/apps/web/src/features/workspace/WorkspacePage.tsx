@@ -23,12 +23,12 @@ import {
   CheckCircle2,
   ChevronRight,
   CloudUpload,
-  FileSpreadsheet,
 } from "lucide-react";
 import type { Job } from "../../api";
 import JobList, { LoadingJobs } from "./JobList";
 import { useLocale } from "../shared/LocaleProvider";
 import IbisPreview from "../history/IbisPreview";
+import WorkbookIcon from "../shared/WorkbookIcon";
 
 interface WorkspacePageProps {
   file: File | null;
@@ -198,7 +198,7 @@ export default function WorkspacePage({
             <Button
               variant="light"
               size="sm"
-              leftSection={<FileSpreadsheet size={16} />}
+              leftSection={<WorkbookIcon size={16} />}
               onClick={() => fileInput.current?.click()}
             >
               {t("Browse files")}

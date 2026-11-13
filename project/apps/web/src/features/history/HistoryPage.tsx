@@ -26,7 +26,6 @@ import {
   ArrowUpDown,
   Download,
   Eye,
-  FileSpreadsheet,
   Languages,
   Trash2,
 } from "lucide-react";
@@ -40,6 +39,7 @@ import { SessionExpiredError, trackedFetch } from "../../api/client";
 import IbisPreview from "./IbisPreview";
 import { useLocale } from "../shared/LocaleProvider";
 import { languageName } from "../shared/language-options";
+import WorkbookIcon from "../shared/WorkbookIcon";
 
 const pageSizes = [10, 20, 30, 40, 50] as const;
 const sortColumns: HistorySortColumn[] = [
@@ -360,7 +360,7 @@ export default function HistoryPage({
         <Paper withBorder radius="lg" p="xl">
           <Stack align="center" gap="xs">
             <ThemeIcon size={52} radius="xl" variant="light" color="blue">
-              <FileSpreadsheet size={24} />
+              <WorkbookIcon size={24} />
             </ThemeIcon>
             <Text fw={600}>
               {emptyHistory
@@ -429,7 +429,7 @@ export default function HistoryPage({
                           color="blue"
                           variant="light"
                         >
-                          <FileSpreadsheet size={18} />
+                          <WorkbookIcon size={18} />
                         </ThemeIcon>
                         <UnstyledButton
                           className="history-filename"
