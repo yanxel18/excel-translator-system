@@ -393,6 +393,9 @@ input {
 .vocabulary-groups {
   margin-top: 0.25rem;
 }
+.vocabulary-group-selector {
+  width: min(100%, 32rem);
+}
 .main-content .vocabulary-group {
   padding: 1.25rem;
   border-color: light-dark(#dce6ef, #30435a);

@@ -36,6 +36,8 @@ import { useLocale } from "../shared/LocaleProvider";
 export default function VocabularyPage({ token }: { token: string }) {
   const { t } = useLocale();
   const [groups, setGroups] = useState<VocabularyGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [groupSearch, setGroupSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -60,7 +62,13 @@ export default function VocabularyPage({ token }: { token: string }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setGroups(await ApiService.getVocabularyGroups(token));
+      const nextGroups = await ApiService.getVocabularyGroups(token);
+      setGroups(nextGroups);
+      setSelectedGroupId((current) =>
+        nextGroups.some((group) => group.id === current)
+          ? current
+          : (nextGroups[0]?.id ?? null),
+      );
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "Could not load vocabulary.",
@@ -72,6 +80,9 @@ export default function VocabularyPage({ token }: { token: string }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  const selectedGroup =
+    groups.find((group) => group.id === selectedGroupId) ?? groups[0] ?? null;
+  const visibleGroups = selectedGroup ? [selectedGroup] : [];
 
   const saveGroup = async () => {
     if (!groupDraft) return;
@@ -86,7 +97,10 @@ export default function VocabularyPage({ token }: { token: string }) {
       };
       if (groupDraft.id)
         await ApiService.updateVocabularyGroup(groupDraft.id, details, token);
-      else await ApiService.createVocabularyGroup(details, token);
+      else {
+        const createdGroup = await ApiService.createVocabularyGroup(details, token);
+        setSelectedGroupId(createdGroup.id);
+      }
       setGroupDraft(null);
       await refresh();
     } catch (reason) {
@@ -221,7 +235,10 @@ export default function VocabularyPage({ token }: { token: string }) {
         </Paper>
       )}
       {loading ? (
-        <Stack gap="sm">
+        <Stack gap="sm" role="status" aria-busy="true">
+          <Text size="sm" c="dimmed">
+            {t("Loading vocabulary groups…")}
+          </Text>
           {[1, 2].map((item) => (
             <Paper key={item} withBorder p="md">
               <Skeleton height={18} width="45%" />
@@ -231,7 +248,27 @@ export default function VocabularyPage({ token }: { token: string }) {
         </Stack>
       ) : groups.length ? (
         <Stack gap="md" className="vocabulary-groups">
-          {groups.map((group) => (
+          <Select
+            label={t("Vocabulary group")}
+            placeholder={t("Search or select a group")}
+            data={groups.map((group) => ({
+              value: group.id,
+              label: group.name,
+            }))}
+            value={selectedGroup?.id ?? null}
+            onChange={setSelectedGroupId}
+            searchValue={groupSearch}
+            onSearchChange={setGroupSearch}
+            onOptionSubmit={(id) =>
+              setGroupSearch(groups.find((group) => group.id === id)?.name ?? "")
+            }
+            onDropdownClose={() => setGroupSearch(selectedGroup?.name ?? "")}
+            allowDeselect={false}
+            searchable
+            nothingFoundMessage={t("No matching vocabulary groups")}
+            className="vocabulary-group-selector"
+          />
+          {visibleGroups.map((group) => (
             <Paper
               key={group.id}
               withBorder

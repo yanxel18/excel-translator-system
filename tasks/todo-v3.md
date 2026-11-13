@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-03–V3-06 and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-01, V3-03–V3-06, and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -13,11 +13,12 @@ This checklist records the requested changes; it does not claim they are impleme
 
 ## Vocabulary
 
-- [ ] **V3-01 — Make vocabulary groups searchable (M)**
+- [x] **V3-01 — Make vocabulary groups searchable (M)**
   - Replace the group selection presentation with a dropdown offering searchable autocomplete.
   - Acceptance: users can search and select existing groups, and the selected group's terms and actions remain available; empty, loading, and no-match states are clear.
   - Verify: focused browser checks for selection, search, keyboard navigation, and empty groups.
   - Dependencies: none. Files: `project/apps/web/src/features/vocabulary/VocabularyPage.tsx`, relevant UI tests.
+  - Evidence: browser checks cover keyboard search and selection, empty/loading/no-match states, group creation and deletion, responsive layout, and Japanese and Chinese labels.
 
 - [ ] **V3-02 — Align and simplify vocabulary actions (S)**
   - Put Add term on the same level as Edit Group; show a pencil icon after the group name for editing, and use icon-only Add term and Delete actions.
