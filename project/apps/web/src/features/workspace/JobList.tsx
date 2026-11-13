@@ -14,9 +14,10 @@ import {
   ThemeIcon,
   Tooltip,
 } from "@mantine/core";
-import { Download, Eye, FileSpreadsheet, FolderClock } from "lucide-react";
+import { Download, Eye, FolderClock } from "lucide-react";
 import { Job } from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
+import WorkbookIcon from "../shared/WorkbookIcon";
 
 export function LoadingJobs() {
   return (
@@ -152,7 +153,7 @@ export default function JobList({
           >
             <Group wrap="nowrap" gap="sm" style={{ minWidth: 0 }}>
               <ThemeIcon variant="light" color="blue" size={34} radius="md">
-                <FileSpreadsheet size={17} />
+                <WorkbookIcon size={17} />
               </ThemeIcon>
               <Box style={{ minWidth: 0 }}>
                 <Group gap="xs" wrap="nowrap">
@@ -186,7 +187,7 @@ export default function JobList({
         <Paper key={job.id} withBorder p="md" radius="md" className="job-card">
           <Group align="center" wrap="nowrap" className="job-card-row">
             <ThemeIcon variant="light" color="blue" size={40} radius="md">
-              <FileSpreadsheet size={21} />
+              <WorkbookIcon size={21} />
             </ThemeIcon>
             <Box className="job-main">
               <Group gap="xs" wrap="nowrap" className="job-title-row">

@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-01–V3-06 and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-01–V3-06, V3-09, and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -77,11 +77,12 @@ This checklist records the requested changes; it does not claim they are impleme
 
 ## Workbook presentation
 
-- [ ] **V3-09 — Use an Excel SVG file icon (S)**
+- [x] **V3-09 — Use an Excel SVG file icon (S)**
   - Replace workbook/file Lucide icons with an appropriate Excel-style SVG wherever the application presents Excel files.
   - Acceptance: the SVG remains clear at the displayed sizes and in both themes; decorative images do not duplicate accessible filenames. Use an appropriately licensed or original asset.
   - Verify: inspect workbook icons across Workspace and History at desktop/mobile sizes and in both themes.
   - Dependencies: none. Files: workbook icon asset/components, relevant UI tests.
+  - Evidence: browser checks cover Workspace, History, and Profile, including mobile, dark mode, and decorative accessibility.
 
 - [ ] **V3-10 — Align recent translation columns (S)**
   - Give filename, status, and View/Download actions separate, aligned columns in Workspace recent translations.

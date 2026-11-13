@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-workbook-svg-icons",
+    title: "Use workbook icons throughout the app",
+    details:
+      "Workbook views now use an original Excel-style SVG icon that remains decorative for assistive technology.",
+    publishedAt: "2026-11-13T11:16:00.000Z",
+  },
+  {
     id: "changelog-20261113-vocabulary-icon-actions",
     title: "Simplify vocabulary group actions",
     details:
