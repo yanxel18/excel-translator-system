@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-14 completed; V3-01–V3-13 pending.
+Created: 2026-11-13. Status: V3-03 and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -31,11 +31,12 @@ This checklist records the requested changes; it does not claim they are impleme
 
 ## Translation history
 
-- [ ] **V3-03 — Align history pagination controls (S)**
+- [x] **V3-03 — Align history pagination controls (S)**
   - Place the Rows per page dropdown alongside the pagination controls below the history list.
   - Acceptance: changing page size and page still updates the existing URL/query state; controls remain usable on narrow screens.
   - Verify: browser checks for pagination, page-size changes, URL restoration, and responsive layout.
   - Dependencies: none. Files: `project/apps/web/src/features/history/HistoryPage.tsx`, relevant UI tests.
+  - Evidence: browser checks cover placement, page size and URL restoration, an empty result, and a 320px layout.
 
 - [ ] **V3-04 — Refresh history automatically (M)**
   - Remove the Refresh button and automatically update history when jobs are added or their status or completion changes, using the agreed refresh strategy.

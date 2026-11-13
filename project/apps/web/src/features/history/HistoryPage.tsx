@@ -333,19 +333,6 @@ export default function HistoryPage({
               })
             }
           />
-          <Select
-            label={t("Rows per page")}
-            aria-label={t("Rows per page")}
-            data={pageSizes.map((size) => ({
-              value: String(size),
-              label: String(size),
-            }))}
-            value={String(pageSize)}
-            onChange={(value) => {
-              if (value && isPageSize(Number(value)))
-                updateQuery({ pageSize: value === "10" ? undefined : value });
-            }}
-          />
         </SimpleGrid>
       </Paper>
 
@@ -526,8 +513,21 @@ export default function HistoryPage({
         </Paper>
       )}
 
-      {totalPages > 1 && (
-        <Group justify="center">
+      <Group justify="center" align="end">
+        <Select
+          label={t("Rows per page")}
+          aria-label={t("Rows per page")}
+          data={pageSizes.map((size) => ({
+            value: String(size),
+            label: String(size),
+          }))}
+          value={String(pageSize)}
+          onChange={(value) => {
+            if (value && isPageSize(Number(value)))
+              updateQuery({ pageSize: value === "10" ? undefined : value });
+          }}
+        />
+        {totalPages > 1 && (
           <Pagination
             aria-label={t("History pages")}
             value={Math.min(page, totalPages)}
@@ -535,8 +535,8 @@ export default function HistoryPage({
             total={totalPages}
             disabled={loading}
           />
-        </Group>
-      )}
+        )}
+      </Group>
 
       <Modal
         opened={Boolean(previewJob)}
