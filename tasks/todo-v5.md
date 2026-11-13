@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 5
 
-Created: 2026-11-13. Status: In progress.
+Created: 2026-11-13. Status: Complete; pull requests awaiting review.
 Plan: [plan-v5.md](plan-v5.md).
 
 - [x] **V5-01 — Keep the footer visible**
@@ -33,7 +33,8 @@ Plan: [plan-v5.md](plan-v5.md).
   - Dependencies: coordinate with V5-01. Files: shared shell styles/components, focused tests.
   - Evidence: browser checks and screenshots cover mobile and desktop controls in both themes, including active and destructive states.
 
-- [ ] **V5-06 — Verify the combined redesign**
+- [x] **V5-06 — Verify the combined redesign**
   - Acceptance: all preceding tasks pass together; translation, permissions, localization, session expiry and mobile controls remain functional; database and built-in changelog entries match.
   - Verify: integrated browser regression suite, web typecheck/build, changelog migration parity and visual review.
   - Dependencies: V5-01–V5-05.
+  - Evidence: 124 mocked browser tests passed; web typecheck and production build passed; desktop and mobile screenshots in both themes were reviewed; all five V5 migrations matched the built-in changelog in disposable PostgreSQL.

@@ -1,6 +1,6 @@
 # Version 5 implementation plan
 
-Created: 2026-11-13. Status: In progress.
+Created: 2026-11-13. Status: Complete; pull requests awaiting review.
 Task tracker: [todo-v5.md](todo-v5.md).
 
 ## Objective and design contract
