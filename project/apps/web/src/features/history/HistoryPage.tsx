@@ -417,9 +417,14 @@ export default function HistoryPage({
                         >
                           <FileSpreadsheet size={18} />
                         </ThemeIcon>
-                        <Text fw={600} size="sm" truncate>
-                          {job.fileName}
-                        </Text>
+                        <UnstyledButton
+                          className="history-filename"
+                          onClick={() => openPreview(job, "source")}
+                        >
+                          <Text fw={600} size="sm" truncate>
+                            {job.fileName}
+                          </Text>
+                        </UnstyledButton>
                       </Group>
                     </Table.Td>
                     <Table.Td>

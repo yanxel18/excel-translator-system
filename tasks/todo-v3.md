@@ -1,6 +1,6 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-03 and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-03, V3-05, and V3-14 completed; remaining tasks pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
@@ -44,11 +44,12 @@ This checklist records the requested changes; it does not claim they are impleme
   - Verify: browser/API checks for newly added, progressing, and completed jobs, failed requests, and cleanup.
   - Dependencies: history refresh decision. Files: history page, existing API/refresh helpers, relevant tests.
 
-- [ ] **V3-05 — Open history previews from filenames (S)**
+- [x] **V3-05 — Open history previews from filenames (S)**
   - Make each filename open the same view as its existing View action, with an underline on hover.
   - Acceptance: preview availability and permissions match the View action; links are keyboard accessible and distinguishable on focus.
   - Verify: compare filename and View behavior for available and unavailable previews, including keyboard navigation.
   - Dependencies: none. Files: history page and relevant UI tests.
+  - Evidence: browser checks cover hover, keyboard activation, and matching original-preview behavior for a processing job.
 
 - [ ] **V3-06 — Correct history scrolling (S)**
   - Remove sticky behavior from the search card and confine the translation list's scrolling to its table or card as agreed.

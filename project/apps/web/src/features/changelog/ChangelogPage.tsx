@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-history-filename-preview",
+    title: "Open workbook previews from history filenames",
+    details:
+      "History filenames now open the same original workbook preview as the View action, with an underline on hover and a visible keyboard focus indicator.",
+    publishedAt: "2026-11-13T11:01:00.000Z",
+  },
+  {
     id: "changelog-20261113-history-pagination-layout",
     title: "Keep history pagination controls together",
     details:
