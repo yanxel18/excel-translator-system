@@ -39,6 +39,7 @@ export default function AppHeader({
   );
   const [showProgress, setShowProgress] = useState(false);
   const [opened, setOpened] = useState(false);
+  const [restoreFocus, setRestoreFocus] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   useEffect(() => {
     if (!requestsActive) {
@@ -68,7 +69,7 @@ export default function AppHeader({
   }, [token]);
   return (
     <>
-      <Group h="100%" px="lg" justify="space-between">
+      <Group h="100%" px="lg" justify="space-between" className="app-header-content">
         <Group gap="sm">
           <Burger
             hiddenFrom="sm"
@@ -79,7 +80,7 @@ export default function AppHeader({
             aria-controls="app-navigation"
             size="sm"
           />
-          <UnstyledButton onClick={onHome} aria-label={t("Home")}>
+          <UnstyledButton onClick={onHome} aria-label={t("Home")} className="app-home-button">
             <Group gap="sm">
               <img
                 className="app-brand-mark"
@@ -103,8 +104,10 @@ export default function AppHeader({
             opened={opened}
             onChange={setOpened}
             position="bottom-end"
-            width={420}
-            shadow="xl"
+            width={360}
+            shadow="md"
+            trapFocus
+            returnFocus={restoreFocus}
             withinPortal
           >
             <Popover.Target>
@@ -119,18 +122,26 @@ export default function AppHeader({
                   color="blue"
                   size="lg"
                   aria-label={t("Open notifications")}
-                  onClick={() => setOpened(!opened)}
+                  aria-haspopup="dialog"
+                  aria-expanded={opened}
+                  className="app-notification-trigger"
+                  onClick={() => {
+                    setRestoreFocus(true);
+                    setOpened(!opened);
+                  }}
                 >
                   <Bell size={19} />
                 </ActionIcon>
               </Indicator>
             </Popover.Target>
-            <Popover.Dropdown className="notification-popover">
+            <Popover.Dropdown className="notification-popover" role="dialog" aria-label={t("Notifications")}>
               {opened && (
                 <NotificationPreview
                   token={token}
                   unreadCount={unreadCount}
                   onOpen={(id) => {
+                    // Navigation owns destination focus; dismissal returns to the bell.
+                    setRestoreFocus(false);
                     setOpened(false);
                     onOpenNotifications(id);
                   }}

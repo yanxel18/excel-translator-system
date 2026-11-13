@@ -1,5 +1,111 @@
-/* Feature layout adjustments; shared visual tokens live in App.css. */
+/* V4 surface system. Keep rail/account layout in the shell-owned App.css.
+   Scoped selectors deliberately survive either stylesheet import order. */
+:root {
+  --visual-canvas: light-dark(#f0f3f6, #111b29);
+  --visual-surface: light-dark(#ffffff, #1b2a3d);
+  --visual-inset: light-dark(#f7f9fb, #162334);
+  --visual-border: light-dark(#d5dfe8, #35485e);
+  --visual-muted: light-dark(#526274, #afbed0);
+  --visual-radius: 1rem;
+  --visual-focus: light-dark(#1864ab, #74c0fc);
+}
+.main-content,
+.notification-popover,
+.app-header {
+  --mantine-color-blue-light-color: var(--visual-focus);
+  --mantine-color-blue-filled: #1864ab;
+  --mantine-color-blue-filled-hover: #145a9b;
+  --mantine-color-dimmed: var(--visual-muted);
+}
+.mantine-AppShell-root:has(.main-content) {
+  background: var(--visual-canvas);
+}
+.mantine-AppShell-root .app-header {
+  background: var(--visual-canvas);
+  border-bottom: 1px solid var(--visual-border);
+  backdrop-filter: none;
+}
+.app-header .app-header-content {
+  padding-inline: 1.5rem;
+}
+.app-header .app-home-button {
+  border-radius: 0.5rem;
+}
+.app-header .app-notification-trigger {
+  width: 44px;
+  height: 44px;
+  background: var(--visual-surface);
+  border-color: var(--visual-border);
+}
+.mantine-AppShell-root .main-content {
+  --mantine-color-dimmed: var(--visual-muted);
+  padding-top: 1.5rem;
+}
+.mantine-AppShell-root .app-footer {
+  margin-top: 2.5rem;
+  border-color: var(--visual-border);
+  color: var(--visual-muted);
+  padding-block: 1.25rem;
+  line-height: 1.6;
+}
+.main-content .mantine-Paper-root.mantine-Paper-root {
+  border-color: var(--visual-border);
+  background: var(--visual-surface);
+  box-shadow: none;
+}
+.main-content > .mantine-Stack-root > .mantine-Paper-root.mantine-Paper-root,
+.main-content .mantine-SimpleGrid-root > .mantine-Paper-root.mantine-Paper-root {
+  border-radius: var(--visual-radius);
+}
+.main-content .workspace-heading {
+  gap: 1rem;
+  align-items: center;
+}
+.main-content .workspace-heading h1 {
+  letter-spacing: -0.035em;
+}
+.main-content .upload-panel.upload-dropzone {
+  padding: 1.5rem;
+  background: var(--visual-inset);
+  border-color: light-dark(#96b2cc, #55728f);
+  border-radius: var(--visual-radius);
+}
+.main-content .upload-panel.upload-dropzone:hover,
+.main-content .upload-panel.upload-dropzone:focus-within,
+.main-content .upload-panel.upload-dropzone.is-dragging {
+  background: light-dark(#edf5fc, #21364d);
+  border-color: var(--visual-focus);
+}
+.main-content .mantine-Button-root,
+.main-content .mantine-Input-input {
+  border-radius: 0.5rem;
+}
+.main-content .mantine-Button-root[data-variant="default"] {
+  border-color: var(--visual-border);
+  background: var(--visual-surface);
+}
+.main-content .mantine-ActionIcon-root {
+  border-radius: 50%;
+}
+.app-header .app-home-button:focus-visible,
+.app-header .app-notification-trigger:focus-visible,
+.main-content :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--visual-focus);
+  outline-offset: 3px;
+}
 @media (max-width: 36em) {
+  .app-header .app-header-content {
+    padding-inline: 0.75rem;
+  }
+  .mantine-AppShell-root .main-content {
+    padding-inline: 0;
+  }
+  .mantine-AppShell-root .app-footer {
+    margin-top: 2rem;
+  }
+  .main-content .upload-panel.upload-dropzone {
+    padding: 1.25rem 1rem;
+  }
   .job-action {
     min-width: auto;
   }
