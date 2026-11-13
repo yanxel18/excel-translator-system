@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-translation-concurrency",
+    title: "Control simultaneous translations",
+    details:
+      "Administrators can configure up to five simultaneous translations, with clear capacity errors and recovery for interrupted jobs.",
+    publishedAt: "2026-11-13T12:00:00.000Z",
+  },
+  {
     id: "changelog-20261113-shell-controls",
     title: "Move account and language controls",
     details:

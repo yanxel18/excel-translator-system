@@ -20,6 +20,7 @@ Example local `.env`; the database credentials must match the initialized databa
 ```dotenv
 NODE_ENV=development
 PORT=3000
+MAX_CONCURRENT_TRANSLATIONS=5
 BASE_PATH=/excel-convert
 WEB_ORIGIN=http://localhost:5173
 DATABASE_URL=postgresql://excel_translator:localdbpassword@localhost:5432/excel_translator?schema=public
@@ -36,6 +37,14 @@ OLLAMA_MODEL=gemma4:latest
 ```
 
 These credentials are for local development. `npm run dev` starts watch mode. The health endpoint is `http://localhost:3000/excel-convert` and GraphQL is at `/excel-convert/graphql`. When enabled, bootstrap creates the configured local account on first successful login; changing the environment password does not overwrite an existing account.
+
+## Translation capacity
+
+`MAX_CONCURRENT_TRANSLATIONS` is an integer from `1` to `5`; it defaults to `5`. The limit counts all `PROCESSING` translation jobs in the shared database, across owners. Starts and retries are admitted atomically; when full, the API rejects the request with HTTP `409` and a capacity message instead of queuing it.
+
+Run exactly one API instance per database. Startup holds a PostgreSQL advisory lock; another API process using the same database exits with a clear error. If the lock connection is lost, the process exits to avoid continuing without the single-instance guard. Configure the limit before starting the API and restart it to apply changes. On restart, remaining `PROCESSING` jobs are marked `FAILED` with a retryable message. A cancellation keeps its slot until the worker has stopped; completion, failure and cancellation then release capacity.
+
+Run focused tests with `npm run test:translation-concurrency`. The test suite uses a serialized in-memory database double. `npm run test:translation-concurrency:postgres` runs the real PostgreSQL checks; set `V3_TEST_DATABASE_URL` to a migrated, loopback-only disposable database named `v3_translation_concurrency_disposable`. The integration test refuses other hosts or database names.
 
 ## Docker and operations
 

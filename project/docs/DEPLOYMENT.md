@@ -26,6 +26,14 @@ The API container applies pending Prisma migrations before serving requests. Bac
 
 If a migration fails, keep the database and logs intact, confirm the migration status with the database operator, and use a reviewed forward migration or restore the paired volume backup if recovery requires rollback. Do not use `prisma migrate dev` or `migrate reset` against production, delete application data, or edit `_prisma_migrations` to make a failed deployment appear successful. After recovery, redeploy the reviewed image and verify API readiness, the system-info response, and an authenticated workbook workflow before returning traffic.
 
+## Translation concurrency and recovery
+
+Set `MAX_CONCURRENT_TRANSLATIONS` to an integer from `1` to `5` (default `5`). It is validated at API startup. Starts and retries share one global limit across owners; when at capacity, the API returns HTTP `409` rather than queueing work. Change the setting in the deployment environment and restart the API to apply it.
+
+Run only one API instance against a database. The API holds a PostgreSQL advisory lock for its lifetime and refuses startup if another instance already holds it; a lost lock connection terminates the process. Do not scale `translator-api` beyond one replica or run a second API process against the same database. The Compose file defines one API container.
+
+After startup has acquired the singleton lock, persisted `PROCESSING` jobs are marked `FAILED` with a message that permits retry; this recovers jobs interrupted by a process or host restart without permanently consuming a slot. A running cancellation continues to occupy capacity until the worker stops. Completion, failure, and settled cancellation release capacity. Check the API logs for the startup lock failure or interrupted-job messages. A start/retry rejected at capacity should be retried after a slot becomes available.
+
 ## Keycloak OIDC
 
 Set `ADMIN_USERNAMES` to a comma-separated list of administrator login names. These names are checked by the API for both protected setting endpoints and the admin-only section in Profile. An administrator can configure Keycloak there; the settings are stored in PostgreSQL and take effect for new sign-ins. The public login page receives only the enablement, server URL, realm, and client ID. `KEYCLOAK_*` environment values provide the initial/default config when no admin settings have been saved.

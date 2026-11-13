@@ -1,15 +1,15 @@
 # Excel Translator Todo — Version 3
 
-Created: 2026-11-13. Status: V3-01–V3-10 and V3-14 completed; remaining tasks pending.
+Created: 2026-11-13. Status: V3-01–V3-12 and V3-14 completed; final verification pending.
 Plan: [plan-v3.md](plan-v3.md).
 Previous version: [todo-v2.md](todo-v2.md).
 
 This checklist records the requested changes; it does not claim they are implemented. Keep existing authentication, ownership, localization, and responsive behavior intact.
 
-## Decisions needed before implementation
+## Implementation decisions
 
-- **Translation concurrency:** Confirm whether five is the default that operators may raise, or a hard maximum with a configurable value from one to five. Define what happens when the limit is reached (queue or reject), whether it applies across API instances, and how queued or interrupted jobs recover.
-- **Profile avatar:** Confirm whether an initials/default avatar is sufficient for new accounts or whether uploading and storing profile images is required. Image uploads would need separate storage, validation, privacy, and migration requirements.
+- **Translation concurrency:** Configure one to five workers, defaulting to five. Starts and retries are rejected with HTTP 409 at capacity; one API instance per database is enforced and interrupted jobs are retryable.
+- **Profile avatar:** Use initials or a default avatar; image upload and storage are outside this update.
 
 ## Vocabulary
 
@@ -97,17 +97,19 @@ This checklist records the requested changes; it does not claim they are impleme
 
 ## Translation concurrency
 
-- [ ] **V3-11 — Enforce configurable translation concurrency (M)**
+- [x] **V3-11 — Enforce configurable translation concurrency (M)**
   - Add an environment setting for the agreed concurrent-translation limit, with five as the requested baseline; enforce it where jobs are started and retried.
   - Acceptance: the configured limit is validated and never exceeded under simultaneous requests; reaching the limit follows the agreed queue/rejection policy and preserves job ownership and lifecycle.
   - Verify: focused concurrency tests at one and five, invalid configuration, simultaneous starts/retries, cancellation, failure, and multiple instances if supported.
   - Dependencies: translation concurrency decision. Files: job management service/configuration, environment examples, API tests.
+  - Evidence: focused tests cover limits one and five, invalid configuration, simultaneous starts/retries, cancellation, failure, and shutdown; PostgreSQL checks cover atomic admission and single-instance exclusion.
 
-- [ ] **V3-12 — Verify concurrency recovery and operations (M)**
+- [x] **V3-12 — Verify concurrency recovery and operations (M)**
   - Document the setting and verify restart/recovery behavior for running and waiting jobs under the selected policy.
   - Acceptance: a restart or failure cannot strand jobs or permanently consume capacity; operational guidance explains changing the limit and any deployment constraints.
   - Verify: integration tests against a disposable database for completion, cancellation, failure, and restart/recovery; validate deployment configuration.
   - Dependencies: V3-11. Files: job lifecycle tests and deployment documentation.
+  - Evidence: disposable PostgreSQL tests cover recovery and slot release; deterministic tests cover cancellation and shutdown interleavings. Deployment guidance documents the enforced single-instance policy.
 
 **Checkpoint D:** The configured limit is demonstrably enforced and job recovery remains reliable.
 
