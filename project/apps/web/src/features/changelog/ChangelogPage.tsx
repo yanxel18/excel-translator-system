@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v4-roadmap",
+    title: "Plan version 4 interface improvements",
+    details:
+      "A new plan outlines a more cohesive interface, compact navigation and notifications, and clearer history and vocabulary controls.",
+    publishedAt: "2026-11-13T12:26:00.000Z",
+  },
+  {
     id: "changelog-20261113-v3-verification",
     title: "Verify version 3 workflows",
     details:
