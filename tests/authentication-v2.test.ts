@@ -61,6 +61,9 @@ async function mockApi(page: Page, initial = configured) {
 async function openSettings(page: Page) {
   await page.goto(web);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Translate a workbook" }),
+  ).toBeVisible();
   await page.goto(`${web}settings/authentication`);
   await expect(page.getByLabel("Keycloak server URL")).toBeEnabled();
 }
@@ -259,6 +262,9 @@ for (const malformed of [false, true]) {
     );
     await page.goto(web);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Translate a workbook" }),
+    ).toBeVisible();
     await page.goto(`${web}settings/authentication`);
     await expect(page.getByRole("alert")).toHaveText(
       malformed ? "Could not load Keycloak settings." : "Settings unavailable.",

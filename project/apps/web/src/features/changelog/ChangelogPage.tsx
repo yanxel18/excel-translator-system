@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v4-mobile-account",
+    title: "Keep mobile account controls accessible",
+    details:
+      "The mobile language control no longer blocks the account menu when navigation is open.",
+    publishedAt: "2026-11-13T12:50:00.000Z",
+  },
+  {
     id: "changelog-20261113-v4-visual",
     title: "Refresh the workspace appearance",
     details:

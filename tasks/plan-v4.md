@@ -1,6 +1,6 @@
 # Version 4 implementation plan
 
-Created: 2026-11-13. Status: Planned.
+Created: 2026-11-13. Status: Complete.
 Task tracker: [todo-v4.md](todo-v4.md).
 
 ## Objective
