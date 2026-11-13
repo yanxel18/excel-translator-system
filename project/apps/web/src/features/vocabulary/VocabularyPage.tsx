@@ -36,6 +36,7 @@ import ApiService, {
 } from "../../api";
 import { LANGUAGE_OPTIONS, languageName } from "../shared/language-options";
 import { useLocale } from "../shared/LocaleProvider";
+import "./VocabularyPage.css";
 
 export default function VocabularyPage({ token }: { token: string }) {
   const { t } = useLocale();
@@ -322,29 +323,6 @@ export default function VocabularyPage({ token }: { token: string }) {
                             <Pencil size={16} aria-hidden="true" />
                           </ActionIcon>
                         </Tooltip>
-                        <Tooltip label={t("Add term")}>
-                          <ActionIcon
-                            variant="light"
-                            aria-label={t("Add term")}
-                            disabled={busy}
-                            onClick={() =>
-                              setEntryDraft({ groupId: group.id, source: "", target: "" })
-                            }
-                          >
-                            <Plus size={16} aria-hidden="true" />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label={t("Delete")}>
-                          <ActionIcon
-                            color="red"
-                            variant="subtle"
-                            aria-label={t("Delete")}
-                            disabled={busy}
-                            onClick={() => void removeGroup(group)}
-                          >
-                            <Trash2 size={16} aria-hidden="true" />
-                          </ActionIcon>
-                        </Tooltip>
                       </Group>
                       <Group
                         gap={6}
@@ -365,6 +343,31 @@ export default function VocabularyPage({ token }: { token: string }) {
                       </Group>
                     </Box>
                   </Group>
+                  <Group gap={4} wrap="nowrap" className="vocabulary-group-actions">
+                    <Tooltip label={t("Add term")}>
+                      <ActionIcon
+                        variant="light"
+                        aria-label={t("Add term")}
+                        disabled={busy}
+                        onClick={() =>
+                          setEntryDraft({ groupId: group.id, source: "", target: "" })
+                        }
+                      >
+                        <Plus size={16} aria-hidden="true" />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label={t("Delete")}>
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        aria-label={t("Delete")}
+                        disabled={busy}
+                        onClick={() => void removeGroup(group)}
+                      >
+                        <Trash2 size={16} aria-hidden="true" />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
                 </Group>
                 {group.description && (
                   <Text size="sm" c="dimmed" className="vocabulary-description">
@@ -373,7 +376,12 @@ export default function VocabularyPage({ token }: { token: string }) {
                 )}
                 <Divider />
                 {group.entries.length ? (
-                  <div className="vocabulary-terms">
+                  <div
+                    className="vocabulary-terms"
+                    role="region"
+                    aria-label={`${t("Vocabulary")}: ${group.name}`}
+                    tabIndex={0}
+                  >
                     <Table
                       className="vocabulary-term-table"
                       verticalSpacing="xs"

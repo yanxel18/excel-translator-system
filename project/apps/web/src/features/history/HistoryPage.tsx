@@ -40,6 +40,7 @@ import IbisPreview from "./IbisPreview";
 import { useLocale } from "../shared/LocaleProvider";
 import { languageName } from "../shared/language-options";
 import WorkbookIcon from "../shared/WorkbookIcon";
+import "./HistoryPage.css";
 
 const pageSizes = [10, 20, 30, 40, 50] as const;
 const sortColumns: HistorySortColumn[] = [
@@ -532,10 +533,27 @@ export default function HistoryPage({
         </Paper>
       )}
 
-      <Group justify="center" align="end">
+      <Group justify="center" align="end" gap="xs" wrap="nowrap">
+        {totalPages > 1 && (
+          <Pagination
+            aria-label={t("History pages")}
+            className="history-pagination"
+            value={Math.min(page, totalPages)}
+            onChange={changePage}
+            total={totalPages}
+            disabled={loading}
+            size="xs"
+            gap={4}
+            siblings={0}
+          />
+        )}
         <Select
           label={t("Rows per page")}
           aria-label={t("Rows per page")}
+          title={t("Rows per page")}
+          size="xs"
+          className="history-page-size"
+          classNames={{ label: "history-page-size-label" }}
           data={pageSizes.map((size) => ({
             value: String(size),
             label: String(size),
@@ -546,15 +564,6 @@ export default function HistoryPage({
               updateQuery({ pageSize: value === "10" ? undefined : value });
           }}
         />
-        {totalPages > 1 && (
-          <Pagination
-            aria-label={t("History pages")}
-            value={Math.min(page, totalPages)}
-            onChange={changePage}
-            total={totalPages}
-            disabled={loading}
-          />
-        )}
       </Group>
 
       <Modal

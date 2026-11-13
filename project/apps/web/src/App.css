@@ -628,7 +628,13 @@ input {
   }
   .mantine-AppShell-main {
     padding-inline: 16px !important;
-    padding-bottom: 5.25rem;
+    padding-bottom: 0;
+  }
+  .shell-language-control {
+    position: static;
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
   }
   .mantine-AppShell-root[data-mobile-navigation="closed"] .navigation-rail {
     transform: translateX(-100%) !important;
