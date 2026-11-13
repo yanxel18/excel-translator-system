@@ -14,6 +14,20 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v3-implementation-plan",
+    title: "Document the Version 3 implementation plan",
+    details:
+      "Added an implementation plan for the Version 3 checklist, including interface behavior, open decisions, translation concurrency, recovery, and verification. The planned features are not yet implemented.",
+    publishedAt: "2026-11-13T10:46:35.000Z",
+  },
+  {
+    id: "changelog-20261113-version-three-roadmap",
+    title: "Record the Version 3 task roadmap",
+    details:
+      "Added a Version 3 checklist for vocabulary, translation history, profile and language controls, workbook presentation, and configurable translation concurrency. These changes are planned, not yet implemented.",
+    publishedAt: "2026-11-13T10:45:00.000Z",
+  },
+  {
     id: "changelog-20261113-restore-rest-json",
     title: "Restore password sign-in and API requests",
     details:
