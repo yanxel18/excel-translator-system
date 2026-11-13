@@ -10,7 +10,6 @@ import {
   Paper,
   ScrollArea,
   Select,
-  SimpleGrid,
   Skeleton,
   Stack,
   Table,
@@ -285,13 +284,6 @@ export default function HistoryPage({
   );
 
   const totalPages = Math.ceil(total / pageSize);
-  const languageOptions = [
-    { value: "all", label: t("All languages") },
-    ...languages.map((language) => ({
-      value: language,
-      label: t(languageName(language)),
-    })),
-  ];
   const emptyHistory =
     total === 0 && !queryText.trim() && !sourceLanguage && !targetLanguage;
 
@@ -309,38 +301,15 @@ export default function HistoryPage({
       </Group>
 
       <Paper withBorder p="md" radius="md">
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="sm">
-          <TextInput
-            type="search"
-            label={t("Search workbooks")}
-            placeholder={t("Search by filename or metadata")}
-            maxLength={200}
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.currentTarget.value)}
-          />
-          <Select
-            label={t("Source language")}
-            aria-label={t("Source language")}
-            data={languageOptions}
-            value={sourceLanguage ?? "all"}
-            onChange={(value) =>
-              updateQuery({
-                sourceLanguage: value && value !== "all" ? value : undefined,
-              })
-            }
-          />
-          <Select
-            label={t("Target language")}
-            aria-label={t("Target language")}
-            data={languageOptions}
-            value={targetLanguage ?? "all"}
-            onChange={(value) =>
-              updateQuery({
-                targetLanguage: value && value !== "all" ? value : undefined,
-              })
-            }
-          />
-        </SimpleGrid>
+        <TextInput
+          type="search"
+          label={t("Search workbooks")}
+          placeholder={t("Search by Excel filename")}
+          maxLength={200}
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.currentTarget.value)}
+          style={{ maxWidth: 420 }}
+        />
       </Paper>
 
       {error && (
@@ -389,9 +358,6 @@ export default function HistoryPage({
                 {t("Review, preview, download, or remove your workbooks.")}
               </Text>
             </Box>
-            <Badge color="blue" variant="light">
-              {total}
-            </Badge>
           </Group>
           <ScrollArea.Autosize
             className="history-table-scroll"

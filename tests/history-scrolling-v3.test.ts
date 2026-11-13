@@ -52,12 +52,32 @@ test("history scrolls its table independently of the search controls", async ({
   await expect.poll(() =>
     viewport.evaluate((element) => element.scrollHeight > element.clientHeight),
   ).toBe(true);
+  const firstHeader = page.locator(".history-table-scroll thead th").first();
+  const initialHeaderOffset = await viewport.evaluate((element) => {
+    const header = element.querySelector("thead th");
+    return header
+      ? header.getBoundingClientRect().top - element.getBoundingClientRect().top
+      : Number.NaN;
+  });
+  await expect(firstHeader).toHaveCSS("position", "sticky");
   await viewport.focus();
   await expect(viewport).toBeFocused();
   await page.keyboard.press("End");
   await expect.poll(() =>
     viewport.evaluate((element) => element.scrollTop),
   ).toBeGreaterThan(0);
+  await viewport.evaluate((element) => {
+    element.scrollTop = 180;
+  });
+  const scrolledHeaderOffset = await viewport.evaluate((element) => {
+    const header = element.querySelector("thead th");
+    return header
+      ? header.getBoundingClientRect().top - element.getBoundingClientRect().top
+      : Number.NaN;
+  });
+  expect(
+    Math.abs(scrolledHeaderOffset - initialHeaderOffset),
+  ).toBeLessThan(1);
   const lastFile = page.getByRole("button", {
     name: "report-49.xlsx",
     exact: true,

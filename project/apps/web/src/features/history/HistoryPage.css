@@ -15,3 +15,12 @@
   transform: translateX(-100%);
   white-space: nowrap;
 }
+
+.history-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--mantine-color-body);
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
+}
