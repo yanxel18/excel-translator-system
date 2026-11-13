@@ -87,7 +87,7 @@ export default function ShellControls({
                   <Text className="shell-account-name" size="sm" fw={600}>
                     {displayName}
                   </Text>
-                  {!profileLoadError && (
+                  {!profileLoadError && !profileLoading && (
                     <Text className="shell-account-email" size="xs" c="dimmed">
                       {email}
                     </Text>

@@ -103,7 +103,7 @@ test("profile controls stay available while account details are loading", async 
   );
   const account = page.getByRole("button", { name: "Account", exact: true });
   await expect(account).toContainText("Loading profile…");
-  await expect(account).toContainText("Email not provided");
+  await expect(account).not.toContainText("Email not provided");
   await account.click();
   await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
   await page.keyboard.press("Escape");
