@@ -1,0 +1,33 @@
+.vocabulary-page .vocabulary-group-header {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.vocabulary-group-identity .mantine-ActionIcon-root,
+.vocabulary-group-actions {
+  flex-shrink: 0;
+}
+
+.vocabulary-group-actions {
+  align-self: flex-start;
+}
+
+.vocabulary-page .vocabulary-terms {
+  overflow-x: auto;
+}
+
+.vocabulary-page .vocabulary-term-table {
+  min-width: 32rem;
+}
+
+.vocabulary-page .vocabulary-term-table .mantine-Table-th:last-child {
+  width: 9.375rem;
+}
+
+.vocabulary-page .vocabulary-word-badge .mantine-Badge-label {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}

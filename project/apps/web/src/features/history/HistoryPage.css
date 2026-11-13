@@ -1,0 +1,17 @@
+.history-page-size {
+  flex: 0 0 4.25rem;
+  min-width: 0;
+}
+
+.history-pagination {
+  margin-bottom: 0.25rem;
+}
+
+.history-page-size-label {
+  display: block;
+  position: relative;
+  width: max-content;
+  left: 100%;
+  transform: translateX(-100%);
+  white-space: nowrap;
+}

@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261113-v4-page-controls",
+    title: "Refine history and vocabulary controls",
+    details:
+      "History page size now sits compactly beside pagination, and vocabulary actions and terms are easier to use on small screens.",
+    publishedAt: "2026-11-13T12:43:00.000Z",
+  },
+  {
     id: "changelog-20261113-v4-shell",
     title: "Simplify navigation and account controls",
     details:

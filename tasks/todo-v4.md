@@ -38,17 +38,19 @@ Keep authentication, permissions, saved data, translation workflows, localizatio
 
 ## History and vocabulary
 
-- [ ] **V4-05 — Compact history page-size control (S)**
+- [x] **V4-05 — Compact history page-size control (S)**
   - Place a compact two-digit-capable Rows per page control to the right of the pagination's next arrow.
   - Acceptance: existing options, URL state, pagination behavior, localization, and narrow-screen usability remain intact.
   - Verify: browser checks for position, width, page-size changes, URL restoration, and mobile layout.
   - Dependencies: none. Files: history page, scoped styles, tests.
+  - Evidence: browser checks cover placement, page sizes, URL state, keyboard access, localized labels, and unobstructed 320px controls.
 
-- [ ] **V4-06 — Separate vocabulary actions (S)**
+- [x] **V4-06 — Separate vocabulary actions (S)**
   - Keep the edit pencil with the group name and move Add term and Delete to the opposite right side.
   - Acceptance: all actions retain accessible names, behavior, confirmation, and reachability for long names and narrow screens.
   - Verify: browser checks for alignment, editing, adding, deletion, keyboard access, and mobile.
   - Dependencies: none. Files: vocabulary page, scoped styles, tests.
+  - Evidence: browser checks cover action alignment, keyboard access, edit/add/delete dialogs, long names, and scrollable term actions on narrow screens.
 
 ## Integration
 
