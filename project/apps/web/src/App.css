@@ -85,11 +85,23 @@ input {
 }
 .mantine-AppShell-main {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 .main-content {
+  flex: 1;
   width: min(100%, 1380px);
   margin: 0 auto;
   padding: 1.25rem 1rem 0;
+}
+.app-footer {
+  width: min(100%, 1380px);
+  margin: 0 auto;
+  padding: 1rem;
+  border-top: 1px solid light-dark(#dce5ed, #2d3e54);
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+  text-align: center;
 }
 .main-content h1 {
   letter-spacing: -0.045em;
@@ -576,10 +588,11 @@ input {
   .app-header > .mantine-Group-root {
     padding-inline: 12px;
   }
-  .app-header .mantine-ThemeIcon-root {
+  .app-brand-mark {
+    display: block;
+    flex: 0 0 auto;
     width: 30px;
     height: 30px;
-    min-width: 30px;
   }
   .app-header .mantine-Text-root {
     font-size: 12px;

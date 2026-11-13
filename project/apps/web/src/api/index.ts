@@ -4,6 +4,7 @@ import { NotificationsApi } from "./notifications";
 import { VocabularyApi } from "./vocabulary";
 import { HistoryApi } from "./history";
 import { AccountApi } from "./account";
+import { SystemInfoApi } from "./system-info";
 
 export const ApiService = {
   ...AuthenticationApi,
@@ -12,6 +13,7 @@ export const ApiService = {
   ...NotificationsApi,
   ...HistoryApi,
   ...AccountApi,
+  ...SystemInfoApi,
 };
 export type {
   ChangelogEntry,
@@ -27,6 +29,7 @@ export type {
   VocabularyEntry,
   VocabularyGroup,
   WorkbookPreview,
+  SystemInfo,
 } from "./types";
 export type { HistoryQuery, HistorySortColumn } from "./history";
 export default ApiService;

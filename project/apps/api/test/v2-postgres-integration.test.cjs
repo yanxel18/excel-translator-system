@@ -39,6 +39,14 @@ const api = path.resolve(__dirname, "..");
 const migrations = path.join(api, "prisma", "migrations");
 const changelogEntries = [
   {
+    id: "changelog-20261113-v2-branding-footer",
+    title: "Add application branding and a backend-year footer",
+    details:
+      "Added an original workbook translation mark for the header and favicon, plus a responsive localized footer using the backend-provided Asia/Tokyo calendar year. The year endpoint uses a five-minute public cache, and the footer explains when year metadata is unavailable.",
+    publishedAt: "2026-11-13T08:43:13.000Z",
+    migration: "20261113084313_v2_branding_footer_integration",
+  },
+  {
     id: "changelog-20261112-v2-search-performance",
     title: "Speed up administration search",
     details:

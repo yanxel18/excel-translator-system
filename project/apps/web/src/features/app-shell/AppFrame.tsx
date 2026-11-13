@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AppShell, Box } from "@mantine/core";
 import type { View } from "./types";
 import AppHeader from "./AppHeader";
 import AppNavigation from "./AppNavigation";
 import PreferencesModal from "./PreferencesModal";
+import ApiService from "../../api";
+import { useLocale } from "../shared/LocaleProvider";
 
 export default function AppFrame({
   isAdmin,
@@ -34,6 +36,32 @@ export default function AppFrame({
   onSettingsClose: () => void;
   children: ReactNode;
 }) {
+  const { t } = useLocale();
+  const [year, setYear] = useState<number | null>(null);
+  const [yearUnavailable, setYearUnavailable] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const loadSystemYear = async () => {
+      try {
+        const info = await ApiService.getSystemInfo();
+        if (active) {
+          setYear(info.year);
+          setYearUnavailable(false);
+        }
+      } catch {
+        if (active) setYearUnavailable(true);
+      }
+    };
+
+    void loadSystemYear();
+    const interval = window.setInterval(() => void loadSystemYear(), 300_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   return (
     <AppShell
       data-mobile-navigation={mobileOpen ? "open" : "closed"}
@@ -85,6 +113,10 @@ export default function AppFrame({
       </AppShell.Navbar>
       <AppShell.Main>
         <Box className="main-content">{children}</Box>
+        <footer className="app-footer" role="contentinfo">
+          {t("Translation System Taiyo Yuden Co. Ltd")} ©{" "}
+          {year ?? (yearUnavailable ? t("Year unavailable") : "…")}
+        </footer>
       </AppShell.Main>
       <PreferencesModal opened={settingsOpen} onClose={onSettingsClose} />
     </AppShell>

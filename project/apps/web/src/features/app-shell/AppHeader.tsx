@@ -7,14 +7,12 @@ import {
   Menu,
   Popover,
   Text,
-  ThemeIcon,
   UnstyledButton,
   useMantineColorScheme,
 } from "@mantine/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Bell,
-  Languages,
   LogOut,
   Moon,
   Settings,
@@ -104,9 +102,14 @@ export default function AppHeader({
           />
           <UnstyledButton onClick={onHome} aria-label={t("Home")}>
             <Group gap="sm">
-              <ThemeIcon size={38} radius="md" color="blue">
-                <Languages size={20} />
-              </ThemeIcon>
+              <img
+                className="app-brand-mark"
+                src={`${import.meta.env.BASE_URL}assets/excel-translator-mark.svg`}
+                alt=""
+                aria-hidden="true"
+                width={38}
+                height={38}
+              />
               <Box>
                 <Text fw={800}>Excel Translator</Text>
                 <Text size="xs" c="dimmed">
