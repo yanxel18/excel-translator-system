@@ -6,6 +6,7 @@ import {
   HttpException,
   Param,
   Post,
+  Put,
   Req,
   Res,
   UseGuards,
@@ -45,6 +46,18 @@ export class UploadSessionController {
     @Res({ passthrough: true }) response: Response,
   ) {
     return this.withRetryHeader(response, () => this.sessions.cancel(request.user.userId, id));
+  }
+
+  @Put(":id/chunks/:index")
+  async putChunk(
+    @Param("id") id: string,
+    @Param("index") index: string,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.withRetryHeader(response, () =>
+      this.sessions.receiveChunk(request.user.userId, id, index, request),
+    );
   }
 
   private async withRetryHeader<T>(response: Response, operation: () => Promise<T>): Promise<T> {

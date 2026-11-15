@@ -57,6 +57,50 @@ async function post(port, path, size, chunked = false) {
   return result;
 }
 
+async function putRaw(port, path, size, firstWriteOnly = false) {
+  const req = request({
+    hostname: "127.0.0.1",
+    port,
+    path,
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Length": size,
+    },
+  });
+  req.setTimeout(15000, () => req.destroy(new Error("Proxy test timed out.")));
+  let responded = false;
+  const result = new Promise((resolve, reject) => {
+    req.on("error", reject);
+    req.on("response", (res) => {
+      responded = true;
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        resolve({ status: res.statusCode, headers: res.headers, body });
+        if (!req.writableEnded) req.destroy();
+      });
+    });
+  });
+  const write = async (chunk) => {
+    if (responded) return false;
+    if (!req.write(chunk))
+      await Promise.race([once(req, "drain"), result]);
+    return !responded;
+  };
+  const block = Buffer.alloc(64 * 1024, 0x5a);
+  let remaining = size;
+  while (remaining > 0) {
+    const bytes = block.subarray(0, Math.min(remaining, block.length));
+    if (!(await write(bytes))) return result;
+    remaining -= bytes.length;
+    if (firstWriteOnly) return result;
+  }
+  req.end();
+  return result;
+}
+
 test("web proxy accepts current multipart uploads and retains bounded ingress", {
   skip: process.env.UPLOAD_PROXY_DOCKER_TEST !== "1",
   timeout: 120000,
@@ -68,6 +112,13 @@ test("web proxy accepts current multipart uploads and retains bounded ingress", 
   const config = resolve(__dirname, "../../web/nginx.conf");
   const upstream = `
     require("node:http").createServer((req, res) => {
+      if (req.url === '/excel-convert/upload-sessions/busy/chunks/0') {
+        req.once('data', () => {
+          res.writeHead(409, { "Content-Type": "application/json", "Retry-After": "1" });
+          res.end(JSON.stringify({ code: "UPLOAD_BUSY" }));
+        });
+        return;
+      }
       let bytes = 0;
       req.on("data", chunk => bytes += chunk.length);
       req.on("end", () => {
@@ -124,6 +175,21 @@ test("web proxy accepts current multipart uploads and retains bounded ingress", 
     }
     const otherRoute = await post(port, "/api/admin/application-settings", 2 * mib);
     assert.equal(otherRoute.status, 413, otherRoute.body);
+
+    const rawPath = "/api/upload-sessions/accepted/chunks/0";
+    const raw = await putRaw(port, rawPath, mib);
+    assert.equal(raw.status, 201, raw.body);
+    assert.deepEqual(JSON.parse(raw.body), {
+      path: "/excel-convert/upload-sessions/accepted/chunks/0",
+      bytes: mib,
+    });
+    const rawOversized = await putRaw(port, "/api/upload-sessions/oversized/chunks/0", mib + 1);
+    assert.equal(rawOversized.status, 413, rawOversized.body);
+
+    const earlyResponse = await putRaw(port, "/api/upload-sessions/busy/chunks/0", mib, true);
+    assert.equal(earlyResponse.status, 409, earlyResponse.body);
+    assert.equal(earlyResponse.headers["retry-after"], "1");
+    assert.deepEqual(JSON.parse(earlyResponse.body), { code: "UPLOAD_BUSY" });
   } finally {
     if (webCreated) docker("rm", "-f", web);
     if (apiCreated) docker("rm", "-f", api);

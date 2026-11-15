@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   GoneException,
+  HttpException,
   Injectable,
   Logger,
   NotFoundException,
@@ -9,7 +10,12 @@ import {
   OnModuleDestroy,
   PayloadTooLargeException,
   ServiceUnavailableException,
+  UnsupportedMediaTypeException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
+import { createHash, randomUUID } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
+import type { IncomingMessage } from "node:http";
 import {
   chmod,
   lstat,
@@ -20,6 +26,8 @@ import {
   realpath,
   readdir,
   rm,
+  unlink,
+  type FileHandle,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { strictObject, requiredText, uuid } from "../../common/management-validation";
@@ -56,6 +64,8 @@ const CLEANUP_BATCH_SIZE = 20;
 const MAX_STORAGE_ENTRIES = 512;
 const MAX_STORAGE_DEPTH = 8;
 const OWNER_MARKER = ".upload-session-owner";
+const ASSEMBLED_FILE = "assembled.bin";
+const TEMP_CHUNK_PATTERN = /^\.chunk-[0-9a-f-]{36}\.tmp$/;
 
 @Injectable()
 export class UploadSessionService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -229,6 +239,480 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     } finally {
       release();
     }
+
+  }
+
+  async receiveChunk(
+    ownerId: string,
+    sessionValue: unknown,
+    indexValue: unknown,
+    request: IncomingMessage,
+  ): Promise<UploadSessionResponse> {
+    const release = this.admission.acquire();
+    let temporaryPath: string | undefined;
+    try {
+      let id: string;
+      try {
+        id = uuid(sessionValue);
+      } catch {
+        throw new BadRequestException({
+          code: "UPLOAD_SESSION_ID",
+          message: "Provide a valid upload session ID.",
+        });
+      }
+      const index = this.parseChunkIndex(indexValue);
+      const contentType = request.headers["content-type"];
+      if (typeof contentType !== "string" ||
+          contentType.trim().toLowerCase() !== "application/octet-stream")
+        throw new UnsupportedMediaTypeException({
+          code: "UPLOAD_CHUNK_CONTENT_TYPE",
+          message: "Send each chunk as application/octet-stream raw bytes.",
+        });
+
+      const session = await this.findOwnedSession(ownerId, id);
+      await this.assertChunkWritable(session, index);
+      const expectedLength = this.chunkLength(session, index);
+      const contentLength = request.headers["content-length"];
+      if (typeof contentLength !== "string" ||
+          !/^(0|[1-9][0-9]*)$/.test(contentLength) ||
+          Number(contentLength) !== expectedLength)
+        throw new BadRequestException({
+          code: "UPLOAD_CHUNK_LENGTH",
+          message: `Chunk ${index} must contain exactly ${expectedLength} bytes.`,
+        });
+
+      const directory = await this.ensureSessionStorage(session.id);
+      await this.removeStaleChunkFiles(directory);
+      temporaryPath = join(directory, `.chunk-${randomUUID()}.tmp`);
+      const digest = await this.receiveTemporaryChunk(
+        request,
+        temporaryPath,
+        expectedLength,
+        session.chunkHashes[index],
+      );
+      if (digest !== session.chunkHashes[index])
+        throw new UnprocessableEntityException({
+          code: "UPLOAD_CHUNK_HASH_MISMATCH",
+          message: `Chunk ${index} does not match its declared SHA-256 hash.`,
+        });
+
+      // Re-read persisted progress and limit after slow client I/O. Any tail
+      // truncation below is based only on this fresh database state.
+      const current = await this.findOwnedSession(ownerId, session.id);
+      await this.assertChunkWritable(current, index);
+      await this.assertWithinCurrentLimit(current.fileSize);
+      if (index < current.nextChunkIndex) {
+        const spool = await this.reconcileSpool(directory, current);
+        const incoming = await this.readExactFileRange(temporaryPath, 0, expectedLength);
+        const acknowledged = await this.readExactFileRange(
+          spool,
+          index * current.chunkSize,
+          expectedLength,
+        );
+        if (!incoming.equals(acknowledged))
+          throw new ConflictException({
+            code: "UPLOAD_CHUNK_REPLAY_MISMATCH",
+            message: `Chunk ${index} differs from the bytes already acknowledged.`,
+          });
+        await this.removeTemporaryChunk(temporaryPath);
+        temporaryPath = undefined;
+        return this.toPublicResponse(current);
+      }
+
+      if (index !== current.nextChunkIndex)
+        throw this.chunkOrderError(current.nextChunkIndex);
+      const spool = await this.reconcileSpool(directory, current);
+      await this.appendTemporaryChunk(
+        temporaryPath,
+        spool,
+        current.bytesReceived,
+        expectedLength,
+        directory,
+      );
+      const committed = await this.commitChunkProgress(
+        ownerId,
+        current,
+        index,
+        expectedLength,
+      );
+      await this.removeTemporaryChunk(temporaryPath);
+      temporaryPath = undefined;
+      return this.toPublicResponse(committed);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        const body = error.getResponse();
+        if (
+          error.getStatus() !== 503 ||
+          (typeof body === "object" && body !== null && "code" in body)
+        )
+          throw error;
+      }
+      throw this.chunkStorageFailure(error);
+    } finally {
+      try {
+        if (temporaryPath) {
+          await this.removeTemporaryChunk(temporaryPath);
+        }
+      } catch (error) {
+        throw this.chunkStorageFailure(error);
+      } finally {
+        release();
+      }
+    }
+  }
+
+  private parseChunkIndex(value: unknown): number {
+    if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value))
+      throw new BadRequestException({
+        code: "UPLOAD_CHUNK_INDEX",
+        message: "Chunk index must be a non-negative decimal integer.",
+      });
+    const index = Number(value);
+    if (!Number.isSafeInteger(index))
+      throw new BadRequestException({
+        code: "UPLOAD_CHUNK_INDEX",
+        message: "Chunk index is outside the supported range.",
+      });
+    return index;
+  }
+
+  private async assertChunkWritable(session: UploadSession, index: number): Promise<void> {
+    const [{ now }] = await this.prisma.$queryRaw<{ now: Date }[]>`
+      SELECT clock_timestamp() AS now
+    `;
+    if (session.expiresAt <= now)
+      throw new GoneException({
+        code: "UPLOAD_EXPIRED",
+        message: "This upload recovery deadline has expired.",
+      });
+    if (session.status === "EXPIRED")
+      throw new GoneException({
+        code: "UPLOAD_EXPIRED",
+        message: "This upload recovery deadline has expired.",
+      });
+    if (session.status !== "RECEIVING")
+      throw new ConflictException({
+        code: "UPLOAD_SESSION_NOT_RECEIVING",
+        message: "This upload session is not accepting chunks.",
+      });
+    if (index >= session.chunkHashes.length)
+      throw new BadRequestException({
+        code: "UPLOAD_CHUNK_INDEX",
+        message: "Chunk index is outside the declared upload.",
+      });
+    if (index > session.nextChunkIndex)
+      throw this.chunkOrderError(session.nextChunkIndex);
+    await this.assertWithinCurrentLimit(session.fileSize);
+  }
+
+  private chunkOrderError(nextChunkIndex: number): ConflictException {
+    return new ConflictException({
+      code: "UPLOAD_CHUNK_ORDER",
+      message: `Send the next unacknowledged chunk at index ${nextChunkIndex}.`,
+    });
+  }
+
+  private chunkLength(session: UploadSession, index: number): number {
+    return Math.min(
+      session.chunkSize,
+      session.fileSize - index * session.chunkSize,
+    );
+  }
+
+  private async receiveTemporaryChunk(
+    request: IncomingMessage,
+    temporaryPath: string,
+    expectedLength: number,
+    expectedHash: string,
+  ): Promise<string> {
+    let handle: FileHandle | undefined;
+    let received = 0;
+    const hash = createHash("sha256");
+    try {
+      handle = await open(temporaryPath, "wx", 0o600);
+      for await (const part of request) {
+        if (!Buffer.isBuffer(part))
+          throw new BadRequestException({
+            code: "UPLOAD_CHUNK_BODY",
+            message: "Chunk body must be raw binary data.",
+          });
+        received += part.length;
+        if (received > expectedLength)
+          throw new BadRequestException({
+            code: "UPLOAD_CHUNK_LENGTH",
+            message: `Chunk body exceeds the exact ${expectedLength}-byte length.`,
+          });
+        hash.update(part);
+        let written = 0;
+        while (written < part.length) {
+          const result = await handle.write(part, written, part.length - written, received - part.length + written);
+          if (result.bytesWritten <= 0) throw new Error("Chunk temporary write made no progress.");
+          written += result.bytesWritten;
+        }
+      }
+      if (received !== expectedLength)
+        throw new BadRequestException({
+          code: "UPLOAD_CHUNK_LENGTH",
+          message: `Chunk body ended after ${received} bytes; exactly ${expectedLength} are required.`,
+        });
+      const digest = hash.digest("hex");
+      if (digest !== expectedHash)
+        throw new UnprocessableEntityException({
+          code: "UPLOAD_CHUNK_HASH_MISMATCH",
+          message: "Chunk bytes do not match the declared SHA-256 hash.",
+        });
+      await handle.sync();
+      return digest;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (request.destroyed || request.aborted)
+        throw new BadRequestException({
+          code: "UPLOAD_CHUNK_INTERRUPTED",
+          message: "Chunk reception was interrupted; retry this chunk after checking session progress.",
+        });
+      throw error;
+    } finally {
+      await handle?.close();
+    }
+  }
+
+  private async removeStaleChunkFiles(directory: string): Promise<void> {
+    for (const name of await readdir(directory)) {
+      if (!TEMP_CHUNK_PATTERN.test(name)) continue;
+      const file = join(directory, name);
+      const info = await lstat(file);
+      if (!info.isFile() || info.isSymbolicLink())
+        throw new Error("Temporary chunk path is not a regular owned file.");
+      await unlink(file);
+    }
+  }
+
+  private async removeTemporaryChunk(file: string, _directory?: string): Promise<void> {
+    try {
+      const info = await lstat(file);
+      if (!info.isFile() || info.isSymbolicLink())
+        throw new Error("Temporary chunk path is not a regular owned file.");
+      await unlink(file);
+    } catch (error) {
+      if (!this.isCode(error, "ENOENT")) throw error;
+    }
+  }
+
+  private async reconcileSpool(
+    directory: string,
+    session: UploadSession,
+  ): Promise<string> {
+    const spool = join(directory, ASSEMBLED_FILE);
+    let handle: FileHandle;
+    let created = false;
+    try {
+      try {
+        const info = await lstat(spool);
+        if (!info.isFile() || info.isSymbolicLink())
+          throw new Error("Assembled upload spool is not a regular file.");
+        handle = await open(
+          spool,
+          fsConstants.O_RDWR | (fsConstants.O_NOFOLLOW || 0),
+        );
+        if (!(await handle.stat()).isFile())
+          throw new Error("Assembled upload spool is not a regular file.");
+      } catch (error) {
+        if (!this.isCode(error, "ENOENT") || session.bytesReceived !== 0)
+          throw error;
+        handle = await open(spool, "wx", 0o600);
+        created = true;
+      }
+      try {
+        const stat = await handle.stat();
+        if (stat.size < session.bytesReceived)
+          throw new Error("Committed upload prefix is missing from private storage.");
+        if (stat.size > session.bytesReceived) {
+          // This is safe only after loading the authoritative persisted offset above.
+          await handle.truncate(session.bytesReceived);
+          await handle.sync();
+        }
+        for (let index = 0; index < session.nextChunkIndex; index++) {
+          const length = this.chunkLength(session, index);
+          const bytes = await this.readHandleRange(handle, index * session.chunkSize, length);
+          if (createHash("sha256").update(bytes).digest("hex") !== session.chunkHashes[index])
+            throw new Error("Committed upload prefix failed its persisted SHA-256 check.");
+        }
+        if (created) await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      return spool;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private async readExactFileRange(
+    file: string,
+    position: number,
+    length: number,
+  ): Promise<Buffer> {
+    let handle: FileHandle | undefined;
+    try {
+      const info = await lstat(file);
+      if (!info.isFile() || info.isSymbolicLink() || info.size < position + length)
+        throw new Error("Upload chunk file is missing or unsafe.");
+      handle = await open(file, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+      return await this.readHandleRange(handle, position, length);
+    } finally {
+      await handle?.close();
+    }
+  }
+
+  private async readHandleRange(
+    handle: FileHandle,
+    position: number,
+    length: number,
+  ): Promise<Buffer> {
+    const bytes = Buffer.allocUnsafe(length);
+    let read = 0;
+    while (read < length) {
+      const result = await handle.read(bytes, read, length - read, position + read);
+      if (result.bytesRead <= 0) throw new Error("Committed upload bytes are truncated.");
+      read += result.bytesRead;
+    }
+    return bytes;
+  }
+
+  private async appendTemporaryChunk(
+    temporaryPath: string,
+    spool: string,
+    offset: number,
+    length: number,
+    directory: string,
+  ): Promise<void> {
+    let source: FileHandle | undefined;
+    let destination: FileHandle | undefined;
+    try {
+      source = await open(temporaryPath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
+      const tempInfo = await source.stat();
+      if (!tempInfo.isFile() || tempInfo.size !== length)
+        throw new Error("Temporary chunk changed before append.");
+      destination = await open(spool, fsConstants.O_RDWR | (fsConstants.O_NOFOLLOW || 0));
+      const spoolInfo = await destination.stat();
+      if (!spoolInfo.isFile() || spoolInfo.size !== offset)
+        throw new Error("Assembled upload spool changed before append.");
+      const buffer = Buffer.allocUnsafe(64 * 1024);
+      let copied = 0;
+      while (copied < length) {
+        const requested = Math.min(buffer.length, length - copied);
+        const read = await source.read(buffer, 0, requested, copied);
+        if (read.bytesRead <= 0) throw new Error("Temporary chunk ended during append.");
+        let written = 0;
+        while (written < read.bytesRead) {
+          const result = await destination.write(
+            buffer,
+            written,
+            read.bytesRead - written,
+            offset + copied + written,
+          );
+          if (result.bytesWritten <= 0) throw new Error("Assembled upload write made no progress.");
+          written += result.bytesWritten;
+        }
+        copied += read.bytesRead;
+      }
+      await destination.sync();
+      await this.syncDirectory(directory);
+    } finally {
+      await destination?.close();
+      await source?.close();
+    }
+  }
+
+  private async syncDirectory(directory: string): Promise<void> {
+    let handle: FileHandle | undefined;
+    try {
+      handle = await open(directory, fsConstants.O_RDONLY);
+      await handle.sync();
+    } catch (error) {
+      if (
+        process.platform === "win32" &&
+        error instanceof Error &&
+        "code" in error &&
+        ["EINVAL", "EISDIR", "EPERM", "ENOTSUP"].includes(String(error.code))
+      )
+        return;
+      throw error;
+    } finally {
+      await handle?.close();
+    }
+  }
+
+  private async commitChunkProgress(
+    ownerId: string,
+    session: UploadSession,
+    index: number,
+    length: number,
+  ): Promise<UploadSession> {
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<{
+        id: string;
+        status: UploadSession["status"];
+        bytesReceived: number;
+        nextChunkIndex: number;
+        expiresAt: Date;
+        now: Date;
+      }[]>`
+        SELECT "id", "status", "bytesReceived", "nextChunkIndex", "expiresAt",
+          clock_timestamp() AS "now"
+        FROM "UploadSession"
+        WHERE "id" = ${session.id}::uuid AND "ownerId" = ${ownerId}
+        FOR UPDATE
+      `;
+      const current = rows[0];
+      if (!current) throw new NotFoundException("Upload session not found.");
+      if (current.status !== "RECEIVING")
+        throw new ConflictException({
+          code: "UPLOAD_SESSION_NOT_RECEIVING",
+          message: "This upload session is not accepting chunks.",
+        });
+      if (current.expiresAt <= current.now)
+        throw new GoneException({
+          code: "UPLOAD_EXPIRED",
+          message: "This upload recovery deadline has expired.",
+        });
+      if (current.nextChunkIndex !== index || current.bytesReceived !== session.bytesReceived)
+        throw this.chunkOrderError(current.nextChunkIndex);
+      const limits = await tx.$queryRaw<{ maxUploadSizeMb: number }[]>`
+        SELECT "maxUploadSizeMb" FROM "ApplicationSettings"
+        WHERE "id" = 'default' FOR SHARE
+      `;
+      if (!limits[0] || !Number.isInteger(limits[0].maxUploadSizeMb) ||
+          limits[0].maxUploadSizeMb < 1 || limits[0].maxUploadSizeMb > 50)
+        throw new ServiceUnavailableException("Workbook upload limit settings are invalid.");
+      if (session.fileSize > limits[0].maxUploadSizeMb * CHUNK_SIZE)
+        throw new PayloadTooLargeException({
+          code: "UPLOAD_LIMIT_CHANGED",
+          message: `The administrator's upload limit has been lowered to ${limits[0].maxUploadSizeMb} MB. Cancel this upload or choose a smaller file.`,
+        });
+      const updated = await tx.$executeRaw`
+        UPDATE "UploadSession"
+        SET "bytesReceived" = ${session.bytesReceived + length},
+            "nextChunkIndex" = ${index + 1},
+            "updatedAt" = clock_timestamp()
+        WHERE "id" = ${session.id}::uuid AND "ownerId" = ${ownerId}
+          AND "status" = 'RECEIVING' AND "nextChunkIndex" = ${index}
+          AND "bytesReceived" = ${session.bytesReceived}
+          AND "expiresAt" > clock_timestamp()
+      `;
+      if (updated !== 1) {
+        const [{ now: checkedAt }] = await tx.$queryRaw<{ now: Date }[]>`
+          SELECT clock_timestamp() AS now
+        `;
+        if (current.expiresAt <= checkedAt)
+          throw new GoneException({
+            code: "UPLOAD_EXPIRED",
+            message: "This upload recovery deadline has expired.",
+          });
+        throw this.chunkOrderError(current.nextChunkIndex);
+      }
+      return tx.uploadSession.findUniqueOrThrow({ where: { id: session.id } });
+    });
   }
 
   /**
@@ -535,5 +1019,16 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       "Upload-session storage is unavailable or ownership could not be verified. Retry after storage is restored.",
       { cause: error },
     );
+  }
+
+  private chunkStorageFailure(error: unknown): ServiceUnavailableException {
+    this.logger.error(
+      "Upload chunk storage or progress could not be confirmed.",
+      error instanceof Error ? error.stack : String(error),
+    );
+    return new ServiceUnavailableException({
+      code: "UPLOAD_STORAGE_FAILURE",
+      message: "The chunk was not acknowledged because upload storage or progress could not be confirmed. Check session status before retrying.",
+    }, { cause: error });
   }
 }

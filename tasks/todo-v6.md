@@ -206,11 +206,12 @@ and `project/apps/api/test/upload-session-http.test.cjs`.
   account-deletion route. HTTP conflict mapping is not applicable until a route
   is introduced; that future route must surface the database block explicitly.
 
-#### 5. `chunk-receive`: Acknowledge durable verified chunks
+#### 5. `chunk-receive`: Acknowledge durable verified chunks (paused draft)
 
 Dependencies: `session-lifecycle`.
-Core files: session controller/service, upload admission helper,
-`upload-sessions.postgres.test.cjs` and existing `upload-proxy.test.cjs`.
+Core files: session controller/service, targeted request-body parser helper,
+web nginx chunk location, `upload-session-http.test.cjs` and existing
+`upload-proxy.test.cjs`.
 
 - [ ] Accept sequential raw chunks with exact expected length/hash; safe
   replay never appends twice and skipped/altered chunks fail explicitly.
@@ -218,10 +219,48 @@ Core files: session controller/service, upload admission helper,
   unacknowledged tails after actual interruption without losing committed bytes.
 - [ ] Reject excess work before reading bodies, release the active slot between
   chunks, and retain unrelated nginx/body-limit protections.
-- Verify: API build; `node --test project\apps\api\test\upload-sessions.postgres.test.cjs`
-  against the guarded disposable database; and
-  `$env:UPLOAD_PROXY_DOCKER_TEST="1"; node --test project\apps\api\test\upload-proxy.test.cjs`;
-  real 1 MiB chunks, shorter final chunks, one-extra-byte rejection and lost acks.
+- Verify: API build; real authenticated HTTP/process tests and guarded
+  PostgreSQL storage regressions; enabled Docker nginx test; Node 22 Linux
+  image; Compose migration/runtime/history checks.
+  Paused at the user's request on 2026-11-16 at 00:14 JST. Save the current
+  implementation as a draft PR; do not merge or advance to task 6.
+  The last host HTTP/process run passed 18 tests and API type-check/runtime
+  checks passed. Earlier Node 22 (18), storage (6), disk/admission (12) and
+  nginx (1) runs preceded the final expiry-code adjustment. They are historical
+  evidence, not certification of the reviewed snapshot. Removing both hash
+  checks previously caused the altered-byte assertion to fail (200 vs. 422).
+  Existing process tests cover a partial first-chunk crash and a lost response
+  after commit, not the critical synced second-chunk tail following an already
+  acknowledged prefix. The attempted precise expiry instrumentation produced
+  a harness-level 503 and is not evidence for the required expiry race.
+  Remaining review gates:
+  - Distinguish normal request EOF and filesystem sync failures from aborts;
+    add injected sync-failure and guaranteed-handle-closure coverage.
+  - Eliminate duplicate temporary chunk bytes outside declared-size
+    reservations; retain only a bounded chunk in memory or prove accounting.
+  - Accept valid exact-length bodies without a Content-Length header; test
+    transfer-encoded exact, short and oversized bodies.
+  - Prove actual process termination after synced append/before progress commit
+    preserves an acknowledged prefix and reconciles only its unacknowledged tail.
+  - Add a deterministic PostgreSQL expiry-between-check-and-update test.
+  - Scope the GraphQL JSON parser so it cannot undo the chunk parser bypass;
+    preserve CORS ordering and test production-equivalent bootstrap.
+  - Match nginx trailing-slash handling to Nest, verify early proxy responses,
+    and type the parser middleware explicitly.
+  - Rerun the final code on host/Node 22 with storage, legacy, GraphQL/REST and
+    enabled proxy regressions; refresh and verify the local stack.
+  No review corrections were implemented before this pause. Published history
+  is retained; a separate synchronized pause entry records the draft status.
+  The save-only checks passed: fresh API/web type-checks, both Docker builds,
+  local startup, application/system-info HTTP 200, all 96 migrations applied,
+  and the persisted pause history entry. Healthy services and the existing
+  private Tailscale Serve mapping were confirmed; these are not task-5
+  behavioral certification. Publication includes the reviewed task-4 commit:
+  #67 merged into its parent after #66 had already merged, so task 4 is absent
+  from main at `b4cf7cb` and must accompany the draft rather than disappear.
+  Owned test helpers/containers/workers were cleaned up; shared services,
+  volumes and unrelated `tsconfig.tsbuildinfo` remain intact. Browser recovery,
+  job completion, power-loss certification and 200 MB support remain pending.
 
 #### 6. `session-completion`: Finalize exactly one existing-shape job
 

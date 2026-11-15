@@ -60,6 +60,26 @@ increase either setting. Other API routes retain nginx's default 1 MiB request
 limit. Any additional reverse proxy must allow at least the same upload envelope
 on this route. Tailscale Serve uses the same nginx route privately.
 
+**Task 5 is a paused review draft, not a production rollout.** Do not deploy
+this branch as certified resumable-upload support. Storage accounting,
+error handling, production parser/CORS parity, trailing-slash proxy behavior,
+and critical crash/expiry checks remain open; see
+[the safety review](v6-upload-safety.md#paused-draft-raw-chunk-reception-task-5).
+Tasks 1-4 are the last completed upload prerequisites.
+
+The saved candidate accepts authenticated raw chunk `PUT` requests at
+`/api/upload-sessions/:id/chunks/:index`. Send `application/octet-stream` with
+one exact 1 MiB chunk, except for the exact shorter final chunk. The dedicated
+nginx location has a 1 MiB body limit and `proxy_request_buffering off`; an
+additional proxy must preserve streaming and early responses so authentication
+and `UPLOAD_BUSY` admission rejection are not delayed until a full body is
+buffered. Do not send multipart data or broaden unrelated JSON body limits.
+Its intended acknowledgment follows synchronized private spool data and a
+PostgreSQL progress commit, but the remaining review gates prevent certification.
+The current candidate also requires Content-Length; accepting valid exact-length
+transfer-encoded bodies is pending. It does not retain browser files,
+automatically resume transfers, or finalize a job.
+
 The planned 200 MB ceiling is not enabled yet. See the
 [V6 upload safety strategy](v6-upload-safety.md) for the remaining storage,
 processing and preview safeguards. Rebuild the web image after changing nginx.

@@ -321,16 +321,23 @@ The separate 200 MiB processing/preview gates remain open.
   path from starving later expired sessions while selecting at most 20 per
   pass. Storage paths derive from the persisted canonical session ID. A lowered
   administrator limit is rechecked on status and exposed as a reusable service
-  check for chunk/finalization work. This does not implement chunk writes or
-  completion. The owner-deletion applicability audit confirms PostgreSQL blocks
+  check for chunk/finalization work. Task 5 has a paused draft implementation
+  of authenticated raw chunk writes. Its storage accounting, error handling,
+  parser/bootstrap parity and critical crash/expiry evidence still require
+  correction and final verification; it is not complete or approved to merge.
+  See the task-5 review gates in [the tracker](todo-v6.md). Completion remains
+  unimplemented.
+  The owner-deletion applicability audit confirms PostgreSQL blocks
   cascading deletion while a session retains a reservation, but neither
   existing admin controller has an account-deletion route; HTTP conflict
   mapping is not applicable until one exists. Adding a new destructive
   user-delete API is out of scope; any future delete route must surface the
   existing database block explicitly.
-- A raw chunk is exactly 1 MiB or shorter. Test it through the existing nginx
-  1 MiB general API envelope; multipart headers are not part of this chunk
-  protocol. Do not broaden unrelated JSON route limits.
+- A raw chunk is exactly 1 MiB or shorter. The draft nginx chunk-specific
+  location has that envelope and disables request buffering; accepted trailing
+  slashes and production parser ordering still need early-rejection verification.
+  Multipart headers are not part of this protocol. Do not broaden unrelated
+  JSON route limits.
 - The API client already has tracked requests and session-expiry handling.
   Preserve them and expose validated busy-code/retry-header data needed by
   the uploader. Cancellation returns a JSON session response, compatible with
