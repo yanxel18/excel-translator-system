@@ -56,6 +56,9 @@ wider account migration and acronym-based user API remain pending.
   administrator. The maximum setting is 200 MB. Account for proxy, parser,
   workbook validation and preview limits, and memory use with concurrent
   uploads; test actual request boundaries rather than only form validation.
+  The [upload safety trace](../project/docs/v6-upload-safety.md) selects disk
+  spooling and bounded workbook processing before enabling the 200 MB ceiling.
+  The proxy prerequisite restores current 50 MB uploads without enabling 200 MB.
 - Do not deploy publicly or enable Tailscale Funnel. Follow existing
   localization and accessibility patterns; do not add dependencies without
   need.

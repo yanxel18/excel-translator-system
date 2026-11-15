@@ -51,6 +51,25 @@ SET "mode" = 'LOCAL', "enabled" = false, "updatedAt" = CURRENT_TIMESTAMP;
 
 Local sign-in also requires `LOCAL_AUTH_ENABLED=true` and an enabled local-password account whose username appears in `ADMIN_USERNAMES`. If either prerequisite is absent, restore a usable local administrator through the approved operator process before switching modes; never put passwords in SQL or logs. Once access is restored, correct the provider configuration and select the intended mode through the administrator settings API.
 
+## Workbook upload ingress
+
+The supplied web nginx accepts multipart requests up to 51 MiB at `/api/upload`,
+allowing a 50 MiB workbook plus multipart overhead. The API still enforces the
+administrator's 1-50 MB file setting and fixed 50 MiB ceiling; the proxy does not
+increase either setting. Other API routes retain nginx's default 1 MiB request
+limit. Any additional reverse proxy must allow at least the same upload envelope
+on this route. Tailscale Serve uses the same nginx route privately.
+
+The planned 200 MB ceiling is not enabled yet. See the
+[V6 upload safety strategy](v6-upload-safety.md) for the remaining storage,
+processing and preview safeguards. Rebuild the web image after changing nginx.
+The isolated proxy check uses existing built web/API images and no live database:
+
+```powershell
+$env:UPLOAD_PROXY_DOCKER_TEST = "1"
+node --test project\apps\api\test\upload-proxy.test.cjs
+```
+
 ## ibisOffice preview
 
 The optional `ibis-preview` Compose service serves the pinned, unmodified ibisOffice browser release. Start it with `docker compose --profile preview up --build -d`; it is available at `http://localhost:8081`. The Docker web build uses the same-origin `/preview/` proxy, including over Tailscale HTTPS; for other web builds, set `VITE_PREVIEW_URL` to a browser-reachable absolute URL or same-origin path and rebuild. History preview embeds `bridge.html` from that service with the full ibisOffice spreadsheet interface in read-only mode. The application fetches workbook bytes through its authenticated owner-scoped endpoint and transfers them to the iframe with exact origin/window checks; bearer credentials are never sent to the preview service. The existing bounded cell table remains below the iframe as a fallback. A current WebGPU-capable browser and HTTPS (or localhost during development) are required. If the optional service is stopped, the dialog reports that it is unavailable.
