@@ -14,10 +14,8 @@ import {
   Globe2,
   LogOut,
   Moon,
-  Settings,
   Sun,
   UserRound,
-  Volume2,
 } from "lucide-react";
 import { useState } from "react";
 import type { UserProfile } from "../../api";
@@ -27,14 +25,12 @@ import { LOCALE_OPTIONS } from "../shared/locale";
 import type { View } from "./types";
 
 export function AccountControls({
-  isAdmin,
   profile,
   profileLoading,
   profileLoadError,
   onNavigate,
   onSignOut,
 }: {
-  isAdmin: boolean;
   profile: UserProfile | null;
   profileLoading: boolean;
   profileLoadError: boolean;
@@ -113,20 +109,6 @@ export function AccountControls({
               onClick={() => onNavigate("profile")}
             >
               {t("Profile")}
-            </Menu.Item>
-            {isAdmin && (
-              <Menu.Item
-                leftSection={<Settings size={16} />}
-                onClick={() => onNavigate("settings/users")}
-              >
-                {t("System Settings")}
-              </Menu.Item>
-            )}
-            <Menu.Item
-              leftSection={<Volume2 size={16} />}
-              onClick={() => onNavigate("changelog")}
-            >
-              {t("Changelog")}
             </Menu.Item>
             <Menu.Divider />
             <Menu.Item

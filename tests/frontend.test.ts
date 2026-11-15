@@ -88,8 +88,7 @@ test("workspace navigation, preferences, and Japanese localization work on a nar
   await page.getByRole("menuitem", { name: "Profile" }).click();
   await expect(page.getByText("@ui-test")).toBeVisible();
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("button", { name: "Account" }).click();
-  await page.getByRole("menuitem", { name: "Changelog" }).click();
+  await page.locator(".navigation-rail").getByRole("button", { name: "Changelog" }).click();
   await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
 
   await page.getByRole("button", { name: "Toggle navigation" }).click();

@@ -92,13 +92,13 @@ export default function AppFrame({
       <AppShell.Navbar id="app-navigation" p="xs" className="navigation-rail">
         <AppNavigation
           view={view}
+          isAdmin={isAdmin}
           onNavigate={(destination) => {
             onNavigate(destination);
             onCloseMobile();
           }}
         />
         <AccountControls
-          isAdmin={isAdmin}
           profile={profile}
           profileLoading={profileLoading}
           profileLoadError={profileLoadError}

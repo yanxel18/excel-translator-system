@@ -40,6 +40,8 @@ async function openWorkspace(
         ? { mode: "LOCAL", enabled: false, url: "", realm: "", clientId: "" }
         : path === "/profile"
         ? profile
+        : path === "/admin/users" || path === "/admin/bases"
+          ? { data: [], total: 0, page: 1, pageSize: 10 }
         : path === "/system/info"
           ? { year: 2026 }
           : path === "/notifications/unread-count"
@@ -53,6 +55,33 @@ async function openWorkspace(
   }
   await expect(page.locator(".shell-account-trigger")).toBeVisible();
 }
+
+test("sidebar exposes translation, changelog, and administrator settings", async ({ page }) => {
+  await openWorkspace(page);
+  const rail = page.locator(".navigation-rail");
+  await expect(rail.getByRole("button", { name: "Translate File" })).toHaveAttribute("aria-current", "page");
+  await expect(rail.getByRole("button", { name: "System Settings" })).toBeVisible();
+  await rail.getByRole("button", { name: "Changelog" }).click();
+  await expect(page).toHaveURL(/\/changelog$/);
+  await expect(rail.getByRole("button", { name: "Changelog" })).toHaveAttribute("aria-current", "page");
+  await rail.getByRole("button", { name: "System Settings" }).click();
+  await expect(page).toHaveURL(/\/settings\/users$/);
+  await expect(rail.getByRole("button", { name: "System Settings" })).toHaveAttribute("aria-current", "page");
+  await page.locator(".shell-account-trigger").click();
+  await expect(page.getByRole("menuitem", { name: "System Settings" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Changelog" })).toHaveCount(0);
+});
+
+test("sidebar hides administrator settings from regular users", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWorkspace(page, {
+    id: "owner", username: "alice", fullName: null, email: null, isAdmin: false,
+  });
+  const rail = page.locator(".navigation-rail");
+  await expect(rail.getByRole("button", { name: "Translate File" })).toBeVisible();
+  await expect(rail.getByRole("button", { name: "Changelog" })).toBeVisible();
+  await expect(rail.getByRole("button", { name: "System Settings" })).toHaveCount(0);
+});
 
 test("failed profile load exposes an accessible error and keeps account actions usable", async ({
   page,
@@ -141,11 +170,10 @@ test("bottom-left account menu preserves profile, admin, sign-out, and theme con
   await expect(page.getByRole("menu")).toContainText("alice");
   await expect(page.getByRole("menu")).toContainText("Email not provided");
   await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", { name: "System Settings" }),
-  ).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "System Settings" })).toHaveCount(0);
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
-  await page.getByRole("menuitem", { name: "System Settings" }).click();
+  await page.keyboard.press("Escape");
+  await page.locator(".navigation-rail").getByRole("button", { name: "System Settings" }).click();
   await expect(page).toHaveURL(/\/settings\/users$/);
   await page.goto(`${webBasePath}workspace`);
 
