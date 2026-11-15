@@ -8,6 +8,10 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
   validation and REST, GraphQL and browser boundary tests.
 - [x] Let administrators create and edit users with a login username and a
   separate full name, while retaining compatibility with older account data.
+- [x] Enforce the 50-Unicode-code-point full-name limit in PostgreSQL and reject
+  overlong OIDC names for new and existing identities with actionable feedback.
+  Verify preserved data/logins, overlong-row migration rejection, Unicode
+  boundaries and reversal on disposable PostgreSQL.
 - [ ] Define and test the username/GID, full-name, base-acronym and API contracts.
   Verify uniqueness, Unicode names and length boundaries
   ([contract](identity-contract-v6.md)).

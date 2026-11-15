@@ -2,7 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { BadRequestException, ConflictException } = require("@nestjs/common");
+const { BadRequestException, ConflictException, UnauthorizedException } = require("@nestjs/common");
+const { Test } = require("@nestjs/testing");
+const { AuthenticationController } = require("../dist/modules/authentication/authentication.controller");
+const { KeycloakVerifierService } = require("../dist/modules/authentication/keycloak-verifier.service");
+const { JwtAuthGuard } = require("../dist/modules/authentication/jwt-auth.guard");
 const {
   AdminUsersService,
 } = require("../dist/modules/admin-users/admin-users.service");
@@ -260,7 +264,7 @@ test("OIDC keeps the provider subject and username separate from local login ide
   const claim = {
     sub: "stable-provider-subject",
     preferred_username: "provider-name",
-    name: "山".repeat(51),
+    name: "山".repeat(50),
     email: "provider@example.com",
   };
   let created;
@@ -287,7 +291,7 @@ test("OIDC keeps the provider subject and username separate from local login ide
   const session = await auth.verifySession("provider-token");
   assert.equal(session.username, "provider-name");
   assert.equal(created.username, "keycloak-stable-provider-subject");
-  assert.equal(created.fullName, "山".repeat(51));
+  assert.equal(created.fullName, "山".repeat(50));
   assert.deepEqual(created.identities.create, {
     provider: "KEYCLOAK",
     subject: "stable-provider-subject",
@@ -330,6 +334,123 @@ test("existing OIDC links keep their database username when the provider name ch
     data: { providerUsername: providerName },
   });
 });
+
+  const oidcNameError =
+    "Your identity provider full name exceeds 50 characters. Shorten your full name in your identity provider profile to 50 characters or fewer, then sign in again.";
+
+  function oidcFixture(claims, existing = false) {
+    const writes = [];
+    const user = {
+      id: userId,
+      username: "legacy-database-username",
+      fullName: "Preserved profile name",
+      enabled: true,
+      sessionVersion: 0,
+    };
+    const prisma = {
+      userIdentity: {
+        findUnique: async () => existing ? { id: "identity-id", user } : null,
+        update: async (query) => { writes.push(query); },
+      },
+      user: {
+        findUnique: async () => existing ? user : null,
+        create: async ({ data }) => {
+          writes.push(data);
+          return { ...user, ...data };
+        },
+      },
+    };
+    return {
+      writes,
+      user,
+      auth: new AuthenticationService(
+        { sign: () => { writes.push("issued-token"); return "app-token"; } },
+        prisma,
+        { verify: async () => claims },
+      ),
+    };
+  }
+
+  for (const existing of [false, true]) {
+    for (const sample of ["山", "𠮷", "e\u0301"]) {
+      test(`OIDC ${existing ? "existing link" : "creation"} enforces code points (${sample})`, async () => {
+        const boundary = sample === "e\u0301" ? sample.repeat(25) : sample.repeat(50);
+        const claims = { sub: "subject", preferred_username: "provider-login", name: boundary };
+        const accepted = oidcFixture(claims, existing);
+        assert.equal((await accepted.auth.verifySession("provider-token")).userId, userId);
+        if (existing) {
+          assert.equal(accepted.user.username, "legacy-database-username");
+          assert.equal(accepted.user.fullName, "Preserved profile name");
+        } else {
+          assert.equal(accepted.writes[0].fullName, boundary);
+        }
+        const rejected = oidcFixture({ ...claims, name: boundary + "a" }, existing);
+        for (const method of ["verifySession", "exchangeKeycloakToken"]) {
+          await assert.rejects(rejected.auth[method]("provider-token"), (error) =>
+            error instanceof UnauthorizedException && error.message === oidcNameError);
+        }
+        assert.deepEqual(rejected.writes, []);
+      });
+    }
+  }
+
+  test("OIDC checks the existing preferred_username fallback without discarding or trimming names", async () => {
+    for (const name of [undefined, ""]) {
+      for (const existing of [false, true]) {
+        const fixture = oidcFixture({ sub: "subject", name, preferred_username: "𠮷".repeat(51) }, existing);
+        await assert.rejects(fixture.auth.verifySession("token"), { message: oidcNameError });
+        assert.deepEqual(fixture.writes, []);
+      }
+    }
+    const spaces = oidcFixture({ sub: "subject", name: "山".repeat(50) + " " });
+    await assert.rejects(spaces.auth.verifySession("token"), { message: oidcNameError });
+    const preserved = oidcFixture({ sub: "subject", name: " 山 ", preferred_username: "u".repeat(51) });
+    await preserved.auth.verifySession("token");
+    assert.equal(preserved.writes[0].fullName, " 山 ");
+    const absent = oidcFixture({ sub: "subject" });
+    await absent.auth.verifySession("token");
+    assert.equal(absent.writes[0].fullName, undefined);
+  });
+
+  test("OIDC name rejection reaches exchange and verify HTTP responses without issuing a token", async () => {
+    const fixture = oidcFixture({ sub: "subject", name: "𠮷".repeat(51) }, true);
+    const moduleRef = await Test.createTestingModule({
+      controllers: [AuthenticationController],
+      providers: [
+        { provide: AuthenticationService, useValue: fixture.auth },
+        { provide: KeycloakVerifierService, useValue: {} },
+      ],
+    }).compile();
+    const app = moduleRef.createNestApplication();
+    await app.listen(0, "127.0.0.1");
+    try {
+      const base = `http://127.0.0.1:${app.getHttpServer().address().port}`;
+      const post = (route, body) => fetch(base + route, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const exchange = await post("/auth/oidc/exchange", { accessToken: "provider-token" });
+      assert.equal(exchange.status, 401);
+      assert.equal((await exchange.json()).message, oidcNameError);
+      const verify = await post("/auth/verify", { token: "provider-token" });
+      assert.equal(verify.status, 201);
+      assert.deepEqual(await verify.json(), { valid: false, error: oidcNameError });
+      assert.deepEqual(fixture.writes, []);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test("bearer guard preserves actionable OIDC name errors but masks unrelated failures", async () => {
+    const fixture = oidcFixture({ sub: "subject", name: "a".repeat(51) });
+    const context = { switchToHttp: () => ({ getRequest: () => ({
+      headers: { authorization: "Bearer provider-token" },
+    }) }) };
+    await assert.rejects(new JwtAuthGuard(fixture.auth).canActivate(context), { message: oidcNameError });
+    const broken = { verifySession: async () => { throw new Error("private database details"); } };
+    await assert.rejects(new JwtAuthGuard(broken).canActivate(context), { message: "Session is invalid or expired." });
+  });
 
 test("base acronym contract keeps the UUID relation while normalizing and bounding the code", async () => {
   let createData;

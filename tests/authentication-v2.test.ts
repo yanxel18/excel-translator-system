@@ -507,6 +507,7 @@ for (const outcome of [
   "exchange-failure",
   "invalid-exchange",
   "disabled-user",
+  "overlong-full-name",
 ] as const) {
   test(`V2-15 provider callback handles ${outcome}`, async ({ page }) => {
     await mockApi(page, { ...configured, mode: "OIDC" });
@@ -534,7 +535,9 @@ for (const outcome of [
                   message:
                     outcome === "disabled-user"
                       ? "Account is disabled."
-                      : "Provider exchange failed.",
+                      : outcome === "overlong-full-name"
+                        ? "Your identity provider full name exceeds 50 characters. Shorten your full name in your identity provider profile to 50 characters or fewer, then sign in again."
+                        : "Provider exchange failed.",
                 },
       });
     });
@@ -547,6 +550,11 @@ for (const outcome of [
       await expect(page).toHaveURL(/\/workspace$/);
     } else {
       await expect(page.getByRole("alert")).toBeVisible();
+      if (outcome === "overlong-full-name") {
+        await expect(page.getByRole("alert")).toHaveText(
+          "Your identity provider full name exceeds 50 characters. Shorten your full name in your identity provider profile to 50 characters or fewer, then sign in again.",
+        );
+      }
       await expect(
         page.getByRole("heading", { name: "Translate a workbook" }),
       ).toHaveCount(0);

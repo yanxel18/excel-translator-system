@@ -11,6 +11,7 @@ import { hashPassword, verifyPassword } from "./passwords";
 import { allowsConfiguredUserBootstrap } from "./bootstrap-policy";
 import { recordManagementAudit } from "../../common/management-audit";
 import { strictObject, uuid } from "../../common/management-validation";
+import { OidcFullNameTooLongException } from "./oidc-full-name.exception";
 
 export interface AuthenticatedUser {
   userId: string;
@@ -176,6 +177,11 @@ export class AuthenticationService {
   private async findOrCreateKeycloakUser(
     claims: Awaited<ReturnType<KeycloakVerifierService["verify"]>>,
   ): Promise<AuthenticatedUser> {
+    // Preserve the existing mapping and exact provider value; never truncate or omit it.
+    // Check before resolving identities so existing links cannot bypass this policy.
+    const fullName = claims.name || claims.preferred_username;
+    if (fullName && Array.from(fullName).length > 50)
+      throw new OidcFullNameTooLongException();
     const identity = await this.prisma.userIdentity.findUnique({
       where: {
         provider_subject: {
@@ -197,7 +203,7 @@ export class AuthenticationService {
         data: {
           username: `keycloak-${claims.sub}`,
           email: existingEmail ? null : claims.email,
-          fullName: claims.name || claims.preferred_username,
+          fullName,
           identities: {
             create: {
               provider: IdentityProvider.KEYCLOAK,
