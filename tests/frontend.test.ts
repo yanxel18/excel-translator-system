@@ -640,6 +640,7 @@ test("V2-17 Profile keeps details read-only until edited and uses owner-scoped a
       total: "Total workbooks",
       fullName: "Full name",
       email: "Email",
+      nameTooLong: "Full name must be 50 characters or fewer.",
     },
     ja: {
       edit: "情報を編集",
@@ -648,6 +649,7 @@ test("V2-17 Profile keeps details read-only until edited and uses owner-scoped a
       total: "ワークブック総数",
       fullName: "氏名",
       email: "メールアドレス",
+      nameTooLong: "氏名は50文字以内で入力してください。",
     },
     zh: {
       edit: "编辑资料",
@@ -656,6 +658,7 @@ test("V2-17 Profile keeps details read-only until edited and uses owner-scoped a
       total: "工作簿总数",
       fullName: "姓名",
       email: "电子邮件",
+      nameTooLong: "姓名不能超过50个字符。",
     },
   } as const;
   for (const locale of ["en", "ja", "zh"] as const) {
@@ -735,6 +738,13 @@ test("V2-17 Profile keeps details read-only until edited and uses owner-scoped a
     expect(activityOwners).toContain(`Bearer profile-${locale}-token`);
 
     await page.getByRole("button", { name: labels.edit }).click();
+    const nameInput = page.getByRole("textbox", { name: labels.fullName });
+    await nameInput.fill("𠮷".repeat(50));
+    await expect(nameInput).toHaveValue("𠮷".repeat(50));
+    await nameInput.fill("山".repeat(51));
+    await expect(page.getByText(labels.nameTooLong)).toBeVisible();
+    await page.getByRole("button", { name: labels.save }).click();
+    expect(saved).toBeUndefined();
     await page
       .getByRole("textbox", { name: labels.fullName })
       .fill("Alice Example");

@@ -39,7 +39,7 @@ export function nullableText(
   if (typeof value !== "string")
     throw new BadRequestException(`${label} must be text.`);
   const result = value.trim();
-  if (result.length > maxLength)
+  if (Array.from(result).length > maxLength)
     throw new BadRequestException(
       `${label} must be ${maxLength} characters or fewer.`,
     );

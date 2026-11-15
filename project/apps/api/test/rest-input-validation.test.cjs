@@ -202,9 +202,17 @@ test("profile validation rejects invalid email and oversized names while accepti
     (error) => error.status === 400,
   );
   await assert.rejects(
-    service.updateProfile("u", { fullName: "x".repeat(121) }),
+    service.updateProfile("u", { fullName: "山".repeat(51) }),
     (error) => error.status === 400,
   );
+  await assert.rejects(
+    service.updateProfile("u", { fullName: "𠮷".repeat(51) }),
+    (error) => error.status === 400,
+  );
+  for (const fullName of ["山".repeat(50), "𠮷".repeat(50)]) {
+    const profile = await service.updateProfile("u", { fullName });
+    assert.equal(profile.fullName, fullName);
+  }
   await assert.rejects(
     service.updateProfile("u", { fullName: "山田", unexpected: true }),
     (error) => error.status === 400,

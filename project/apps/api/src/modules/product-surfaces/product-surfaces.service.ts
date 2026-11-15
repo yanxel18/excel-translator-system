@@ -243,7 +243,7 @@ export class ProductSurfacesService {
       throw new BadRequestException("Profile details are required.");
     const fields = strictObject(input, ["fullName", "email"]);
     const data: { fullName?: string | null; email?: string | null } = {};
-    const fullName = nullableText(fields.fullName, "Name", 120);
+    const fullName = nullableText(fields.fullName, "Full name", 50);
     if (fullName !== undefined) data.fullName = fullName;
     const email = nullableEmail(fields.email);
     if (email !== undefined) data.email = email;

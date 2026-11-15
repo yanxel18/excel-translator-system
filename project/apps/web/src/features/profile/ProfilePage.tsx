@@ -64,6 +64,7 @@ export default function ProfilePage({
   const [passwordError, setPasswordError] = useState("");
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const fullNameTooLong = Array.from(fullName.trim()).length > 50;
 
   useEffect(() => setActiveTab(routeTab), [routeTab]);
 
@@ -116,6 +117,7 @@ export default function ProfilePage({
   }, [token, t]);
 
   const save = async () => {
+    if (fullNameTooLong) return;
     setSaving(true);
     setError("");
     setSaved(false);
@@ -623,7 +625,11 @@ export default function ProfilePage({
                             setFullName(event.currentTarget.value);
                             setSaved(false);
                           }}
-                          maxLength={120}
+                          error={
+                            fullNameTooLong
+                              ? t("Full name must be 50 characters or fewer.")
+                              : undefined
+                          }
                           mt={4}
                         />
                       ) : (
