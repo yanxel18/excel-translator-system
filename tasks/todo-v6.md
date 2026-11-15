@@ -31,6 +31,10 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
   legacy names and UUID-based API compatibility.
 - [x] Provide a versioned acronym-only base API with administrator authorization,
   duplicate and deletion protection, atomic acronym edits, and compatibility tests.
+- [x] Add versioned account creation, lookup and partial editing using a base
+  acronym, preserving UUID assignments and login identities. Verify Unicode
+  names, authorization, duplicate rejection and local sign-in on PostgreSQL.
+  Browser adoption and the broader account contract remain pending.
 
 ## Navigation
 

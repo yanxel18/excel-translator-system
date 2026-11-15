@@ -14,6 +14,7 @@ import {
 } from "../../common/management-validation";
 import { recordManagementAudit } from "../../common/management-audit";
 import { PrismaService } from "../persistence/prisma.service";
+import { baseAcronym } from "./base-validation";
 
 @Injectable()
 export class BaseService {
@@ -199,10 +200,7 @@ export class BaseService {
   }
 
   private code(value: unknown): string {
-    const code = requiredText(value, "Code", 32).toUpperCase();
-    if (!/^[A-Z0-9_-]+$/.test(code))
-      throw new BadRequestException("Invalid base code.");
-    return code;
+    return baseAcronym(value);
   }
 
   private translateError(error: unknown): never {
