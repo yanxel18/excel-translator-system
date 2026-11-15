@@ -37,7 +37,9 @@ and built-in changelog.
   update assigned users atomically when an acronym is edited. Reject duplicate
   values.
 - Reject OIDC sign-in when the provider supplies a full name longer than 50
-  Unicode code points; ask the user to correct the provider name.
+  Unicode code points; ask the user to correct the provider name. Enforce the
+  same maximum in PostgreSQL without truncation or discarding names. This
+  focused slice adds a reversible CHECK; it is not the broader base-key migration.
 - Rename the Workspace navigation action to Translate File. Move System
   Settings and Changelog from the avatar menu to the sidebar, preserving
   authorization, responsive behavior and translations.
@@ -59,6 +61,8 @@ requests at relevant size limits, admin authorization, multilingual names,
 maintenance schedule boundaries, and desktop/mobile navigation. Run type
 checks and builds; rebuild the local Compose stack when application code
 changes, without deleting named volumes. Verify changelog entries match.
+For the focused full-name storage/OIDC task, validate migration and reversal
+with the opt-in disposable PostgreSQL test before deploying to the local stack.
 
 ## Risks
 

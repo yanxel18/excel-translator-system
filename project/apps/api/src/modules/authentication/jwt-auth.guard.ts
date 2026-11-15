@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { AuthenticationService } from "./authentication.service";
+import { OidcFullNameTooLongException } from "./oidc-full-name.exception";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -17,7 +18,8 @@ export class JwtAuthGuard implements CanActivate {
     try {
       request.user = await this.authentication.verifySession(token);
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof OidcFullNameTooLongException) throw error;
       throw new UnauthorizedException("Session is invalid or expired.");
     }
   }

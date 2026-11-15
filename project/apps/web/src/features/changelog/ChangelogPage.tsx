@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-full-name-storage-limit-v6",
+    title: "Enforce the 50-character full-name limit",
+    details:
+      "Stored full names are limited to 50 Unicode characters. OIDC sign-in rejects longer provider names and asks you to shorten your provider profile name. Existing accounts and names are never truncated or silently discarded.",
+    publishedAt: "2026-11-15T09:10:00.000Z",
+  },
+  {
     id: "changelog-20261115-identity-base-contract-v6",
     title: "Clarify account identity and base rules",
     details:

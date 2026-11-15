@@ -1,8 +1,8 @@
 # Identity and base contract (V6, before storage migration)
 
 **Status:** Implemented validation contract and regression coverage for existing
-APIs only. This document does not claim the account/base storage migration or
-the acronym-only base UI has shipped.
+APIs, plus the focused full-name storage/OIDC limit. This document does not
+claim the broader account/base storage migration or acronym-only base UI has shipped.
 
 ## Current API and storage contract
 
@@ -38,6 +38,11 @@ place.
   user-perceived grapheme clusters. This counts supplementary characters such
   as `𠮷` as one code point. A PATCH that omits `fullName` leaves it unchanged.
   Existing rows may retain a null full name.
+  PostgreSQL retains nullable `TEXT` with the custom
+  `User_fullName_code_points_check` constraint (`char_length(fullName) <= 50`).
+  It counts the actual stored value, including whitespace; API trimming
+  remains unchanged. Prisma documents this custom CHECK rather than replacing
+  it with a potentially truncating type conversion.
 - **Email:** existing API behavior is retained: trim, lowercase, validate with
   the current basic email format, cap input at 254 JavaScript string units,
   and check duplicates without regard to case.
@@ -50,8 +55,9 @@ place.
 Administrator API validation reports invalid input as HTTP 400 and a
 uniqueness conflict as HTTP 409. Storage constraints remain necessary for
 concurrent writes; this slice tests the service-level conflict mapping and
-checks the existing PostgreSQL index definitions, but does not run against a
-database.
+checks the existing PostgreSQL index definitions. The focused full-name
+migration and login-preservation checks run against a disposable PostgreSQL 16
+container; the broader base-key migration is not implemented or verified here.
 
 ## Legacy data and authentication compatibility
 
@@ -69,9 +75,68 @@ database.
 - OIDC identity resolution continues to use `(KEYCLOAK, sub)`. The internal
   account username (often `keycloak-${sub}`) and `UserIdentity.subject` remain
   separate from mutable `preferred_username`; the provider username is
-  refreshed without renaming the stored account. OIDC names continue to come
-  from the existing `name`/`preferred_username` mapping. No provider claim is
-  truncated or rejected by this slice.
+  refreshed without renaming the stored account. OIDC full names come from
+  the existing `name || preferred_username` mapping. The selected value is
+  checked without trimming or normalization before identity lookup or writes,
+  for both new and existing identities. More than 50 Unicode code points
+  rejects sign-in; it never truncates, drops, or replaces the name. Missing
+  claims remain compatible, and successful existing links do not overwrite
+  the account's stored full name. A longer preferred username is still valid
+  when a valid `name` claim supplies the full name.
+- OIDC exchange returns HTTP 401 with the actionable message below. Session
+  verification retains `{ valid: false, error: message }`; bearer verification
+  preserves this specific safe error while masking unrelated failures.
+  The existing browser exchange client displays the message on Login and
+  does not save an application token. Existing application sessions and local
+  logins retain their current behavior.
+
+> Your identity provider full name exceeds 50 characters. Shorten your full name in your identity provider profile to 50 characters or fewer, then sign in again.
+
+## Focused full-name migration and reversal
+
+Migration: `20261115181000_full_name_storage_limit_v6`. Deployment must
+preflight existing data and preserve all stored names.
+
+- Deploy the OIDC rejection code before applying the constraint. Use the normal
+  Prisma migration deployment process after checking existing data and backup.
+- The migration is transactional: add a `NOT VALID` CHECK, count overlong rows
+  under the ALTER lock, then validate and insert the changelog. On overlong
+  data it fails with SQLSTATE `23514`, a count and remediation instructions,
+  without printing names or changing any records. Constraint and changelog
+  also roll back on failure. No casts, backfills, account renames or data loss.
+- Review conflicting names with their owners before retrying; never truncate
+  or silently null them. After a failed Prisma deploy, confirm the transaction
+  rolled back and have an operator use `prisma migrate resolve --rolled-back
+  20261115181000_full_name_storage_limit_v6` before retrying the unchanged
+  migration after approved remediation. Do not mark it applied on failure.
+- `lock_timeout = 5s` bounds lock acquisition and `statement_timeout = 60s`
+  bounds each statement. This small constraint change uses an exclusive ALTER
+  lock and may briefly block reads/writes; schedule deployment appropriately
+  and retry later on contention. It is not a zero-downtime base-key conversion.
+- Operator-only `rollback.sql` beside `migration.sql` drops only the CHECK.
+  It leaves the nullable TEXT field, all values, accounts, identities, base
+  assignments and historical changelog intact. Prisma does not run this file
+  automatically; coordinate reversal with deployment history and use a new
+  forward migration for a later reapplication, never edit published history.
+  Keep the OIDC policy in place unless deliberately rolling back that code too.
+
+Repeatable isolation checks (from the repository root, no supplied DB URL):
+
+```powershell
+Set-Location project/apps/api
+$env:V6_DISPOSABLE_POSTGRES = "true"
+node --test test/full-name-storage-v6.postgres.test.cjs
+```
+
+This opt-in test creates and removes its own labelled PostgreSQL 16 container
+and anonymous volume, binds a random localhost-only port, and never uses
+`DATABASE_URL` to choose its target. It deploys prior migrations, tests existing
+overlong-row failure with unchanged data, validates 50/51 ASCII, Japanese,
+supplementary and combining code points (including trailing spaces), checks
+Prisma writes and existing local/OIDC logins, then tests reversal. Browser
+auth/error propagation and management boundaries run with
+`npx playwright test --config playwright.full-name-v6.config.ts` against a
+separate temporary Vite server with simulated provider/API responses.
 
 ## Forward migration requirements
 
@@ -132,7 +197,7 @@ the stable relationship key and `code` remains the current editable acronym.
 
 ## Decisions for implementation
 
-These are deliberately not changed by this slice:
+Decisions retained across the focused slice and the remaining V6 work:
 
 1. Retain the current exact-case, no-normalization username behavior so
    existing logins remain unchanged.
@@ -142,4 +207,5 @@ These are deliberately not changed by this slice:
    compatibility for older requests.
 4. Enforce the 50-code-point full-name limit for OIDC claims. The user chose
    to reject sign-in when a provider name exceeds the limit, rather than
-   truncate it or silently omit it.
+   truncate it or silently omit it. Implemented in this focused slice, along
+   with the reversible storage CHECK; the base-key work remains pending.
