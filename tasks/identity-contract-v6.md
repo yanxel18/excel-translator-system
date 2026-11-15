@@ -170,8 +170,32 @@ separate temporary Vite server with simulated provider/API responses.
 
 ## Forward migration requirements
 
+### Implemented account API slice
+
+`POST /v2/admin/users`, `GET /v2/admin/users/:id` and
+`PATCH /v2/admin/users/:id` require an administrator bearer token.
+Creation accepts `{ username, fullName, email, baseAcronym, password }`;
+partial editing accepts `username`, `fullName`, `email`, `baseAcronym` and
+`enabled`. Both return only `{ id, username, fullName, email, baseAcronym,
+enabled }`. Existing accounts may return null names, email or base.
+
+Creation and explicit full-name edits require nonempty names of at most 50
+Unicode code points. Base acronyms use the same normalization as `/v2/bases`.
+An explicit null acronym on editing clears the assignment. An unknown acronym
+returns 400; duplicate identity fields return 409. Acronym resolution and the
+account write share the existing serializable transaction, so a concurrent
+rename cannot silently assign a stale acronym. UUID assignments and legacy GIDs
+remain stored unchanged. Local username edits update the LOCAL identity subject
+and invalidate prior sessions; OIDC subjects remain unchanged.
+
+These are additive routes, not a retirement of existing APIs. List, password
+reset and browser adoption remain on the existing management contract.
+Mutations do not accept idempotency keys: retrying creation after an unknown
+result may return 409, and clients should reconcile through the existing list
+API rather than assuming a failed response means no account was created.
+
 The proposed **next-version shape** (a breaking contract, not implemented in
-this task) is:
+full by this task) is:
 
 - Keep `username` as the one local login identifier; it may be a GID-like
   identifier or a chosen name. Keep a separate `fullName` (Japanese or
