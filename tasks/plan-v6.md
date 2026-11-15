@@ -80,7 +80,7 @@ with the opt-in disposable PostgreSQL test before deploying to the local stack.
 
 ## Resumable upload specification
 
-Status: **Draft awaiting protocol approval**. This extends the `uploads`
+Status: **Protocol and defaults approved by the user on 2026-11-15**. This extends the `uploads`
 capability; it does not enable the 200 MB setting or change runtime behavior.
 The confirmed user outcome is automatic recovery, not increased link bandwidth.
 
@@ -275,8 +275,113 @@ Measure resources and test real 200 MiB processing/preview before raising the
 end-to-end ceiling; testing only padded files or mocked editor messages is
 insufficient. Native-storage restrictions must produce honest recovery errors.
 
-Approval needed: the 1 MiB chunk proposal, one unfinished session per owner,
-1 GiB server temporary reservation budget, and the API/retention semantics above.
+Approved: 1 MiB chunks, one unfinished session per owner, a 1 GiB server
+temporary reservation budget, and the API/retention semantics above.
+
+## Resumable upload delivery plan
+
+Status: **Delivery order awaiting review; implementation has not started**.
+The task list is the `uploads` section of [todo-v6.md](todo-v6.md), not a
+second tracker. This plan implements recovery at the current 50 MiB ceiling.
+The separate 200 MiB processing/preview gates remain open.
+
+### Architecture grounded in existing code
+
+- `FileUploadController` authenticates before Multer, but controller/module
+  memory storage currently retain the whole upload. Put a shared admission
+  interceptor before Multer, then switch legacy reception to private disk
+  storage. Keep the current response shape and configured limits.
+- `DatabaseJobManagementService.createJob` currently chooses a fresh ID, writes
+  source bytes, discovers sheets and creates a job/queued notification.
+  Reuse its filename, sheet and job-shape logic for disk inputs. For resumable
+  completion, reserve a stable job ID before moving bytes and commit the job,
+  notification and completed session receipt in one database transaction.
+  Restart reconciliation must recognize both pre-move and post-move states.
+- The job service already enforces one API instance with a PostgreSQL singleton
+  lock and exits on lock loss. Preserve that contract; do not introduce replica
+  support or another distributed-lock system. Use one shared active-upload slot
+  inside that admitted instance. Reserve session capacity in short database
+  transactions, never hold a database transaction open while a client uploads.
+- Add session metadata with unique owner/client-intent keys and a database
+  constraint for one unfinished session per owner. Atomically enforce the
+  1 GiB reservation total, including concurrent creations. Store only metadata
+  in PostgreSQL; contain temporary bytes under the existing data directory.
+- A raw chunk is exactly 1 MiB or shorter. Test it through the existing nginx
+  1 MiB general API envelope; multipart headers are not part of this chunk
+  protocol. Do not broaden unrelated JSON route limits.
+- The API client already has tracked requests and session-expiry handling.
+  Preserve them and expose validated busy-code/retry-header data needed by
+  the uploader. Cancellation returns a JSON session response, compatible with
+  the existing JSON request helper.
+- `ModernApp` owns the token/profile and constructs the workspace controller
+  regardless of the current route. Recover only after the authenticated profile
+  identifies the saved owner. Session expiry/logout stops network work without
+  deleting the retained file. Never derive ownership from an unverified token.
+- Keep native IndexedDB retention separate from network retry logic. Hash one
+  chunk at a time; do not add a dependency or retain a full-file ArrayBuffer.
+  Cross-tab coordination must not create another intent; server replay/progress
+  guards remain authoritative even if two tabs attempt the same transfer.
+
+### Delivery order and checkpoints
+
+`upload-admission -> legacy-disk-upload`
+
+`legacy-disk-upload -> session-storage -> session-lifecycle -> chunk-receive
+-> session-completion`
+
+`session-storage -> browser-retention`
+
+`session-completion + browser-retention -> resumable-client`
+
+`resumable-client -> upload-status-ui -> automatic-resume-integration`
+
+Implement serially in this shared checkout. The independent browser-retention
+branch of the graph is an option, not a reason to add parallel agents.
+Each task has acceptance criteria, verification and expected files in the
+existing tracker. Count core implementation files separately from mandatory
+changelog/documentation updates.
+
+- Checkpoint after legacy disk reception: existing multipart uploads, sheet
+  selection, CRC/ZIP rejection and job responses still work; busy work and
+  failed receives do not leak memory, disk or admission.
+- Checkpoint after session completion: real HTTP/disk/PostgreSQL tests prove
+  progress durability, ownership, capacity and exactly one job/notification
+  after actual API process termination. No browser switch before this passes.
+- Final checkpoint: real server plus the same persistent browser profile prove
+  automatic recovery, uncertain acknowledgments, account isolation and cleanup.
+  Mocked transport tests supplement, not replace, these runtime checks.
+  Crash tests terminate only their own disposable API process, never the
+  shared development stack.
+
+### Retry and manual-pause details proposed for review
+
+Use five retry delays of 1, 2, 4, 8 and 16 seconds, with up to 20% added jitter,
+then a 30-second cooldown before another burst. Honor a valid longer
+`Retry-After`, but never retry beyond expiry. Use bounded request timeouts and
+reconcile unknown outcomes before another write/completion request.
+An explicit manual pause is persisted and survives refresh/restart; only
+Resume clears it. Automatic recovery applies to interrupted, not manually
+paused, uploads. Pausing never discards the retained file.
+
+### Risks and scope boundaries
+
+File sync and a database commit are not one atomic operation. Reconcile from
+committed progress before truncation after an uncertain database outcome;
+never discard acknowledged bytes based on a stale in-memory offset.
+Do not release a reservation until temporary-byte cleanup is resolved, or
+report a storage failure and retain enough metadata for safe cleanup.
+Completed job deletion must not cause completion replay to recreate that job.
+
+The remaining whole-buffer ZIP processing and browser/Wasm imports are not
+certified for 200 MiB by disk reception. Keep administrator choices/defaults,
+translation concurrency, archive limits, authentication and previews unchanged
+until their separate safety work is verified. Do not rewrite published history.
+
+Every completed slice requires focused tests, both builds as applicable,
+matching database/built-in history, local Compose rebuild/readiness checks,
+private Tailscale checks when networking changes, and a detailed commit,
+push and stacked PR. Never delete named volumes or touch unrelated generated
+changes to get a clean worktree.
 
 ## Risks
 
