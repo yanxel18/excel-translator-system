@@ -163,7 +163,7 @@ export class FileUploadService implements OnApplicationBootstrap {
   }
 
   private async validateFileWithLimit(
-    file: Express.Multer.File | undefined,
+    file: Pick<Express.Multer.File, "path" | "buffer" | "originalname" | "size"> | undefined,
     maxUploadSizeMb: number,
   ): Promise<string[] | null> {
     if (
@@ -183,6 +183,18 @@ export class FileUploadService implements OnApplicationBootstrap {
     } else bytes = file.buffer;
     const zip = await this.extraction.openWorkbook(bytes, true);
     return (await this.extraction.getWorksheetParts(zip)).map(({ name }) => name);
+  }
+
+  async validateSessionWorkbook(path: string, fileName: string, fileSize: number): Promise<string[]> {
+    const sheets = await this.validateFileWithLimit(
+      { path, originalname: fileName, size: fileSize, buffer: Buffer.alloc(0) },
+      50,
+    );
+    if (!sheets)
+      throw new BadRequestException("Upload must be a valid XLSX workbook.");
+    if (!sheets.length)
+      throw new BadRequestException("The workbook does not contain any worksheets.");
+    return sheets;
   }
 
   async uploadFile(file: Express.Multer.File) {

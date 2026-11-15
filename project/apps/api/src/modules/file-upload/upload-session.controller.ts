@@ -48,6 +48,15 @@ export class UploadSessionController {
     return this.withRetryHeader(response, () => this.sessions.cancel(request.user.userId, id));
   }
 
+  @Post(":id/completion")
+  async complete(
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.withRetryHeader(response, () => this.sessions.complete(request.user.userId, id));
+  }
+
   @Put(":id/chunks/:index")
   async putChunk(
     @Param("id") id: string,

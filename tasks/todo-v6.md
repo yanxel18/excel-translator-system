@@ -244,18 +244,24 @@ web nginx chunk location, `upload-session-http.test.cjs` and existing
 
 Dependencies: `chunk-receive`.
 Core files: session controller/service, job-management service,
-and `project/apps/api/test/upload-completion.postgres.test.cjs`.
+and `project/apps/api/test/upload-session-http.test.cjs` (shared isolated
+HTTP/PostgreSQL and owned-process fixture).
 
-- [ ] Validate complete bytes and sheets, reserve a stable job ID, and commit
+- [x] Validate complete bytes and sheets, reserve a stable job ID, and commit
   the job/queued notification/completed receipt atomically.
-- [ ] Retry or restart around file moves and database commit creates exactly
+- [x] Retry or restart around file promotion and database commit creates exactly
   one job/notification; deleted completed jobs are never recreated on replay.
-- [ ] Permanent workbook failures clean up safely and preserve all existing
+- [x] Permanent workbook failures clean up safely and preserve all existing
   archive/CRC/output defenses, ownership and job settings.
-- Verify: API build; `node --test project\apps\api\test\upload-completion.postgres.test.cjs`
+- Verified: API and web builds; `node --test project\apps\api\test\upload-session-http.test.cjs`
   against the guarded disposable database with actual
-  API process termination at pre/post-move and pre/post-commit boundaries;
-  existing `task4.test.cjs` and `task5.test.cjs` regressions.
+  API process termination at pre/post-promotion and pre/post-commit boundaries
+  on Windows and Node 22 Linux; existing `task4.test.cjs` and `task5.test.cjs`
+  regressions. Completion rechecks current administrator limits, isolates
+  owners, retains reservations on cleanup failure, and refuses to remove
+  unrelated job-path files. The unchanged proxy test requires its separate
+  real-nginx environment. Filesystem synchronization and PostgreSQL are not a
+  single power-loss transaction; these tests cover process termination.
 
 #### 7. `browser-retention`: Save files for recovery
 
@@ -325,7 +331,7 @@ Core files: ModernApp, workspace controller/page, and
 
 - [ ] After task 2: existing legacy upload/workbook regressions pass with
   bounded reception, safe cleanup and retryable admission.
-- [ ] After task 6: durable chunk/finalization guarantees pass actual crash,
+- [x] After task 6: durable chunk/finalization guarantees pass actual crash,
   concurrency, storage-failure and ownership tests before browser adoption.
 - [ ] After task 10: retained files automatically recover against the real
   server; verified metadata/progress/job outcomes survive browser/API restart.

@@ -18,6 +18,7 @@ import { constants as fsConstants } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import {
   chmod,
+  link,
   lstat,
   mkdir,
   open,
@@ -35,6 +36,8 @@ import type { Prisma, UploadSession } from "../../generated/prisma/client";
 import { ApplicationSettingsService } from "../application-settings/application-settings.service";
 import { PrismaService } from "../persistence/prisma.service";
 import { UploadAdmissionService } from "./upload-admission.service";
+import { FileUploadService } from "./file-upload.service";
+import { DatabaseJobManagementService } from "../job-management/database-job-management.service";
 
 export interface CreateUploadSessionInput {
   clientUploadId: string;
@@ -82,6 +85,8 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     private readonly prisma: PrismaService,
     private readonly settings: ApplicationSettingsService,
     private readonly admission: UploadAdmissionService,
+    private readonly files: FileUploadService,
+    private readonly jobs: DatabaseJobManagementService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -232,6 +237,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       });
 
       if (session.reservedBytes > 0) {
+        await this.removeUncommittedPromotion(session);
         await this.removeSessionStorage(session.id);
         await this.releaseReservation(session.id);
       }
@@ -239,7 +245,174 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     } finally {
       release();
     }
+  }
 
+  async complete(ownerId: string, value: unknown) {
+    let id = uuid(value);
+    const release = this.admission.acquire();
+    try {
+      let session = await this.findOwnedSession(ownerId, id);
+      id = session.id;
+      if (session.status === "COMPLETED") {
+        if (session.reservedBytes > 0) {
+          await this.removeSessionStorage(id);
+          await this.releaseReservation(id);
+        }
+        try {
+          return await this.jobs.getJob(session.completionJobId, ownerId);
+        } catch (error) {
+          if (error instanceof NotFoundException)
+            throw new GoneException({
+              code: "UPLOAD_COMPLETED_JOB_DELETED",
+              message: "The completed upload's job was deleted and cannot be recreated.",
+            });
+          throw error;
+        }
+      }
+      const [{ now }] = await this.prisma.$queryRaw<{ now: Date }[]>`
+        SELECT clock_timestamp() AS now
+      `;
+      if (session.expiresAt <= now || session.status === "EXPIRED")
+        throw new GoneException({ code: "UPLOAD_EXPIRED", message: "This upload recovery deadline has expired." });
+      if (session.status !== "RECEIVING" && session.status !== "FINALIZING")
+        throw new ConflictException({
+          code: "UPLOAD_SESSION_NOT_ACTIVE",
+          message: "This upload session is no longer active.",
+        });
+      if (session.bytesReceived !== session.fileSize)
+        throw new ConflictException({ code: "UPLOAD_INCOMPLETE", message: "Upload all chunks before completion." });
+      await this.assertWithinCurrentLimit(session.fileSize);
+      const directory = await this.ensureSessionStorage(id);
+      const spool = await this.reconcileSpool(directory, session);
+      let sheets: string[];
+      try {
+        sheets = await this.files.validateSessionWorkbook(spool, session.fileName, session.fileSize);
+      } catch (error) {
+        if (!(error instanceof BadRequestException)) throw error;
+        session = await this.prisma.uploadSession.update({
+          where: { id },
+          data: { status: "FAILED" },
+        });
+        await this.removeUncommittedPromotion(session);
+        await this.removeSessionStorage(id);
+        await this.releaseReservation(id);
+        throw new UnprocessableEntityException({
+          code: "UPLOAD_INVALID_WORKBOOK",
+          message: "The uploaded workbook is invalid or contains no worksheets.",
+        });
+      }
+      session = await this.lockForCompletion(ownerId, session);
+      const destination = this.jobs.sourcePath(session.completionJobId);
+      await this.promoteSessionSpool(spool, destination);
+      const job = await this.prisma.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<{ status: UploadSession["status"]; expiresAt: Date; now: Date }[]>`
+          SELECT "status", "expiresAt", clock_timestamp() AS now FROM "UploadSession"
+          WHERE "id" = ${id}::uuid AND "ownerId" = ${ownerId} FOR UPDATE
+        `;
+        const current = rows[0];
+        if (!current) throw new NotFoundException("Upload session not found.");
+        if (current.expiresAt <= current.now)
+          throw new GoneException({ code: "UPLOAD_EXPIRED", message: "This upload recovery deadline has expired." });
+        if (current.status !== "FINALIZING")
+          throw new ConflictException({ code: "UPLOAD_SESSION_NOT_ACTIVE", message: "This upload session is no longer active." });
+        const limits = await tx.$queryRaw<{ maxUploadSizeMb: number }[]>`
+          SELECT "maxUploadSizeMb" FROM "ApplicationSettings" WHERE "id" = 'default' FOR SHARE
+        `;
+        const limit = limits[0]?.maxUploadSizeMb;
+        if (!Number.isInteger(limit) || limit < 1 || limit > 50)
+          throw new ServiceUnavailableException("Workbook upload limit settings are invalid.");
+        if (session.fileSize > limit * CHUNK_SIZE)
+          throw new PayloadTooLargeException({
+            code: "UPLOAD_LIMIT_CHANGED",
+            message: `The administrator's upload limit has been lowered to ${limit} MB. Cancel this upload or choose a smaller file.`,
+          });
+        const created = await this.jobs.createSessionJob(tx, {
+          id: session.completionJobId, ownerId, fileName: session.fileName,
+          fileSize: session.fileSize, availableSheets: sheets,
+        });
+        const changed = await tx.$executeRaw`
+          UPDATE "UploadSession" SET "status" = 'COMPLETED',
+            "completedAt" = clock_timestamp(), "updatedAt" = clock_timestamp()
+          WHERE "id" = ${id}::uuid AND "status" = 'FINALIZING'
+            AND "expiresAt" > clock_timestamp()
+        `;
+        if (changed !== 1)
+          throw new GoneException({ code: "UPLOAD_EXPIRED", message: "This upload recovery deadline has expired." });
+        return created;
+      });
+      await this.removeSessionStorage(id);
+      await this.releaseReservation(id);
+      return job;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw this.storageFailure(error);
+    } finally {
+      release();
+    }
+  }
+
+  private async lockForCompletion(ownerId: string, session: UploadSession): Promise<UploadSession> {
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<{ status: UploadSession["status"]; expiresAt: Date; now: Date }[]>`
+        SELECT "status", "expiresAt", clock_timestamp() AS now FROM "UploadSession"
+        WHERE "id" = ${session.id}::uuid AND "ownerId" = ${ownerId} FOR UPDATE
+      `;
+      const current = rows[0];
+      if (!current) throw new NotFoundException("Upload session not found.");
+      if (current.expiresAt <= current.now)
+        throw new GoneException({ code: "UPLOAD_EXPIRED", message: "This upload recovery deadline has expired." });
+      if (current.status !== "RECEIVING" && current.status !== "FINALIZING")
+        throw new ConflictException({ code: "UPLOAD_SESSION_NOT_ACTIVE", message: "This upload session is no longer active." });
+      return tx.uploadSession.update({
+        where: { id: session.id },
+        data: { status: "FINALIZING" },
+      });
+    });
+  }
+
+  private async promoteSessionSpool(spool: string, destination: string): Promise<void> {
+    try {
+      await link(spool, destination);
+    } catch (error) {
+      if (!this.isCode(error, "EEXIST")) throw error;
+      const [sourceInfo, destinationInfo] = await Promise.all([lstat(spool), lstat(destination)]);
+      if (!sourceInfo.isFile() || sourceInfo.isSymbolicLink() ||
+          !destinationInfo.isFile() || destinationInfo.isSymbolicLink() ||
+          sourceInfo.dev !== destinationInfo.dev || sourceInfo.ino !== destinationInfo.ino)
+        throw new Error("Existing job source does not belong to this upload session.");
+    }
+    await this.syncDirectory(resolve(destination, ".."));
+  }
+
+  private async removeUncommittedPromotion(session: UploadSession): Promise<void> {
+    try {
+      await this.removeUncommittedPromotionChecked(session);
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw this.storageFailure(error);
+    }
+  }
+
+  private async removeUncommittedPromotionChecked(session: UploadSession): Promise<void> {
+    if (session.status === "COMPLETED") return;
+    const destination = this.jobs.sourcePath(session.completionJobId);
+    let destinationInfo;
+    try {
+      destinationInfo = await lstat(destination);
+    } catch (error) {
+      if (this.isCode(error, "ENOENT")) return;
+      throw error;
+    }
+    if (await this.prisma.translationJob.findUnique({ where: { id: session.completionJobId } }))
+      throw new Error("Refusing to remove a source belonging to an existing job.");
+    const directory = await this.ensureSessionStorage(session.id);
+    const sourceInfo = await lstat(join(directory, ASSEMBLED_FILE));
+    if (!sourceInfo.isFile() || sourceInfo.isSymbolicLink() ||
+        !destinationInfo.isFile() || destinationInfo.isSymbolicLink() ||
+        sourceInfo.dev !== destinationInfo.dev || sourceInfo.ino !== destinationInfo.ino)
+      throw new Error("Refusing to remove an unowned promoted workbook.");
+    await unlink(destination);
+    await this.syncDirectory(resolve(destination, ".."));
   }
 
   async receiveChunk(
@@ -800,6 +973,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       return current.reservedBytes > 0 ? current : null;
     });
     if (!session) return false;
+    await this.removeUncommittedPromotion(session);
     await this.removeSessionStorage(id);
     await this.releaseReservation(id);
     return true;

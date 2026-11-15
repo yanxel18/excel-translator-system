@@ -16,6 +16,7 @@ import {
   JobStatus as DatabaseJobStatus,
   Language,
   NotificationType,
+  Prisma,
 } from "../../generated/prisma/client";
 import { PrismaService } from "../persistence/prisma.service";
 import { TextExtractionService } from "../text-extraction/text-extraction.service";
@@ -237,11 +238,39 @@ export class DatabaseJobManagementService
       vocabularyGroupId: job.vocabularyGroupId ?? null,
     };
   }
-  private sourcePath(id: string): string {
+  sourcePath(id: string): string {
     return join(this.dataDir, `${id}.source.xlsx`);
   }
   private outputPath(id: string): string {
     return join(this.dataDir, `${id}.translated.xlsx`);
+  }
+
+  async createSessionJob(
+    tx: Prisma.TransactionClient,
+    input: { id: string; ownerId: string; fileName: string; fileSize: number; availableSheets: string[] },
+  ): Promise<Job> {
+    const job = await tx.translationJob.create({
+      data: {
+        id: input.id,
+        ownerId: input.ownerId,
+        fileName: normalizeUploadFilename(input.fileName),
+        fileSize: input.fileSize,
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        sourceLanguage: Language.JAPANESE,
+        targetLanguage: Language.ENGLISH,
+        selectedSheets: input.availableSheets,
+        sourcePath: this.sourcePath(input.id),
+        notifications: {
+          create: {
+            userId: input.ownerId,
+            type: NotificationType.JOB_QUEUED,
+            title: "Translation queued",
+            message: "Your workbook is ready to start.",
+          },
+        },
+      },
+    });
+    return { ...this.toJob(job), availableSheets: input.availableSheets };
   }
 
   async createJob(
@@ -286,29 +315,13 @@ export class DatabaseJobManagementService
         throw new BadRequestException(
           "The workbook does not contain any worksheets.",
         );
-      const job = await this.prisma.translationJob.create({
-        data: {
-          id,
-          ownerId,
-          fileName: normalizeUploadFilename(fileName),
-          fileSize: Buffer.isBuffer(file) ? file.length : file.fileSize,
-          mimeType:
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          sourceLanguage: Language.JAPANESE,
-          targetLanguage: Language.ENGLISH,
-          selectedSheets: availableSheets,
-          sourcePath,
-          notifications: {
-            create: {
-              userId: ownerId,
-              type: NotificationType.JOB_QUEUED,
-              title: "Translation queued",
-              message: "Your workbook is ready to start.",
-            },
-          },
-        },
+      return await this.createSessionJob(this.prisma, {
+        id,
+        ownerId,
+        fileName,
+        fileSize: Buffer.isBuffer(file) ? file.length : file.fileSize,
+        availableSheets,
       });
-      return { ...this.toJob(job), availableSheets };
     } catch (error) {
       try {
         await unlink(sourcePath);
