@@ -2,12 +2,17 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
+  Group,
   Paper,
   Select,
   Stack,
   Text,
   TextInput,
 } from "@mantine/core";
+import {
+  Check, CircleAlert, Globe, KeyRound, Link, RefreshCw, Save,
+  Server, ShieldCheck, Users,
+} from "lucide-react";
 import ApiService, { type OidcAdminSettings } from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import { validateOidcSettings } from "../auth/oidc-config";
@@ -130,22 +135,25 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
       }}
       withBorder
       p="lg"
-      maw={680}
+      className="settings-panel settings-authentication"
       w="100%"
       aria-busy={loading || saving}
     >
-      <Stack gap="sm">
-        <div>
-          <Text component="h2" fz="xl" fw={700}>
+      <Stack gap="lg">
+        <div className="settings-section-heading">
+          <Group gap="xs">
+          <ShieldCheck size={20} aria-hidden="true" />
+          <Text component="h2" fz="xl" fw={700} m={0}>
             {t("Authentication")}
           </Text>
-          <Text size="sm" c="dimmed">
+          </Group>
+          <Text size="sm" c="dimmed" mt={4}>
             {t("Configure Keycloak sign-in for this application.")}
           </Text>
         </div>
         {loading && <Text role="status">{t("Loading sign-in settings…")}</Text>}
         {error && (
-          <Alert color="red" role="alert">
+          <Alert color="red" role="alert" icon={<CircleAlert size={18} aria-hidden="true" />}>
             {t(error)}
           </Alert>
         )}
@@ -153,6 +161,7 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
           <Button
             type="button"
             variant="default"
+            leftSection={<RefreshCw size={16} aria-hidden="true" />}
             onClick={() => setRevision((value) => value + 1)}
           >
             {t("Retry")}
@@ -160,12 +169,17 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
         )}
         {saved && (
           <Paper withBorder p="sm" role="status">
-            <Text c="teal">
+            <Group gap="xs" wrap="nowrap" c="teal">
+              <Check size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
+              <Text>
               {t("Authentication settings saved. They apply to new sign-ins.")}
-            </Text>
+              </Text>
+            </Group>
           </Paper>
         )}
+        <div className="settings-access-row">
         <Select
+          leftSection={<ShieldCheck size={16} aria-hidden="true" />}
           label={t("Authentication mode")}
           value={settings.mode}
           allowDeselect={false}
@@ -180,14 +194,18 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
             if (value) update("mode", value);
           }}
         />
+        </div>
         {settings.mode === "OIDC" && (
-          <Alert color="yellow">
+          <Alert color="yellow" icon={<CircleAlert size={18} aria-hidden="true" />}>
             {t(
               "OIDC disables password sign-in. Verify provider access for an administrator before saving.",
             )}
           </Alert>
         )}
+        <div className="settings-form-grid">
         <TextInput
+          className="settings-form-wide"
+          leftSection={<Server size={16} aria-hidden="true" />}
           label={t("Keycloak server URL")}
           placeholder="https://keycloak.example.com"
           maxLength={2048}
@@ -197,6 +215,7 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
           disabled={disabled}
         />
         <TextInput
+          leftSection={<Globe size={16} aria-hidden="true" />}
           label={t("Realm")}
           maxLength={128}
           value={settings.realm}
@@ -205,6 +224,7 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
           disabled={disabled}
         />
         <TextInput
+          leftSection={<KeyRound size={16} aria-hidden="true" />}
           label={t("Client ID")}
           maxLength={256}
           value={settings.clientId}
@@ -213,6 +233,8 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
           disabled={disabled}
         />
         <TextInput
+          className="settings-form-wide"
+          leftSection={<Link size={16} aria-hidden="true" />}
           label={t("Issuer URL")}
           placeholder="https://keycloak.example.com/realms/excel-translator"
           maxLength={2048}
@@ -222,6 +244,8 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
           disabled={disabled}
         />
         <TextInput
+          className="settings-form-wide"
+          leftSection={<Users size={16} aria-hidden="true" />}
           label={t("Required group (optional)")}
           maxLength={512}
           value={settings.requiredGroup}
@@ -230,9 +254,12 @@ export default function AdminKeycloakSettings({ token }: { token: string }) {
           }
           disabled={disabled}
         />
-        <Button type="submit" loading={saving} disabled={disabled}>
+        </div>
+        <Group justify="end" className="settings-form-actions">
+        <Button type="submit" leftSection={<Save size={16} aria-hidden="true" />} loading={saving} disabled={disabled}>
           {t("Save authentication settings")}
         </Button>
+        </Group>
       </Stack>
     </Paper>
   );

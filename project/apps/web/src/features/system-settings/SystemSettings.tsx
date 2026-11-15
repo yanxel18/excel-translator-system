@@ -9,11 +9,16 @@ import {
   PasswordInput,
   Select,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
 } from "@mantine/core";
-import { Settings, Users, Building2 } from "lucide-react";
+import {
+  ArrowDown, ArrowUp, ArrowUpDown, Building2, Check, ChevronRight,
+  CircleAlert, Eye, Hash, LockKeyhole, Mail, Pencil, Plus, Save,
+  Search, Settings, ShieldCheck, Trash2, UserRound, Users,
+} from "lucide-react";
 import type { View } from "../app-shell/types";
 import { useLocale } from "../shared/LocaleProvider";
 import AdminKeycloakSettings from "../profile/AdminKeycloakSettings";
@@ -36,6 +41,12 @@ type Props = {
 };
 const labels = {
   ja: {
+    "Manage people, bases, and sign-in preferences.": "ユーザー、拠点、サインイン設定を管理します。",
+    "Manage user accounts and application access.": "ユーザーアカウントとアプリへのアクセスを管理します。",
+    "Organize the bases assigned to your users.": "ユーザーが所属する拠点を管理します。",
+    "User access updated.": "ユーザーのアクセス設定を更新しました。",
+    "Could not update user access.": "ユーザーのアクセス設定を更新できませんでした。",
+    View: "表示",
     "Assign base": "拠点を変更",
     "Base reassigned.": "拠点を変更しました。",
     Results: "件数",
@@ -68,6 +79,7 @@ const labels = {
     All: "すべて",
     Yes: "はい",
     No: "いいえ",
+    Close: "閉じる",
     "No results": "結果がありません",
     Loading: "読み込み中",
     "Rows per page": "表示件数",
@@ -76,6 +88,12 @@ const labels = {
       "ユーザーが所属する拠点は削除できません。",
   },
   zh: {
+    "Manage people, bases, and sign-in preferences.": "管理用户、据点和登录设置。",
+    "Manage user accounts and application access.": "管理用户账户和应用访问权限。",
+    "Organize the bases assigned to your users.": "管理分配给用户的据点。",
+    "User access updated.": "已更新用户访问权限。",
+    "Could not update user access.": "无法更新用户访问权限。",
+    View: "查看",
     "Assign base": "更改据点",
     "Base reassigned.": "据点已更改。",
     Results: "结果数",
@@ -108,6 +126,7 @@ const labels = {
     All: "全部",
     Yes: "是",
     No: "否",
+    Close: "关闭",
     "No results": "没有结果",
     Loading: "正在加载",
     "Rows per page": "每页行数",
@@ -215,6 +234,7 @@ export default function SystemSettings({
   const [userBase, setUserBase] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [updatingUser, setUpdatingUser] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const fieldValues = { gid, username, email, code, name, password };
   const fieldError = (field: ManagementField) => {
@@ -385,6 +405,23 @@ export default function SystemSettings({
     }
   };
   const selectedBaseIds = [baseId, userBase].filter(Boolean);
+  const toggleAccess = async (user: User) => {
+    if (updatingUser) return;
+    setUpdatingUser(user.id);
+    setError("");
+    setNotice("");
+    try {
+      await management.updateUser(token, user.id, { enabled: !user.enabled });
+      setRevision((value) => value + 1);
+      setNotice(t("User access updated."));
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : t("Could not update user access."),
+      );
+    } finally {
+      setUpdatingUser(null);
+    }
+  };
   const optionBases = [
     ...new Map(
       [
@@ -411,8 +448,14 @@ export default function SystemSettings({
       }
     >
       <Button
+        className="settings-sort"
         variant="subtle"
         size="compact-sm"
+        rightSection={
+          sort !== key ? <ArrowUpDown size={14} aria-hidden="true" /> :
+            direction === "asc" ? <ArrowUp size={14} aria-hidden="true" /> :
+              <ArrowDown size={14} aria-hidden="true" />
+        }
         onClick={() =>
           change({
             sort: key,
@@ -421,7 +464,6 @@ export default function SystemSettings({
         }
       >
         {t(title)}
-        {sort === key ? (direction === "asc" ? " ▲" : " ▼") : ""}
       </Button>
     </Table.Th>
   );
@@ -434,10 +476,18 @@ export default function SystemSettings({
       />
     );
   return (
-    <Stack gap="md">
-      <Text component="h1" fz="h2" fw={700}>
-        {t("System Settings")}
-      </Text>
+    <Stack gap="lg" className="system-settings">
+      <Group gap="md" wrap="nowrap" className="settings-page-heading">
+        <span className="settings-heading-icon"><Settings size={24} aria-hidden="true" /></span>
+        <div>
+          <Text component="h1" fz="h2" fw={700} m={0}>
+            {t("System Settings")}
+          </Text>
+          <Text size="sm" c="dimmed" mt={4}>
+            {t("Manage people, bases, and sign-in preferences.")}
+          </Text>
+        </div>
+      </Group>
       <div className="system-settings-layout">
         <nav className="system-settings-nav" aria-label={t("System Settings")}>
           {(
@@ -447,15 +497,18 @@ export default function SystemSettings({
               {
                 id: "settings/authentication",
                 label: "Authentication",
-                Icon: Settings,
+                Icon: ShieldCheck,
               },
             ] as const
           ).map(({ id, label, Icon }) => (
             <Button
               key={id}
-              variant={selected === id ? "filled" : "subtle"}
+              className="settings-nav-item"
+              variant={selected === id ? "light" : "subtle"}
+              data-active={selected === id || undefined}
               aria-current={selected === id ? "page" : undefined}
-              leftSection={<Icon size={16} />}
+              leftSection={<Icon size={18} aria-hidden="true" />}
+              rightSection={<ChevronRight size={14} aria-hidden="true" />}
               onClick={() => onNavigate(id)}
             >
               {t(label)}
@@ -466,12 +519,22 @@ export default function SystemSettings({
           {selected === "settings/authentication" ? (
             <AdminKeycloakSettings token={token} />
           ) : (
-            <>
-              <Group justify="space-between">
-                <Text component="h2" fz="xl" fw={700}>
-                  {t(selected === "settings/users" ? "Users" : "Bases")}
-                </Text>
+            <Paper withBorder p="lg" className="settings-panel">
+              <Stack gap="lg">
+              <Group justify="space-between" className="settings-section-heading">
+                <div>
+                  <Group gap="xs">
+                    {selected === "settings/users" ? <Users size={20} aria-hidden="true" /> : <Building2 size={20} aria-hidden="true" />}
+                    <Text component="h2" fz="xl" fw={700} m={0}>
+                      {t(selected === "settings/users" ? "Users" : "Bases")}
+                    </Text>
+                  </Group>
+                  <Text size="sm" c="dimmed" mt={4}>
+                    {t(selected === "settings/users" ? "Manage user accounts and application access." : "Organize the bases assigned to your users.")}
+                  </Text>
+                </div>
                 <Button
+                  leftSection={<Plus size={16} aria-hidden="true" />}
                   onClick={() =>
                     selected === "settings/users" ? openUser() : openBase()
                   }
@@ -484,13 +547,16 @@ export default function SystemSettings({
                 </Button>
               </Group>
               <form
+                className="settings-filters"
                 onSubmit={(event) => {
                   event.preventDefault();
                   change({ q: term.trim() });
                 }}
               >
-                <Group align="end">
+                <Group align="end" gap="sm">
                   <TextInput
+                    className="settings-search"
+                    leftSection={<Search size={16} aria-hidden="true" />}
                     label={t("Search")}
                     placeholder={t(
                       selected === "settings/users"
@@ -501,12 +567,14 @@ export default function SystemSettings({
                     maxLength={selected === "settings/users" ? 120 : 100}
                     onChange={(e) => setTerm(e.currentTarget.value)}
                   />
-                  <Button type="submit" variant="default">
+                  <Button type="submit" variant="default" leftSection={<Search size={16} aria-hidden="true" />}>
                     {t("Search")}
                   </Button>
                   {selected === "settings/users" && (
                     <>
                       <Select
+                        className="settings-filter"
+                        leftSection={<Building2 size={16} aria-hidden="true" />}
                         label={t("Base")}
                         searchable
                         clearable
@@ -516,6 +584,8 @@ export default function SystemSettings({
                         onChange={(v) => change({ baseId: v || "" })}
                       />
                       <Select
+                        className="settings-filter"
+                        leftSection={<ShieldCheck size={16} aria-hidden="true" />}
                         label={t("Enabled")}
                         clearable
                         data={[
@@ -532,20 +602,22 @@ export default function SystemSettings({
               {notice && !dialog && (
                 <Alert
                   color="green"
-                  role="status"
+                  icon={<Check size={18} aria-hidden="true" />}
+                  aria-live="polite"
                   withCloseButton
+                  closeButtonLabel={t("Close")}
                   onClose={() => setNotice("")}
                 >
                   {notice}
                 </Alert>
               )}
               {error && !dialog && (
-                <Alert color="red" role="alert">
+                <Alert color="red" role="alert" icon={<CircleAlert size={18} aria-hidden="true" />}>
                   {error}
                 </Alert>
               )}
-              <Paper withBorder style={{ overflowX: "auto" }}>
-                <Table miw={selected === "settings/users" ? 760 : 480}>
+              <Paper withBorder className="settings-table-scroll" role="region" aria-label={t(selected === "settings/users" ? "Users" : "Bases")} tabIndex={0} aria-busy={busy}>
+                <Table miw={selected === "settings/users" ? 880 : 480} verticalSpacing="sm" horizontalSpacing="md" highlightOnHover>
                   <Table.Thead>
                     <Table.Tr>
                       {selected === "settings/users" ? (
@@ -573,8 +645,13 @@ export default function SystemSettings({
                             const u = row as User;
                             return (
                               <Table.Tr key={u.id}>
-                                <Table.Td>{u.gid || "—"}</Table.Td>
-                                <Table.Td>{u.username}</Table.Td>
+                                <Table.Td><Text size="sm" c="dimmed" ff="monospace">{u.gid || "—"}</Text></Table.Td>
+                                <Table.Td>
+                                  <Group gap="xs" wrap="nowrap">
+                                    <span className="settings-record-icon"><UserRound size={16} aria-hidden="true" /></span>
+                                    <Text size="sm" fw={600}>{u.username}</Text>
+                                  </Group>
+                                </Table.Td>
                                 <Table.Td>{u.email || "—"}</Table.Td>
                                 <Table.Td>
                                   {u.base
@@ -582,13 +659,22 @@ export default function SystemSettings({
                                     : "—"}
                                 </Table.Td>
                                 <Table.Td>
-                                  {t(u.enabled ? "Yes" : "No")}
+                                  <Switch
+                                    role="switch"
+                                    aria-label={`${t("Enabled")}: ${u.username}`}
+                                    checked={u.enabled}
+                                    disabled={busy || updatingUser !== null}
+                                    onChange={() => void toggleAccess(u)}
+                                    label={t(u.enabled ? "Yes" : "No")}
+                                    size="md"
+                                  />
                                 </Table.Td>
                                 <Table.Td>
                                   <Group gap="xs">
                                     <Button
                                       size="compact-sm"
                                       variant="subtle"
+                                      leftSection={<Eye size={14} aria-hidden="true" />}
                                       onClick={() =>
                                         onNavigate(`settings/users/${u.id}`)
                                       }
@@ -598,6 +684,7 @@ export default function SystemSettings({
                                     <Button
                                       size="compact-sm"
                                       variant="subtle"
+                                      leftSection={<Building2 size={14} aria-hidden="true" />}
                                       onClick={() => {
                                         setAssigning(u);
                                         setUserBase(u.baseId || "");
@@ -616,13 +703,19 @@ export default function SystemSettings({
                             const b = row as Base;
                             return (
                               <Table.Tr key={b.id}>
-                                <Table.Td>{b.code}</Table.Td>
+                                <Table.Td>
+                                  <Group gap="xs" wrap="nowrap">
+                                    <span className="settings-record-icon"><Building2 size={16} aria-hidden="true" /></span>
+                                    <Text size="sm" fw={600} ff="monospace">{b.code}</Text>
+                                  </Group>
+                                </Table.Td>
                                 <Table.Td>{b.name}</Table.Td>
                                 <Table.Td>
                                   <Group gap="xs">
                                     <Button
                                       size="compact-sm"
                                       variant="subtle"
+                                      leftSection={<Pencil size={14} aria-hidden="true" />}
                                       onClick={() => openBase(b)}
                                     >
                                       {t("Edit")}
@@ -631,6 +724,7 @@ export default function SystemSettings({
                                       size="compact-sm"
                                       color="red"
                                       variant="subtle"
+                                      leftSection={<Trash2 size={14} aria-hidden="true" />}
                                       onClick={() => {
                                         setEditing(b);
                                         setError("");
@@ -656,18 +750,21 @@ export default function SystemSettings({
                   rows.length === 0 && <Text p="md">{t("No results")}</Text>
                 )}
               </Paper>
-              {!busy && !error && (
-                <Text size="sm" role="status">
+              <Group justify="space-between" className="settings-pagination">
+                <Group gap="md">
+                {!busy && !error && (
+                <Text size="sm" c="dimmed" role="status">
                   {t("Results")}: {total}
                 </Text>
               )}
-              <Group justify="space-between">
                 <Select
+                  className="settings-page-size"
                   label={t("Rows per page")}
                   data={["10", "20", "30", "40", "50"]}
                   value={String(pageSize)}
                   onChange={(v) => change({ pageSize: v || "10" })}
                 />
+                </Group>
                 <Pagination
                   aria-label={t("Pages")}
                   value={page}
@@ -676,7 +773,8 @@ export default function SystemSettings({
                   disabled={busy}
                 />
               </Group>
-            </>
+              </Stack>
+            </Paper>
           )}
         </Stack>
       </div>
@@ -717,6 +815,7 @@ export default function SystemSettings({
             {dialog === "base" && (
               <>
                 <TextInput
+                  leftSection={<Hash size={16} aria-hidden="true" />}
                   required
                   label={t("Code")}
                   error={fieldError("code")}
@@ -725,6 +824,7 @@ export default function SystemSettings({
                   onChange={(e) => setCode(e.currentTarget.value)}
                 />
                 <TextInput
+                  leftSection={<Building2 size={16} aria-hidden="true" />}
                   required
                   label={t("Name")}
                   error={fieldError("name")}
@@ -737,6 +837,7 @@ export default function SystemSettings({
             {dialog === "user" && (
               <>
                 <TextInput
+                  leftSection={<Hash size={16} aria-hidden="true" />}
                   required
                   label="GID"
                   error={fieldError("gid")}
@@ -745,6 +846,7 @@ export default function SystemSettings({
                   onChange={(e) => setGid(e.currentTarget.value)}
                 />
                 <TextInput
+                  leftSection={<UserRound size={16} aria-hidden="true" />}
                   required
                   label={t("Username")}
                   error={fieldError("username")}
@@ -753,6 +855,7 @@ export default function SystemSettings({
                   onChange={(e) => setUsername(e.currentTarget.value)}
                 />
                 <TextInput
+                  leftSection={<Mail size={16} aria-hidden="true" />}
                   required
                   type="email"
                   label={t("Email")}
@@ -762,6 +865,7 @@ export default function SystemSettings({
                   onChange={(e) => setEmail(e.currentTarget.value)}
                 />
                 <Select
+                  leftSection={<Building2 size={16} aria-hidden="true" />}
                   required
                   searchable
                   label={t("Base")}
@@ -771,6 +875,7 @@ export default function SystemSettings({
                   onChange={(v) => setUserBase(v || "")}
                 />
                 <PasswordInput
+                  leftSection={<LockKeyhole size={16} aria-hidden="true" />}
                   required
                   label={t("Password")}
                   error={fieldError("password")}
@@ -786,6 +891,7 @@ export default function SystemSettings({
               <>
                 <Text>{assigning?.username}</Text>
                 <Select
+                  leftSection={<Building2 size={16} aria-hidden="true" />}
                   required
                   searchable
                   label={t("Base")}
@@ -817,6 +923,7 @@ export default function SystemSettings({
               </Button>
               <Button
                 type="submit"
+                leftSection={dialog === "delete" ? <Trash2 size={16} aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
                 color={dialog === "delete" ? "red" : undefined}
                 loading={saving}
               >
