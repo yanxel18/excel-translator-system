@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-upload-admission-v6",
+    title: "Bound workbook uploads and recover aborted receives",
+    details:
+      "Only one workbook upload is received, validated and prepared as a job at a time. Overlapping uploads receive an explicit retryable busy response. Aborted receives release capacity, while validation already running keeps its reservation until it finishes. The 50 MB ceiling and administrator settings are retained; chunked automatic recovery and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T12:08:55.000Z",
+  },
+  {
     id: "changelog-20261115-resumable-upload-plan-v6",
     title: "Approve resumable uploads and plan staged delivery",
     details:

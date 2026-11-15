@@ -280,17 +280,17 @@ temporary reservation budget, and the API/retention semantics above.
 
 ## Resumable upload delivery plan
 
-Status: **Delivery order awaiting review; implementation has not started**.
+Status: **Delivery plan and task list approved; implementation in progress**.
 The task list is the `uploads` section of [todo-v6.md](todo-v6.md), not a
 second tracker. This plan implements recovery at the current 50 MiB ceiling.
 The separate 200 MiB processing/preview gates remain open.
 
 ### Architecture grounded in existing code
 
-- `FileUploadController` authenticates before Multer, but controller/module
-  memory storage currently retain the whole upload. Put a shared admission
-  interceptor before Multer, then switch legacy reception to private disk
-  storage. Keep the current response shape and configured limits.
+- `FileUploadController` authenticates before the admitted Multer parser.
+  Shared admission now protects reception, validation and job creation, but
+  memory storage still retains the whole upload. Next switch legacy reception
+  to private disk storage. Keep the current response shape and configured limits.
 - `DatabaseJobManagementService.createJob` currently chooses a fresh ID, writes
   source bytes, discovers sheets and creates a job/queued notification.
   Reuse its filename, sheet and job-shape logic for disk inputs. For resumable
@@ -353,7 +353,7 @@ changelog/documentation updates.
   Crash tests terminate only their own disposable API process, never the
   shared development stack.
 
-### Retry and manual-pause details proposed for review
+### Approved retry and manual-pause details
 
 Use five retry delays of 1, 2, 4, 8 and 16 seconds, with up to 20% added jitter,
 then a 30-second cooldown before another burst. Honor a valid longer
