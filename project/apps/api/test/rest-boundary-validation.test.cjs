@@ -135,7 +135,7 @@ test("job, history and notification endpoints validate request boundaries", asyn
     for (const body of [
       { email: "not-an-email" },
       { email: " user@example.com " },
-      { fullName: "漢".repeat(121) },
+      { fullName: "漢".repeat(51) },
       { fullName: "山田", unexpected: true },
     ])
       assert.equal(
@@ -143,6 +143,8 @@ test("job, history and notification endpoints validate request boundaries", asyn
         400,
         JSON.stringify(body),
       );
+    assert.equal((await patch("/profile", { fullName: "漢".repeat(50) })).status, 200);
+    assert.equal(profileData.fullName, "漢".repeat(50));
     assert.equal(
       (
         await patch("/profile", {

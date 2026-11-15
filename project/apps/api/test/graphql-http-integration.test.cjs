@@ -177,12 +177,19 @@ test("GraphQL HTTP authenticates, forwards owner and validates inputs", async ()
     assert.equal(updatedProfile, undefined);
     const oversizedName = await (
       await request(
-        `mutation { updateProfile(fullName: "${"漢".repeat(121)}") { fullName } }`,
+        `mutation { updateProfile(fullName: "${"漢".repeat(51)}") { fullName } }`,
         "valid",
       )
     ).json();
     assert.ok(oversizedName.errors?.length, JSON.stringify(oversizedName));
     assert.equal(updatedProfile, undefined);
+    const boundaryName = await (
+      await request(
+        `mutation { updateProfile(fullName: "${"漢".repeat(50)}") { fullName } }`,
+        "valid",
+      )
+    ).json();
+    assert.equal(boundaryName.data?.updateProfile?.fullName, "漢".repeat(50));
     const profile = await (
       await request(
         'mutation { updateProfile(fullName: "山田 太郎", email: "user@example.com") { fullName email } }',
