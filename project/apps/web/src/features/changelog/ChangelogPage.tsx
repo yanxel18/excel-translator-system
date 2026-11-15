@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-maintenance-schedule",
+    title: "Schedule maintenance notices",
+    details:
+      "Administrators can save one enabled or disabled maintenance schedule in UTC. Authenticated users can retrieve the notice only while its window is active, and app access remains available.",
+    publishedAt: "2026-11-15T08:09:00.000Z",
+  },
+  {
     id: "changelog-20261115-account-full-names",
     title: "Simplify user account details",
     details:

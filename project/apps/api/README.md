@@ -46,6 +46,51 @@ Run exactly one API instance per database. Startup holds a PostgreSQL advisory l
 
 Run focused tests with `npm run test:translation-concurrency`. The test suite uses a serialized in-memory database double. `npm run test:translation-concurrency:postgres` runs the real PostgreSQL checks; set `V3_TEST_DATABASE_URL` to a migrated, loopback-only disposable database named `v3_translation_concurrency_disposable`. The integration test refuses other hosts or database names.
 
+## Maintenance schedule API
+
+The API stores exactly one maintenance schedule in PostgreSQL. The initial
+schedule is disabled and has no window. The existing global API base path
+applies to both routes (for example, `/excel-convert`):
+
+| Method and route | Permission | Result |
+|---|---|---|
+| `GET /admin/maintenance-schedule` | Administrator bearer token | Current full schedule; initially `{ "enabled": false, "startsAt": null, "endsAt": null }` |
+| `PUT /admin/maintenance-schedule` | Administrator bearer token | Replaces the schedule and returns its saved values |
+| `GET /maintenance-notice` | Any authenticated bearer token | `200` with `{ "active": true, "startsAt": "...", "endsAt": "..." }` while active, or `{ "active": false }` otherwise |
+
+Send a complete schedule for every `PUT`, including when disabling it:
+
+```json
+{
+  "enabled": true,
+  "startsAt": "2026-11-15T17:00:00+09:00",
+  "endsAt": "2026-11-15T18:00:00+09:00"
+}
+```
+
+`startsAt` and `endsAt` must be valid RFC 3339 date-times with `Z` or a numeric
+UTC offset, uppercase `T`, seconds from `00` through `59`, and at most
+millisecond precision. Zone-less dates,
+date-only strings, invalid calendar values, and the unknown-offset marker
+`-00:00` are rejected with `400`. The end instant must be later than the start.
+Accepted offsets are normalized to UTC and returned as ISO timestamps ending
+in `Z`; the database stores absolute `TIMESTAMPTZ` instants, not the submitted
+offset or a named time zone. Clients should label whichever time zone they
+use when displaying a schedule; converting for display never changes the
+stored schedule.
+
+A notice is active exactly when it is enabled and `startsAt <= now < endsAt`.
+Its start is inclusive and its end is exclusive. Disabled, future, expired,
+and not-yet-configured schedules produce `{ "active": false }`; the public
+route does not disclose their saved dates or enabled state. The API does not block
+sign-in, uploads, translations, or other application access during a notice.
+Schedule responses use `Cache-Control: no-store`; administrator changes are
+recorded in the management audit log. Unauthenticated requests receive `401`,
+non-administrators receive `403` on management routes, and invalid input
+receives `400`.
+
+Focused verification: `npm run test:maintenance`.
+
 ## Docker and operations
 
 From the repository root, `docker compose up --build -d translator-api` starts the API and healthy PostgreSQL dependency. Migrations run before the API starts. Configure an Ollama address reachable from the container. Use `docker compose logs -f translator-api` for startup and migration output. Back up both named volumes because database records refer to workbook files. See the [deployment guide](../../docs/DEPLOYMENT.md) for authentication, preview and operations.

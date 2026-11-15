@@ -12,6 +12,7 @@ import { ProductSurfacesModule } from "./modules/product-surfaces/product-surfac
 import { AdminUsersModule } from "./modules/admin-users/admin-users.module";
 import { BaseModule } from "./modules/base-management/base.module";
 import { SystemInfoModule } from "./modules/system-info/system-info.module";
+import { MaintenanceModule } from "./modules/maintenance/maintenance.module";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { SystemInfoModule } from "./modules/system-info/system-info.module";
     AdminUsersModule,
     BaseModule,
     SystemInfoModule,
+    MaintenanceModule,
     ProgressTrackingModule,
     VocabularyModule,
     GraphQLSchemaBuilderModule,
