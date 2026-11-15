@@ -40,6 +40,15 @@ enum NotificationType {
   JOB_CANCELLED
 }
 
+enum UploadSessionStatus {
+  RECEIVING
+  FINALIZING
+  COMPLETED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
 model User {
   id             String             @id @default(uuid())
   username       String             @unique
@@ -59,6 +68,7 @@ model User {
   jobs           TranslationJob[]
   vocabulary     VocabularyGroup[]
   notifications  Notification[]
+  uploadSessions UploadSession[]
   managementAudits ManagementAudit[]
 
   @@index([createdAt])
@@ -110,6 +120,38 @@ model ApplicationSettings {
   maxUploadSizeMb           Int      @default(50)
   maxConcurrentTranslations Int      @default(5)
   updatedAt                 DateTime @updatedAt
+}
+
+model UploadStorageBudget {
+  id            String @id @default("default")
+  /// Maintained atomically by the upload-session trigger; never a host-memory budget.
+  reservedBytes Int    @default(0)
+}
+
+model UploadSession {
+  id              String              @id @default(uuid()) @db.Uuid
+  ownerId         String
+  clientUploadId  String              @db.Uuid
+  fileName        String
+  fileSize        Int
+  chunkHashes     String[]
+  chunkSize       Int                 @default(1048576)
+  bytesReceived   Int                 @default(0)
+  nextChunkIndex  Int                 @default(0)
+  status          UploadSessionStatus @default(RECEIVING)
+  /// Retain the reservation until temporary-byte cleanup is confirmed.
+  reservedBytes   Int
+  /// No job FK: deleting a completed job must not erase its replay receipt.
+  completionJobId String              @unique @default(uuid()) @db.Uuid
+  createdAt       DateTime            @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  expiresAt       DateTime            @default(dbgenerated("(CURRENT_TIMESTAMP + '24 hours'::interval)")) @db.Timestamptz(3)
+  completedAt     DateTime?           @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
+  owner           User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // A custom partial unique index also covers terminal sessions awaiting cleanup.
+  @@unique([ownerId, clientUploadId])
+  @@index([expiresAt])
 }
 
 model MaintenanceSchedule {

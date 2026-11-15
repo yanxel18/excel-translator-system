@@ -16,6 +16,14 @@ export type UserDetail = User & {
   identityProviders: string[];
   hasLocalPassword: boolean;
 };
+export type VersionedUser = {
+  id: string;
+  username: string;
+  fullName: string | null;
+  email: string | null;
+  baseAcronym: string | null;
+  enabled: boolean;
+};
 export type ApplicationSettings = {
   maxUploadSizeMb: number;
   maxConcurrentTranslations: number;
@@ -88,12 +96,12 @@ export const management = {
     token: string,
     id: string,
     value: Partial<Pick<
-      UserDetail,
-      "gid" | "username" | "fullName" | "email" | "baseId" | "enabled"
+      VersionedUser,
+      "username" | "fullName" | "email" | "baseAcronym" | "enabled"
     >>,
   ) =>
-    request<UserDetail>(
-      `/admin/users/${encodeURIComponent(id)}`,
+    request<VersionedUser>(
+      `/v2/admin/users/${encodeURIComponent(id)}`,
       write("PATCH", value),
       token,
     ),
@@ -103,10 +111,10 @@ export const management = {
       write("PATCH", { password }),
       token,
     ),
-  assignBase: (token: string, id: string, baseId: string) =>
-    request<User>(
-      `/admin/users/${encodeURIComponent(id)}/base`,
-      write("PATCH", { baseId }),
+  assignBase: (token: string, id: string, baseAcronym: string) =>
+    request<VersionedUser>(
+      `/v2/admin/users/${encodeURIComponent(id)}`,
+      write("PATCH", { baseAcronym }),
       token,
     ),
   createUser: (
@@ -115,10 +123,10 @@ export const management = {
       username: string;
       fullName: string;
       email: string;
-      baseId: string;
+      baseAcronym: string;
       password: string;
     },
-  ) => request<User>("/admin/users", write("POST", value), token),
+  ) => request<VersionedUser>("/v2/admin/users", write("POST", value), token),
 };
 
 export const getMaintenanceNotice = (

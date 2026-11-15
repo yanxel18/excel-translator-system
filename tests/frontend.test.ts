@@ -128,7 +128,7 @@ test("administrator settings preserve list state and support management actions"
     const path = url.pathname.replace(new URL(apiBaseUrl).pathname, "");
     const method = route.request().method();
     if (method !== "GET") writes.push(`${method} ${path}`);
-    if (method === "POST" && path === "/admin/users")
+    if (method === "POST" && path === "/v2/admin/users")
       createdUser = route.request().postDataJSON();
     if (method === "POST" && path === "/admin/bases")
       savedBase = route.request().postDataJSON();
@@ -184,7 +184,7 @@ test("administrator settings preserve list state and support management actions"
   await page.getByRole("option", { name: "JTY", exact: true }).click();
   await assignDialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Base reassigned.")).toBeVisible();
-  expect(writes).toContain(`PATCH /admin/users/${user.id}/base`);
+  expect(writes).toContain(`PATCH /v2/admin/users/${user.id}`);
   await page.getByRole("button", { name: "Create user" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("GID")).toHaveCount(0);
@@ -208,17 +208,20 @@ test("administrator settings preserve list state and support management actions"
     "aria-invalid",
     "true",
   );
-  expect(writes).not.toContain("POST /admin/users");
+  expect(writes).not.toContain("POST /v2/admin/users");
   await expect(dialog.getByLabel("Password")).toHaveValue(exactPassword);
   await dialog.getByLabel("Username").fill(" 山田・张伟 ");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("User created.")).toBeVisible();
-  expect(createdUser).toMatchObject({
+  expect(createdUser).toEqual({
     username: "山田・张伟",
     fullName: "山田 太郎",
+    email: "alice@example.com",
+    baseAcronym: "JTY",
     password: exactPassword,
   });
-  expect(writes).toContain("POST /admin/users");
+  expect(writes).toContain("POST /v2/admin/users");
+  expect(writes).not.toContain("POST /admin/users");
   await page.getByRole("button", { name: "Bases", exact: true }).click();
   await expect(page).toHaveURL(/settings\/bases/);
   await page.getByRole("button", { name: "Create base" }).click();
@@ -432,7 +435,7 @@ test("administrator can edit user details and a rejected disable toggle rolls ba
       return;
     }
     if (
-      path === `/admin/users/${userId}` &&
+      path === `/v2/admin/users/${userId}` &&
       route.request().method() === "PATCH"
     ) {
       updateBody = route.request().postDataJSON();
@@ -490,8 +493,11 @@ test("administrator can edit user details and a rejected disable toggle rolls ba
     page.getByText(/Cannot disable the last administrator/),
   ).toBeVisible();
   await expect(page.getByRole("switch", { name: "Enabled" })).toBeChecked();
-  expect(updateBody).toMatchObject({
+  expect(updateBody).toEqual({
     username: "alice-edited",
+    fullName: "Alice Example",
+    email: "alice@example.com",
+    baseAcronym: "JTY",
     enabled: false,
   });
 });

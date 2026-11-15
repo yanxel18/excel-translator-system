@@ -2,7 +2,7 @@
 
 **Status:** Implemented validation contract and regression coverage for existing
 APIs, plus the focused full-name storage/OIDC limit. This document does not
-claim the broader account migration or acronym-based user API has shipped.
+claim retirement of legacy account storage fields or unversioned APIs.
 The focused [base primary-key migration](../project/docs/v6-base-primary-key-migration.md)
 now makes `Base.code` primary and retains unique immutable UUID `Base.id`.
 
@@ -170,8 +170,38 @@ separate temporary Vite server with simulated provider/API responses.
 
 ## Forward migration requirements
 
+### Implemented account API slice
+
+`POST /v2/admin/users`, `GET /v2/admin/users/:id` and
+`PATCH /v2/admin/users/:id` require an administrator bearer token.
+Creation accepts `{ username, fullName, email, baseAcronym, password }`;
+partial editing accepts `username`, `fullName`, `email`, `baseAcronym` and
+`enabled`. Both return only `{ id, username, fullName, email, baseAcronym,
+enabled }`. Existing accounts may return null names, email or base.
+
+Creation and explicit full-name edits require nonempty names of at most 50
+Unicode code points. Base acronyms use the same normalization as `/v2/bases`.
+An explicit null acronym on editing clears the assignment. An unknown acronym
+returns 400; duplicate identity fields return 409. Acronym resolution and the
+account write share the existing serializable transaction, so a concurrent
+rename cannot silently assign a stale acronym. UUID assignments and legacy GIDs
+remain stored unchanged. Local username edits update the LOCAL identity subject
+and invalidate prior sessions; OIDC subjects remain unchanged.
+
+These are additive routes, not a retirement of existing APIs. The browser now
+uses them for account creation, editing, access toggles and base assignment.
+List/filtering, detail reads for credential metadata and local password reset
+remain on the existing management contract. UUIDs are still used for list
+filters, not for new account mutation payloads. An assigned base outside the
+first options page is retained while editing; clearing it sends an explicit
+null acronym. Provider-managed accounts do not gain local-password controls
+after an edit.
+Mutations do not accept idempotency keys: retrying creation after an unknown
+result may return 409, and clients should reconcile through the existing list
+API rather than assuming a failed response means no account was created.
+
 The proposed **next-version shape** (a breaking contract, not implemented in
-this task) is:
+full by this task) is:
 
 - Keep `username` as the one local login identifier; it may be a GID-like
   identifier or a chosen name. Keep a separate `fullName` (Japanese or

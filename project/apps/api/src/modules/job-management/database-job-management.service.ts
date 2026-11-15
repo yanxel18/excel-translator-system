@@ -8,7 +8,7 @@ import {
   OnModuleDestroy,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
@@ -27,6 +27,12 @@ import { ApplicationSettingsService } from "../application-settings/application-
 const ADVISORY_LOCK_NAMESPACE = 1_163_430_226;
 const SINGLETON_LOCK_ID = 1;
 const CAPACITY_LOCK_ID = 2;
+
+export interface DiskWorkbook {
+  path: string;
+  fileSize: number;
+  availableSheets: string[];
+}
 
 export enum JobStatus {
   PENDING = "PENDING",
@@ -241,16 +247,41 @@ export class DatabaseJobManagementService
   async createJob(
     fileName: string,
     ownerId: string,
-    file?: Buffer,
+    file?: Buffer | DiskWorkbook,
   ): Promise<Job> {
     if (!file)
       throw new BadRequestException("An uploaded workbook is required.");
     const id = randomUUID();
     await mkdir(this.dataDir, { recursive: true });
     const sourcePath = this.sourcePath(id);
-    await writeFile(sourcePath, file, { flag: "wx" });
+    if (Buffer.isBuffer(file))
+      await writeFile(sourcePath, file, { flag: "wx" });
+    else {
+      try {
+        await link(file.path, sourcePath);
+      } catch (error) {
+        console.error("Workbook upload could not be promoted to job storage.", error);
+        throw new ServiceUnavailableException(
+          "Workbook job storage is unavailable. Retry after storage is restored.",
+          { cause: error },
+        );
+      }
+    }
     try {
-      const availableSheets = await this.extraction.getSheetNames(file);
+      if (!Buffer.isBuffer(file)) {
+        try {
+          await unlink(file.path);
+        } catch (error) {
+          console.error("Promoted workbook upload could not be unlinked.", error);
+          throw new ServiceUnavailableException(
+            "Workbook upload cleanup failed. Retry after storage is restored.",
+            { cause: error },
+          );
+        }
+      }
+      const availableSheets = Buffer.isBuffer(file)
+        ? await this.extraction.getSheetNames(file)
+        : file.availableSheets;
       if (!availableSheets.length)
         throw new BadRequestException(
           "The workbook does not contain any worksheets.",
@@ -260,7 +291,7 @@ export class DatabaseJobManagementService
           id,
           ownerId,
           fileName: normalizeUploadFilename(fileName),
-          fileSize: file.length,
+          fileSize: Buffer.isBuffer(file) ? file.length : file.fileSize,
           mimeType:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           sourceLanguage: Language.JAPANESE,
@@ -279,7 +310,21 @@ export class DatabaseJobManagementService
       });
       return { ...this.toJob(job), availableSheets };
     } catch (error) {
-      await unlink(sourcePath).catch(() => undefined);
+      try {
+        await unlink(sourcePath);
+      } catch (cleanupError) {
+        if (!(
+          cleanupError instanceof Error &&
+          "code" in cleanupError &&
+          cleanupError.code === "ENOENT"
+        )) {
+          console.error("Workbook job creation and cleanup failed.", error, cleanupError);
+          throw new ServiceUnavailableException(
+            "Workbook job creation failed and its file could not be cleaned up.",
+            { cause: cleanupError },
+          );
+        }
+      }
       throw error;
     }
   }

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { UserDetail } from "../project/apps/web/src/features/system-settings/api";
 
 const userId = "11111111-1111-4111-8111-111111111111";
 const baseId = "22222222-2222-4222-8222-222222222222";
@@ -33,7 +34,7 @@ async function setup(page: Page, rejectUpdate = false) {
       await route.fulfill({ json: applicationSettings });
       return;
     }
-    if (path === `/admin/users/${userId}` && request.method() === "PATCH") {
+    if (path === `/v2/admin/users/${userId}` && request.method() === "PATCH") {
       expect(request.postDataJSON()).toEqual({ enabled: !enabled });
       if (rejectUpdate) {
         await route.fulfill({
@@ -133,6 +134,133 @@ test("rejected access change preserves state and displays the server error", asy
   await expect(page.getByRole("alert")).toContainText("Cannot disable the last administrator.");
   await expect(toggle).toBeChecked();
   await expect(toggle).toBeEnabled();
+});
+
+test("account edits use acronyms, preserve password controls and survive reload", async ({ page }, testInfo) => {
+  await setup(page);
+  let detail: UserDetail = {
+    ...user,
+    fullName: "Alice Example",
+    baseId: "33333333-3333-4333-8333-333333333333",
+    base: { id: "33333333-3333-4333-8333-333333333333", code: "MSTY", name: "Legacy factory" },
+    hasLocalPassword: true,
+    identityProviders: ["LOCAL"],
+    sessionVersion: 0,
+  };
+  const writes: Record<string, unknown>[] = [];
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.route(`**/admin/users/${userId}`, (route) => {
+    expect(route.request().method()).toBe("GET");
+    return route.fulfill({ json: detail });
+  });
+  await page.route(`**/v2/admin/users/${userId}`, async (route) => {
+    const body = route.request().postDataJSON();
+    writes.push(body);
+    expect(body).not.toHaveProperty("gid");
+    expect(body).not.toHaveProperty("baseId");
+    expect(body).not.toHaveProperty("password");
+    detail = {
+      ...detail,
+      username: body.username,
+      fullName: body.fullName,
+      email: body.email,
+      enabled: body.enabled,
+      baseId: body.baseAcronym === null ? null : detail.baseId,
+      base: body.baseAcronym === null ? null : detail.base,
+    };
+    await route.fulfill({
+      json: {
+        id: userId,
+        username: detail.username,
+        fullName: detail.fullName,
+        email: detail.email,
+        baseAcronym: body.baseAcronym,
+        enabled: detail.enabled,
+      },
+    });
+  });
+  await page.setViewportSize({ width: 320, height: 1000 });
+  await page.goto(`/excel-convert/settings/users/${userId}`);
+  await expect(page.getByRole("textbox", { name: "Base", exact: true })).toHaveValue("MSTY");
+  const fullName = page.getByRole("textbox", { name: "Full name", exact: true });
+  await fullName.fill("𠮷".repeat(51));
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(fullName).toHaveAttribute("aria-invalid", "true");
+  expect(writes).toEqual([]);
+  await fullName.fill("𠮷".repeat(50));
+  await page.getByRole("textbox", { name: "Username", exact: true }).fill("jt0191340");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "User saved." })).toBeVisible();
+  expect(writes).toEqual([{
+    username: "jt0191340",
+    fullName: "𠮷".repeat(50),
+    email: user.email,
+    baseAcronym: "MSTY",
+    enabled: true,
+  }]);
+  await expect(page.getByRole("button", { name: "Reset local password", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(fullName).toHaveValue("𠮷".repeat(50));
+  await expect(page.getByRole("textbox", { name: "Username", exact: true })).toHaveValue("jt0191340");
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await testInfo.attach("acronym-user-detail-mobile", {
+    body: await page.screenshot({ path: testInfo.outputPath("acronym-user-detail-mobile.png") }),
+    contentType: "image/png",
+  });
+  const baseSelect = page.getByRole("textbox", { name: "Base", exact: true });
+  await baseSelect.click();
+  await page.getByRole("option", { name: "MSTY", exact: true }).click();
+  await expect(baseSelect).toHaveValue("");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => writes.length).toBe(2);
+  expect(writes[1].baseAcronym).toBeNull();
+  await page.reload();
+  await expect(baseSelect).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Reset local password", exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("editing a legacy OIDC account preserves its login and provider-managed password", async ({ page }) => {
+  await setup(page);
+  const detail = {
+    ...user,
+    username: "provider-login",
+    fullName: null,
+    email: null,
+    baseId: null,
+    base: null,
+    hasLocalPassword: false,
+    identityProviders: ["KEYCLOAK"],
+    sessionVersion: 0,
+  };
+  let saved: Record<string, unknown> | undefined;
+  await page.route(`**/admin/users/${userId}`, (route) => route.fulfill({ json: detail }));
+  await page.route(`**/v2/admin/users/${userId}`, async (route) => {
+    saved = route.request().postDataJSON();
+    await route.fulfill({ json: { ...saved, id: userId } });
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/excel-convert/settings/users/${userId}`);
+  await expect(page.getByRole("button", { name: "Reset local password", exact: true })).toHaveCount(0);
+  await expect(page.getByText("This account password is managed by its identity provider.")).toBeVisible();
+  const name = page.getByRole("textbox", { name: "Full name", exact: true });
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(saved).toBeUndefined();
+  await name.fill("山田 太郎");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "User saved." })).toBeVisible();
+  expect(saved).toEqual({
+    username: "provider-login",
+    fullName: "山田 太郎",
+    email: null,
+    baseAcronym: null,
+    enabled: true,
+  });
+  await expect(page.getByText("This account password is managed by its identity provider.")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Username", exact: true })).toHaveValue("provider-login");
 });
 
 test("settings stay within mobile viewport and actions remain available", async ({ page }) => {

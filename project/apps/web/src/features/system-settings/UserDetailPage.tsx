@@ -30,12 +30,12 @@ export default function UserDetailPage({
   onBack: () => void;
 }) {
   const { t } = useLocale();
-  const [user, setUser] = useState<UserDetail | null>(null);
+  const [user, setUser] = useState<Pick<UserDetail, "username" | "enabled" | "hasLocalPassword"> | null>(null);
   const [bases, setBases] = useState<Base[]>([]);
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [baseId, setBaseId] = useState<string | null>(null);
+  const [baseAcronym, setBaseAcronym] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,11 +57,15 @@ export default function UserDetailPage({
       .then(([detail, result]) => {
         if (!active) return;
         setUser(detail);
-        setBases(result.data);
+        setBases([
+          ...new Map(
+            [...result.data, ...(detail.base ? [detail.base] : [])].map((base) => [base.code, base]),
+          ).values(),
+        ]);
         setUsername(detail.username);
         setFullName(detail.fullName || "");
         setEmail(detail.email || "");
-        setBaseId(detail.baseId);
+        setBaseAcronym(detail.base?.code ?? null);
         setEnabled(detail.enabled);
       })
       .catch((reason) => {
@@ -94,6 +98,7 @@ export default function UserDetailPage({
       ? t(validateManagementField(field, values[field]) || "") || undefined
       : undefined;
   const save = async () => {
+    if (!user || saving) return;
     setSubmitted(true);
     setError("");
     setSaved(false);
@@ -109,14 +114,14 @@ export default function UserDetailPage({
         username: username.trim(),
         fullName: fullName.trim(),
         email: email.trim() || null,
-        baseId,
+        baseAcronym,
         enabled,
       });
-      setUser(updated);
+      setUser({ ...user, username: updated.username, enabled: updated.enabled });
       setUsername(updated.username);
       setFullName(updated.fullName || "");
       setEmail(updated.email || "");
-      setBaseId(updated.baseId);
+      setBaseAcronym(updated.baseAcronym);
       setEnabled(updated.enabled);
       setSaved(true);
     } catch (reason) {
@@ -235,11 +240,11 @@ export default function UserDetailPage({
                 clearable
                 searchable
                 data={bases.map((base) => ({
-                  value: base.id,
+                  value: base.code,
                   label: base.code,
                 }))}
-                value={baseId}
-                onChange={setBaseId}
+                value={baseAcronym}
+                onChange={setBaseAcronym}
               />
               </div>
               <div className="settings-access-row">
