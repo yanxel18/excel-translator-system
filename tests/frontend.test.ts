@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import {
   normalizeApiBaseUrl,
   normalizeWebBasePath,
+  resolvePreviewUrl,
 } from "../project/apps/web/src/config/paths";
 
 const apiBaseUrl =
@@ -14,6 +15,19 @@ test("frontend base-path settings normalize URLs for local and nested deployment
   expect(normalizeApiBaseUrl("https://api.example.com/excel-convert/")).toBe(
     "https://api.example.com/excel-convert",
   );
+});
+
+test("preview URLs support same-origin paths and absolute HTTP origins", () => {
+  const origin = "https://app.example.test";
+  expect(resolvePreviewUrl("/preview/", origin)?.href).toBe(
+    "https://app.example.test/preview/bridge.html?v=2",
+  );
+  expect(resolvePreviewUrl("/preview", origin)?.origin).toBe(origin);
+  expect(resolvePreviewUrl("https://preview.example.test/editor/", origin)?.href).toBe(
+    "https://preview.example.test/editor/bridge.html?v=2",
+  );
+  expect(resolvePreviewUrl("javascript:alert(1)", origin)).toBeNull();
+  expect(resolvePreviewUrl("http://[", origin)).toBeNull();
 });
 
 test("workspace navigation, preferences, and Japanese localization work on a narrow screen", async ({
@@ -785,7 +799,7 @@ test("V2-19 history controls combine URL filters, sorting, page size, and browse
   );
   const requests: URLSearchParams[] = [];
   let previewRequested = false;
-  await page.route("http://localhost:8081/bridge.html", (route) =>
+  await page.route("http://localhost:8081/bridge.html**", (route) =>
     route.fulfill({
       contentType: "text/html",
       body: `<script>setTimeout(() => parent.postMessage({source:'excel-translator-preview',type:'ready'}, '*'), 50)</script>`,

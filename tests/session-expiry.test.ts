@@ -192,7 +192,7 @@ test("expired session while loading the preview workbook returns to Login", asyn
   page,
 }) => {
   await installApi(page, `/jobs/${jobId}/preview-file`);
-  await page.route("http://localhost:8081/bridge.html", (route) =>
+  await page.route("http://localhost:8081/bridge.html**", (route) =>
     route.fulfill({
       contentType: "text/html",
       body: `<script>setTimeout(() => parent.postMessage({source:'excel-translator-preview',type:'ready'}, '*'), 100)</script>`,

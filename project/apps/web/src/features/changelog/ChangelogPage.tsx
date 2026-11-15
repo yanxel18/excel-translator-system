@@ -14,6 +14,20 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-preview-cache-recovery",
+    title: "Restore workbook preview after a connection fix",
+    details:
+      "Workbook previews now load the corrected preview files even if a browser cached an older, invalid response.",
+    publishedAt: "2026-11-15T07:21:00.000Z",
+  },
+  {
+    id: "changelog-20261115-private-preview-url",
+    title: "Fix workbook preview over private connections",
+    details:
+      "Workbook previews can now use the same private HTTPS address as the app, including connections through Tailscale.",
+    publishedAt: "2026-11-15T07:15:00.000Z",
+  },
+  {
     id: "changelog-20261115-editable-app-settings-private-tailnet",
     title: "Set upload and translation limits, and browse privately with Tailscale",
     details:

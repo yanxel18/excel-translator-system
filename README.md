@@ -51,12 +51,14 @@ Administrators can change the workbook upload limit (1–50 MB) and the maximum 
 The optional `tailscale` profile exposes the web app only inside your tailnet. Create an auth key in the Tailscale admin console and store it as `TS_AUTHKEY` in the root `.env` file (which is gitignored); do not commit or share the key. Ensure HTTPS certificates are enabled for your tailnet, then run:
 
 ```powershell
-docker compose --profile tailscale up --build -d tailscale
-docker compose exec tailscale tailscale serve --https=443 http://127.0.0.1:80 --bg
+docker compose --profile tailscale up --build -d
+docker compose exec tailscale tailscale serve --bg --https=443 http://127.0.0.1:80
 docker compose exec tailscale tailscale serve status
 ```
 
-Use the HTTPS URL printed by `tailscale serve status` from a device connected to the same tailnet. The profile does not use Funnel or publish a public Tailscale port. Local web/API ports bind to loopback; the named `tailscale-state` volume preserves the node identity across restarts.
+Use the HTTPS URL printed by `tailscale serve status` from a device connected to the same tailnet. The profile also starts the optional ibisOffice preview; the browser needs WebGPU support. The profile does not use Funnel or publish a public Tailscale port. Local web/API ports bind to loopback; the named `tailscale-state` volume preserves the node identity across restarts.
+
+If port 8081 is already in use, set `PREVIEW_PORT` to a free port in the root `.env` before starting the profile. The private `/preview/` route does not depend on that host port.
 
 ## Development and architecture
 

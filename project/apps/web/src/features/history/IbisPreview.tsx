@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Box, Loader, Text } from "@mantine/core";
 import { apiUrl, trackedFetch } from "../../api/client";
+import { resolvePreviewUrl } from "../../config/paths";
 
 export default function IbisPreview({
   jobId,
@@ -21,15 +22,7 @@ export default function IbisPreview({
   const configured =
     import.meta.env.VITE_PREVIEW_URL ||
     (import.meta.env.DEV ? "http://localhost:8081/" : "");
-  let url: URL | null = null;
-  try {
-    if (configured) {
-      url = new URL("bridge.html", `${configured.replace(/\/$/, "")}/`);
-      if (!["http:", "https:"].includes(url.protocol)) url = null;
-    }
-  } catch {
-    /* configuration error shown below */
-  }
+  const url = resolvePreviewUrl(configured, window.location.origin);
   const frameUrl = url?.href;
   const frameOrigin = url?.origin;
   useEffect(() => {
