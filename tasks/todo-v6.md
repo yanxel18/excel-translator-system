@@ -111,19 +111,29 @@ and `project/apps/api/test/upload-admission.test.cjs`.
 #### 2. `legacy-disk-upload`: Receive legacy uploads on disk
 
 Dependencies: `upload-admission`.
-Core files: upload controller/module/service, job-management service,
+Core files: upload controller/module/service, admission interceptor, job-management service,
 and `project/apps/api/test/disk-upload.test.cjs`.
 
-- [ ] Spool only admitted multipart files to private ID-named storage and
+- [x] Spool only admitted multipart files to private ID-named storage and
   enforce the administrator's limit during reception.
-- [ ] Reuse validated disk inputs for existing-shape job creation without
+- [x] Reuse validated disk inputs for existing-shape job creation without
   retaining a receive buffer; preserve sheet discovery and ZIP/CRC checks.
-- [ ] Remove failed, oversized and interrupted temporary files safely;
+- [x] Remove failed, oversized and interrupted temporary files safely;
   storage errors are explicit and existing filenames/job behavior are retained.
 - Verify: API build; `node --test project\apps\api\test\disk-upload.test.cjs
   project\apps\api\test\application-settings.test.cjs
   project\apps\api\test\task4.test.cjs project\apps\api\test\task5.test.cjs`;
   actual exact-boundary multipart uploads and restart cleanup.
+  Verified: 29 focused host tests passed; all 12 disk/admission tests passed
+  again on the built Node 22 Linux API image, including real process
+  termination/restart, byte preservation and exact 1/50 MiB archive boundaries.
+  The memory-reception test failed before implementation; disabling receive-time
+  settings enforcement makes the boundary test fail. API compile/web type-check
+  and both Docker builds passed. Local stack rebuilt, existing health checks
+  passed, app HTTP 200 and unauthorized upload HTTP 401 confirmed. All 92
+  migrations applied and live/built-in history matches; Linux storage mode 0700
+  and private tailnet-only Serve verified after daemon initialization.
+  The known concurrency-test source-loader import failure remains unchanged.
 
 #### 3. `session-storage`: Persist replay-safe upload intents
 

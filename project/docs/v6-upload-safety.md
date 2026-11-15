@@ -12,9 +12,9 @@ interpretation when adding the 200 MB ceiling.
 | Workspace file selection | Uses `maxUploadSizeMb` from system info; defaults to 50. Checks extension and file bytes, not multipart bytes. |
 | Web nginx `/api/upload` | 51 MiB request-body ceiling, allowing a 50 MiB file plus multipart headers. Other API routes retain nginx's default 1 MiB body ceiling. |
 | Tailscale Serve | Proxies the same web nginx at port 80; does not bypass the upload location or require Funnel. |
-| Nest upload controller/module | The admitted parser/module set a 50 MiB file ceiling, one file, in-memory storage. Authentication precedes admission and parsing; only one upload receive/validation/job creation may run. |
-| Upload service | Reads the persisted administrator limit, validates extension/size, opens the archive and verifies CRC32. |
-| Job creation | Writes the whole source buffer to disk, discovers sheets, creates the database job and queued notification. Removes the source on failure. |
+| Nest upload controller/module | Authentication precedes admission and parsing. One file is streamed to private disk at the persisted 1-50 MiB receive ceiling; admission includes receive/validation/job creation/cleanup. |
+| Upload service | Rechecks the persisted limit, validates extension/size, opens the disk archive and verifies CRC32/ZIP defenses once, returning worksheet metadata rather than a receive buffer. |
+| Job creation | Promotes validated disk bytes into ID-named source storage and creates the existing-shape job/queued notification, retaining the buffer input for existing internal callers. Removes the source on failure. |
 | Job details/settings | Read the whole source and reopen it to discover sheets. These operations are not controlled by the translation-start limit. |
 | Translation start/retry | Global database admission limit of 1-5 workers. Workers read the whole source, extract text, translate bounded batches, patch the ZIP and validate the output. |
 | OOXML archives | Reject more than 250 MiB declared uncompressed data, over 10,000 entries, or expansion above 200:1 for entries larger than 1 MiB. Reject unsupported ZIP formats, unsafe/duplicate paths and corrupt archives. |
@@ -98,8 +98,8 @@ body, authentication ordering, abort/validation/job-error release, disconnection
 during validation/job creation, shutdown/idempotent release, and the exact
 50 MiB file boundary plus rejection of one extra byte. Existing settings and
 workbook preservation/validation tests also pass. Removing admission makes the
-overlap regression fail. These tests do not certify disk spooling or resumable
-uploads, which remain next steps.
+overlap regression fail. Admission tests alone do not certify disk reception
+or resumable uploads; the disk-reception verification is recorded below.
 
 Framework sources: [Nest interceptors](https://docs.nestjs.com/interceptors#call-handler)
 and [RxJS lastValueFrom](https://rxjs.dev/api/index/function/lastValueFrom);
@@ -108,17 +108,63 @@ upload handler is a finite JSON operation, not a streaming-response route.
 
 An additional existing `translation-concurrency.test.cjs` run failed to resolve
 its source-transpilation import of `application-settings.service`. Neither that
-test nor the job service changed in this slice; the failure is recorded rather
+test nor the job service changed in the admission slice; the failure is recorded rather
 than silently changing unrelated code or claiming that suite passed.
 
-Keep the current ceiling until the following safeguards and tests pass:
+### Completed legacy disk reception prerequisite
 
-1. Spool multipart uploads to a private, bounded temporary directory under the
-   existing data storage. Enforce the configured limit while receiving, not
-   only after a complete upload. Bound admitted receiving requests before
-   storage allocation; reject excess work explicitly rather than queueing
-   arbitrary bodies in memory. Clean up failed, oversized, aborted and
-   interrupted uploads; use an atomic move for a successfully persisted job.
+Admitted uploads now stream through Node's `pipeline` into a private
+`DATA_DIR/legacy-uploads/receive-*` directory, using server-generated UUID
+filenames and exclusive creation. The Linux deployment uses directory/file
+modes 0700/0600; Windows additionally relies on the local account's filesystem
+ACLs. Original filenames never select storage paths.
+
+The current administrator limit is applied to Multer before reception and
+rechecked before validation; oversized uploads now report 413 even at lower
+settings. Multer's over-limit probe may write one extra byte while detecting
+the boundary. Validation still reads one bounded archive into memory for the
+existing CRC32/ZIP/worksheet checks. Only path/size/sheet metadata reaches job
+creation, not a receive buffer or archive object.
+
+Job creation links the private file into exclusive ID-named source storage,
+then unlinks the temporary name. Both locations share the existing data
+filesystem, so no JavaScript whole-file copy or overwrite is needed. Link,
+unlink, receive and cleanup storage failures are reported explicitly.
+Failed persistence removes the promoted source. Reception waits for its
+writer streams to settle before cleanup and admission release.
+
+Startup cleanup uses `onApplicationBootstrap`, after all module initializers
+(including the existing database singleton lock) and before HTTP listening.
+It removes only reserved receive directories in the private legacy root;
+unrelated entries and symlinks are left alone, and job sources are not scanned.
+A crash during later job publication is not certified by this receive-cleanup
+slice; durable session completion/reconciliation remains a later task.
+Legacy upload POSTs still generate a new job per accepted request and are not
+safe to automatically retry after an unknown completion response.
+
+Six disk tests use real Nest/Multer, files and archive validation with
+controlled persistence. They cover byte-preserving job results, exact 1 MiB
+and 50 MiB valid archives/+1 rejection, bounded bytes before a partial body
+ends, CRC/format/persistence cleanup, explicit storage failure and real
+process termination/restart cleanup without deleting job/foreign paths.
+The first test fails on prior memory reception; disabling the receive-time
+settings limit makes the boundary regression fail (400 instead of 413).
+Admission tests continue to use real disk reception with validation/job doubles.
+
+Sources: [Multer file/storage API](https://expressjs.com/en/resources/middleware/multer/),
+[Node pipeline](https://nodejs.org/api/stream.html#streampipelinesource-transforms-destination-options),
+and [Nest lifecycle hooks](https://docs.nestjs.com/fundamentals/lifecycle-events#lifecycle-events-1).
+No dependency or lockfile change is required. Automatic resume and the
+200 MiB processing/preview certification remain pending.
+
+### Remaining safety gates
+
+Keep the current ceiling until the remaining safeguards and tests pass:
+
+1. Complete stable-ID promotion and crash reconciliation during durable session
+   completion. Private disk reception and interrupted-receive cleanup are
+   implemented, but source-file promotion and database publication are not one
+   atomic transaction.
 2. Bound expensive whole-workbook operations across uploads, sheet discovery,
    translation parsing/patching and table previews, not only translation
    starts. Acquire capacity before a whole-file read. Queued work must retain
