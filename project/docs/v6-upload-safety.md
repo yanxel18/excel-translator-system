@@ -66,6 +66,13 @@ Raising Multer's constant alone is unsafe:
 
 ## Selected implementation strategy
 
+The user subsequently confirmed chunked transfers with a retained browser file
+and automatic resume after refresh/browser restart for 24 hours, without normal
+file reselection. The [resumable-upload specification](../../tasks/plan-v6.md)
+is awaiting protocol approval. It adds durable upload-session progress, bounded
+chunk replay and browser-storage failure handling to the strategy below.
+Neither resumable uploads nor the 200 MB ceiling is enabled yet.
+
 Keep the current ceiling until the following safeguards and tests pass:
 
 1. Spool multipart uploads to a private, bounded temporary directory under the

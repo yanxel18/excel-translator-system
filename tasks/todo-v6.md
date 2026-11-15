@@ -61,6 +61,14 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 - [x] Fix web nginx rejecting currently supported uploads above 1 MB. Verify
   complete 50 MiB multipart forwarding and bounded rejection with real nginx;
   retain application settings and the current 50 MiB file ceiling.
+- [x] Draft the resumable-upload specification from the confirmed user goal:
+  retain the browser file and automatically resume after refresh/restart for
+  24 hours, with one active receive/validation and retryable busy feedback.
+- [ ] Approve the resumable-upload protocol, chunk size, temporary disk budget
+  and retention/recovery semantics in [the specification](plan-v6.md).
+- [ ] Implement and verify retained-browser-file chunk uploads and automatic
+  resume, including interrupted acknowledgments, exact limits, ownership,
+  storage failures/expiry and crash-safe single-job finalization.
 - [ ] Support configurable limits from 1 to 200 MB end to end and update
   translations and deployment documentation. Test real boundaries and rejection.
 
