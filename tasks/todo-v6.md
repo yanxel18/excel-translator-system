@@ -23,11 +23,12 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
   local/OIDC identities, acronym edits, duplicate/delete restrictions and
   migration/concurrency failures on disposable PostgreSQL
   ([migration evidence](../project/docs/v6-base-primary-key-migration.md)).
-  This narrower slice does not complete the broader account/storage or acronym-only UI tasks.
+  This narrower slice does not complete the broader account/storage tasks.
 - [ ] Update user creation, editing, sign-in and profile flows to the new
   contracts. Verify both local and existing OIDC behavior.
-- [ ] Simplify base creation, editing and assignment to one acronym field.
-  Verify duplicates, edits, assigned users and deletion restrictions.
+- [x] Simplify base creation, editing and assignment to one acronym field.
+  Verify duplicates, edits, assigned users and deletion restrictions. Preserve
+  legacy names and UUID-based API compatibility.
 
 ## Navigation
 
