@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-user-acronym-ui-v6",
+    title: "Use factory acronyms when managing accounts",
+    details:
+      "Account creation, editing and base assignment now use the acronym-based API. Login usernames stay separate from full names, existing base selections remain visible, and local and provider-managed password controls are preserved.",
+    publishedAt: "2026-11-15T10:55:00.000Z",
+  },
+  {
     id: "changelog-20261115-user-acronym-api-v6",
     title: "Create and edit accounts using factory acronyms",
     details:
