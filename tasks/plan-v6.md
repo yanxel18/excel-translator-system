@@ -303,10 +303,16 @@ The separate 200 MiB processing/preview gates remain open.
   support or another distributed-lock system. Use one shared active-upload slot
   inside that admitted instance. Reserve session capacity in short database
   transactions, never hold a database transaction open while a client uploads.
-- Add session metadata with unique owner/client-intent keys and a database
-  constraint for one unfinished session per owner. Atomically enforce the
-  1 GiB reservation total, including concurrent creations. Store only metadata
-  in PostgreSQL; contain temporary bytes under the existing data directory.
+- Session metadata now has unique owner/client-intent keys and a partial index
+  for one unfinished or still-reserved session per owner. A managed singleton
+  row and session trigger enforce the atomic 1 GiB reservation total, including
+  direct session writes. Metadata, acknowledged progress, deadlines and terminal
+  receipts are guarded in PostgreSQL. Only metadata is stored there; temporary
+  bytes will be contained under the existing data directory.
+  The internal creation service replays identical intents, rejects changed
+  metadata/expired recovery, and obtains creation/deadline timestamps from the
+  database clock. Terminal status alone never releases uncleaned reservations.
+  Lifecycle routes, cleanup and chunk writes are the next slices.
 - A raw chunk is exactly 1 MiB or shorter. Test it through the existing nginx
   1 MiB general API envelope; multipart headers are not part of this chunk
   protocol. Do not broaden unrelated JSON route limits.

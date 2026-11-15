@@ -141,15 +141,30 @@ Dependencies: `legacy-disk-upload`.
 Core files: Prisma schema/new migration, new upload-session service,
 and `project/apps/api/test/upload-sessions.postgres.test.cjs`.
 
-- [ ] Enforce unique owner/client intents, immutable file/hash metadata,
+- [x] Enforce unique owner/client intents, immutable file/hash metadata,
   one unfinished session per owner, and atomic 1 GiB capacity reservation.
-- [ ] Record progress, terminal status, fixed expiry and stable completion ID
+- [x] Record progress, terminal status, fixed expiry and stable completion ID
   without storing workbook bytes or credentials in database records.
-- [ ] Replay identical creation safely; reject changed metadata and prove
+- [x] Replay identical creation safely; reject changed metadata and prove
   simultaneous creations cannot exceed owner/global limits.
 - Verify: API build; `node --test project\apps\api\test\upload-sessions.postgres.test.cjs` with
   `V6_UPLOAD_TEST_DATABASE_URL` pointing only to a guarded disposable database;
   test populated-schema migration without touching live account data.
+  Verified: all 6 PostgreSQL storage checks passed, including populated upgrade,
+  guarded down/up rehearsal, concurrent clients, exact 1 GiB/+1 rejection,
+  progress/receipt immutability, real transaction rollback and fresh-process replay.
+  Raising the database budget CHECK makes the direct-writer test fail.
+  All 29 focused legacy upload/settings/workbook regressions passed.
+  The full API run passed 155 tests, with 6 pre-existing opt-in skips and 2
+  unchanged fixture failures: system-info's missing settings provider and the
+  translation-concurrency source-loader import. These suites were not weakened.
+  All 18 storage/disk/admission tests also passed in the built Node 22 Linux
+  image using an isolated PostgreSQL namespace and read-only web-history fixture.
+  API compile/web type-check and both Docker builds passed. Local services
+  rebuilt and configured health checks passed; application/public system info
+  returned 200, unauthenticated legacy upload returned 401 and unexposed session
+  routes returned 404. All 93 migrations applied; live/built-in history matches
+  exactly. Empty live session/budget state and private tailnet-only Serve verified.
 
 #### 4. `session-lifecycle`: Expose owned session management
 

@@ -10,6 +10,7 @@ const { MulterModule } = require("@nestjs/platform-express");
 const { FileUploadModule } = require("../dist/modules/file-upload/file-upload.module");
 const { FileUploadController } = require("../dist/modules/file-upload/file-upload.controller");
 const { FileUploadService } = require("../dist/modules/file-upload/file-upload.service");
+const { UploadSessionService } = require("../dist/modules/file-upload/upload-session.service");
 const { DatabaseJobManagementService } = require("../dist/modules/job-management/database-job-management.service");
 const { JwtAuthGuard } = require("../dist/modules/authentication/jwt-auth.guard");
 
@@ -42,7 +43,8 @@ async function harness(t, uploadFile, createJob) {
           createJob(fileName, ownerId, await readFile(file.path)),
       } },
     ],
-  }).overrideProvider(FileUploadService).useValue(uploads)
+  }).overrideProvider(UploadSessionService).useValue({})
+    .overrideProvider(FileUploadService).useValue(uploads)
     .overrideGuard(JwtAuthGuard).useValue({
       canActivate(context) {
         const req = context.switchToHttp().getRequest();

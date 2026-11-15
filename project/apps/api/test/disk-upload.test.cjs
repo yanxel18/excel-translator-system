@@ -12,6 +12,7 @@ const JSZip = require("jszip");
 const { FileUploadModule } = require("../dist/modules/file-upload/file-upload.module");
 const { FileUploadController } = require("../dist/modules/file-upload/file-upload.controller");
 const { FileUploadService } = require("../dist/modules/file-upload/file-upload.service");
+const { UploadSessionService } = require("../dist/modules/file-upload/upload-session.service");
 const { TextExtractionService } = require("../dist/modules/text-extraction/text-extraction.service");
 const { DatabaseJobManagementService } = require("../dist/modules/job-management/database-job-management.service");
 const { JwtAuthGuard } = require("../dist/modules/authentication/jwt-auth.guard");
@@ -71,7 +72,8 @@ async function harness(t, limit = 50) {
       ...Reflect.getMetadata("providers", FileUploadModule),
       { provide: DatabaseJobManagementService, useValue: { createJob: jobs.createJob.bind(jobs) } },
     ],
-  }).overrideProvider(FileUploadService).useValue(uploads)
+  }).overrideProvider(UploadSessionService).useValue({})
+    .overrideProvider(FileUploadService).useValue(uploads)
     .overrideGuard(JwtAuthGuard).useValue({
       canActivate(context) {
         context.switchToHttp().getRequest().user = { userId: "disk-owner" };
@@ -247,6 +249,7 @@ const { MulterModule } = require("@nestjs/platform-express");
 const { FileUploadModule } = require("./dist/modules/file-upload/file-upload.module");
 const { FileUploadController } = require("./dist/modules/file-upload/file-upload.controller");
 const { FileUploadService } = require("./dist/modules/file-upload/file-upload.service");
+const { UploadSessionService } = require("./dist/modules/file-upload/upload-session.service");
 const { TextExtractionService } = require("./dist/modules/text-extraction/text-extraction.service");
 const { DatabaseJobManagementService } = require("./dist/modules/job-management/database-job-management.service");
 const { JwtAuthGuard } = require("./dist/modules/authentication/jwt-auth.guard");
@@ -259,7 +262,8 @@ const { JwtAuthGuard } = require("./dist/modules/authentication/jwt-auth.guard")
     controllers: [FileUploadController],
     providers: [...Reflect.getMetadata("providers", FileUploadModule),
       { provide: DatabaseJobManagementService, useValue: { createJob: async () => ({ id: "worker-job" }) } }],
-  }).overrideProvider(FileUploadService).useValue(uploads)
+  }).overrideProvider(UploadSessionService).useValue({})
+    .overrideProvider(FileUploadService).useValue(uploads)
     .overrideGuard(JwtAuthGuard).useValue({ canActivate(context) {
       context.switchToHttp().getRequest().user = { userId: "worker-owner" };
       return true;
