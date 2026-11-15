@@ -12,7 +12,7 @@ interpretation when adding the 200 MB ceiling.
 | Workspace file selection | Uses `maxUploadSizeMb` from system info; defaults to 50. Checks extension and file bytes, not multipart bytes. |
 | Web nginx `/api/upload` | 51 MiB request-body ceiling, allowing a 50 MiB file plus multipart headers. Other API routes retain nginx's default 1 MiB body ceiling. |
 | Tailscale Serve | Proxies the same web nginx at port 80; does not bypass the upload location or require Funnel. |
-| Nest upload controller/module | Both set Multer's file ceiling to 50 MiB, one file, in-memory storage. Authentication precedes the file interceptor. |
+| Nest upload controller/module | The admitted parser/module set a 50 MiB file ceiling, one file, in-memory storage. Authentication precedes admission and parsing; only one upload receive/validation/job creation may run. |
 | Upload service | Reads the persisted administrator limit, validates extension/size, opens the archive and verifies CRC32. |
 | Job creation | Writes the whole source buffer to disk, discovers sheets, creates the database job and queued notification. Removes the source on failure. |
 | Job details/settings | Read the whole source and reopen it to discover sheets. These operations are not controlled by the translation-start limit. |
@@ -70,10 +70,46 @@ The user subsequently confirmed chunked transfers with a retained browser file
 and automatic resume after refresh/browser restart for 24 hours, without normal
 file reselection. The [resumable-upload specification](../../tasks/plan-v6.md)
 and defaults were approved by the user on 2026-11-15. The
-[delivery plan](../../tasks/plan-v6.md#resumable-upload-delivery-plan) is awaiting
-review before implementation. The protocol adds durable upload-session progress, bounded
+[delivery plan](../../tasks/plan-v6.md#resumable-upload-delivery-plan) and task
+list are approved. The protocol adds durable upload-session progress, bounded
 chunk replay and browser-storage failure handling to the strategy below.
 Neither resumable uploads nor the 200 MB ceiling is enabled yet.
+
+### Completed admission prerequisite
+
+The existing multipart route now admits one upload at a time after its
+authentication guard and before parsing its body. Other uploads receive a
+Nest-compatible 409 with `code: UPLOAD_BUSY` and `Retry-After: 1`.
+The slot stays occupied through validation and job creation even if the client
+disconnects. Parser failures/aborted receives release it after settling, and
+shutdown rejects new work while draining the active upload.
+
+The project already depends on Multer 2.5.0, but Nest 10's built-in
+`FileInterceptor` resolves nested Multer 2.0.2. A real partial-request abort
+exposed that older parser leaving reception unsettled. The admission interceptor
+therefore invokes the already-installed API Multer parser directly using the
+existing module storage/options, then awaits the existing route handler.
+Multer error codes are mapped to Nest's canonical messages to preserve existing
+400/413 responses. No dependency or lockfile changed.
+
+The six focused tests use real Nest/Multer HTTP reception with delayed
+validation/job test doubles. They prove rejection before an incomplete request
+body, authentication ordering, abort/validation/job-error release, disconnection
+during validation/job creation, shutdown/idempotent release, and the exact
+50 MiB file boundary plus rejection of one extra byte. Existing settings and
+workbook preservation/validation tests also pass. Removing admission makes the
+overlap regression fail. These tests do not certify disk spooling or resumable
+uploads, which remain next steps.
+
+Framework sources: [Nest interceptors](https://docs.nestjs.com/interceptors#call-handler)
+and [RxJS lastValueFrom](https://rxjs.dev/api/index/function/lastValueFrom);
+the installed RxJS 7.8.2 source documents completion/error settlement. The
+upload handler is a finite JSON operation, not a streaming-response route.
+
+An additional existing `translation-concurrency.test.cjs` run failed to resolve
+its source-transpilation import of `application-settings.service`. Neither that
+test nor the job service changed in this slice; the failure is recorded rather
+than silently changing unrelated code or claiming that suite passed.
 
 Keep the current ceiling until the following safeguards and tests pass:
 

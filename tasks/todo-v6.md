@@ -68,7 +68,7 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
   and retention/recovery semantics in [the specification](plan-v6.md).
 - [x] Ground a small delivery plan in the existing upload/job paths, API client
   and authenticated app lifecycle; define dependencies and runtime checkpoints.
-- [ ] Review the delivery order, retry timing and persistent manual-pause
+- [x] Review the delivery order, retry timing and persistent manual-pause
   behavior in [the delivery plan](plan-v6.md#resumable-upload-delivery-plan).
 - [ ] Implement and verify retained-browser-file chunk uploads and automatic
   resume, including interrupted acknowledgments, exact limits, ownership,
@@ -78,9 +78,9 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 
 ### Resumable delivery tasks
 
-All tasks below remain pending delivery-plan approval. New test-file names
-are planned targets, not commands claimed to have passed. API tests use the
-existing `node --test` runner against built API code; browser tests use the
+The delivery plan and task list are approved. Unchecked tasks and their new
+test-file names remain planned targets, not commands claimed to have passed.
+API tests use the existing `node --test` runner against built API code; browser tests use the
 existing Playwright runner. Each task includes the contribution requirements
 in the delivery plan.
 
@@ -90,13 +90,23 @@ Dependencies: None after plan approval.
 Core files: new upload admission service/interceptor, upload controller/module,
 and `project/apps/api/test/upload-admission.test.cjs`.
 
-- [ ] Acquire one shared upload slot after authentication but before Multer
+- [x] Acquire one shared upload slot after authentication but before Multer
   reads the body; return `UPLOAD_BUSY`/409 with `Retry-After` for excess work.
-- [ ] Release only after receive/validation/job creation settles; aborts,
+- [x] Release only after receive/validation/job creation settles; aborts,
   exceptions and shutdown cannot leak or prematurely release the slot.
-- [ ] Preserve existing 50 MiB uploads, configured limits and translation slots.
+- [x] Preserve existing 50 MiB uploads, configured limits and translation slots.
 - Verify: API build; `node --test project\apps\api\test\upload-admission.test.cjs`;
   real concurrent/aborted HTTP receives, including unauthorized requests.
+  Implemented with the existing API Multer 2.5 parser: Nest's built-in interceptor
+  resolves older nested Multer 2.0.2, which did not settle an aborted receive.
+  Six admission/abort/error/shutdown/boundary tests pass, including exact 50 MiB
+  and one-extra-byte cases. The overlap test fails with admission disabled.
+  Final admission/settings/workbook regression run: 23 tests passed; API compile
+  and web type-check passed. Local Compose rebuild succeeded, services are
+  running, the application returned HTTP 200 and unauthorized upload HTTP 401.
+  All 91 migrations applied; the new live/built-in history entries match.
+  Private tailnet-only Serve remains intact. The unrelated concurrency test's
+  import-loader failure remains documented in the upload safety notes.
 
 #### 2. `legacy-disk-upload`: Receive legacy uploads on disk
 

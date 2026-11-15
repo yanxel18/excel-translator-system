@@ -7,6 +7,8 @@ import { JobManagementModule } from "../job-management/job-management.module";
 import { TextExtractionModule } from "../text-extraction/text-extraction.module";
 import { AuthenticationModule } from "../authentication/authentication.module";
 import { ApplicationSettingsModule } from "../application-settings/application-settings.module";
+import { UploadAdmissionService } from "./upload-admission.service";
+import { UploadAdmissionInterceptor } from "./upload-admission.interceptor";
 
 @Module({
   imports: [
@@ -20,7 +22,11 @@ import { ApplicationSettingsModule } from "../application-settings/application-s
     }),
   ],
   controllers: [FileUploadController],
-  providers: [FileUploadService],
-  exports: [FileUploadService],
+  providers: [
+    FileUploadService,
+    UploadAdmissionService,
+    UploadAdmissionInterceptor,
+  ],
+  exports: [FileUploadService, UploadAdmissionService],
 })
 export class FileUploadModule {}
