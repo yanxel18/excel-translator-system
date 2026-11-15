@@ -19,6 +19,16 @@ import {
 import { hashPassword, verifyPassword } from "../authentication/passwords";
 import { resolveKeycloakSettings } from "../authentication/keycloak-verifier.service";
 import { PrismaService } from "../persistence/prisma.service";
+import { baseAcronym } from "../base-management/base-validation";
+
+type VersionedUserSource = {
+  id: string;
+  username: string;
+  fullName?: string | null;
+  email: string | null;
+  enabled: boolean;
+  base: { code: string } | null;
+};
 
 const userSelect = {
   id: true,
@@ -50,6 +60,49 @@ export class AdminUsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(value: unknown, actorId: string) {
+    return this.createAccount(value, actorId);
+  }
+
+  async createV2(value: unknown, actorId: string) {
+    const input = strictObject(value, ["username", "fullName", "email", "baseAcronym", "password"]);
+    const { baseAcronym: acronym, ...fields } = input;
+    this.requiredFullName(input.fullName);
+    return this.toV2(await this.createAccount(fields, actorId, baseAcronym(acronym)));
+  }
+
+  async getV2(id: unknown) {
+    return this.toV2(await this.get(id));
+  }
+
+  async updateV2(id: unknown, value: unknown, actorId: string) {
+    const input = strictObject(value, ["username", "fullName", "email", "baseAcronym", "enabled"]);
+    if (!Object.keys(input).length)
+      throw new BadRequestException("At least one user field is required.");
+    if ("fullName" in input) this.requiredFullName(input.fullName);
+    const { baseAcronym: acronym, ...fields } = input;
+    const code = "baseAcronym" in input && acronym !== null ? baseAcronym(acronym) : undefined;
+    if ("baseAcronym" in input) fields.baseId = null;
+    return this.toV2(await this.updateAccount(id, fields, actorId, code));
+  }
+
+  private requiredFullName(value: unknown): string {
+    const name = nullableText(value, "Full name", 50);
+    if (!name) throw new BadRequestException("Full name is required.");
+    return name;
+  }
+
+  private toV2(user: VersionedUserSource) {
+    return {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName ?? null,
+      email: user.email,
+      baseAcronym: user.base?.code ?? null,
+      enabled: user.enabled,
+    };
+  }
+
+  private async createAccount(value: unknown, actorId: string, code?: string) {
     const input = strictObject(value, [
       "gid",
       "username",
@@ -71,7 +124,7 @@ export class AdminUsersService {
     if (!gid && !fullName)
       throw new BadRequestException("Full name is required.");
     const email = requiredEmail(input.email);
-    const baseId = uuid(input.baseId);
+    const requestedBaseId = code === undefined ? uuid(input.baseId) : undefined;
     const password = input.password;
     if (
       typeof password !== "string" ||
@@ -92,13 +145,12 @@ export class AdminUsersService {
         async (client) => {
           // The case-insensitive GID database constraint is required to enforce this check under concurrency.
           const tx = client as any;
-          if (
-            !(await tx.base.findUnique({
-              where: { id: baseId },
-              select: { id: true },
-            }))
-          )
-            throw new BadRequestException("Choose an existing Base.");
+          const selectedBase = await client.base.findUnique({
+            where: code === undefined ? { id: requestedBaseId } : { code },
+            select: { id: true },
+          });
+          if (!selectedBase) throw new BadRequestException("Choose an existing Base.");
+          const baseId = selectedBase.id;
           if (
             await tx.user.findFirst({
               where: {
@@ -201,6 +253,10 @@ export class AdminUsersService {
   }
 
   async update(id: unknown, value: unknown, actorId: string) {
+    return this.updateAccount(id, value, actorId);
+  }
+
+  private async updateAccount(id: unknown, value: unknown, actorId: string, baseCode?: string) {
     const userId = uuid(id);
     const input = strictObject(value, [
       "gid",
@@ -253,6 +309,11 @@ export class AdminUsersService {
             select: userDetailSelect,
           });
           if (!current) throw new NotFoundException("User not found.");
+          if (baseCode !== undefined) {
+            const base = await client.base.findUnique({ where: { code: baseCode }, select: { id: true } });
+            if (!base) throw new BadRequestException("Choose an existing Base.");
+            data.baseId = base.id;
+          }
 
           const configuredAdmins = configuredAdminNames();
           if (

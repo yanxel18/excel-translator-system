@@ -14,6 +14,62 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-upload-session-storage-v6",
+    title: "Persist safe upload recovery reservations",
+    details:
+      "The upload recovery foundation now saves immutable file hashes, progress, a fixed 24-hour deadline and a stable completion identifier. Repeated requests reuse the same intent; concurrent requests cannot create multiple unfinished sessions per account or exceed the shared 1 GB temporary reservation budget. Existing accounts, administrator limits and legacy uploads are preserved. Chunk transfer, automatic browser recovery and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T12:55:00.000Z",
+  },
+  {
+    id: "changelog-20261115-disk-upload-v6",
+    title: "Receive workbooks safely on private disk storage",
+    details:
+      "Workbook uploads now use private disk storage with the administrator's file-size limit enforced during reception. Validated files become jobs without retaining an in-memory receive buffer. Failed, oversized and interrupted temporary uploads are cleaned up, including after an API restart. Existing filenames, worksheet choices and the 50 MB ceiling are retained; automatic resumable uploads and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T12:27:42.000Z",
+  },
+  {
+    id: "changelog-20261115-upload-admission-v6",
+    title: "Bound workbook uploads and recover aborted receives",
+    details:
+      "Only one workbook upload is received, validated and prepared as a job at a time. Overlapping uploads receive an explicit retryable busy response. Aborted receives release capacity, while validation already running keeps its reservation until it finishes. The 50 MB ceiling and administrator settings are retained; chunked automatic recovery and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T12:08:55.000Z",
+  },
+  {
+    id: "changelog-20261115-resumable-upload-plan-v6",
+    title: "Approve resumable uploads and plan staged delivery",
+    details:
+      "The automatic 24-hour upload-recovery protocol is approved. A staged delivery plan now covers bounded disk reception, durable chunk progress, safe job completion, retained browser files and recovery controls. The delivery order awaits review; resumable uploads and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T11:46:00.000Z",
+  },
+  {
+    id: "changelog-20261115-resumable-upload-spec-v6",
+    title: "Specify automatic resumable workbook uploads",
+    details:
+      "The V6 upload specification now covers temporary browser file retention, chunked transfers and automatic recovery for 24 hours after refresh or browser restart. It defines retryable busy responses, ownership, expiry and storage-failure handling. The protocol awaits approval; resumable uploads and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T11:36:00.000Z",
+  },
+  {
+    id: "changelog-20261115-upload-proxy-v6",
+    title: "Allow supported workbook uploads through the web proxy",
+    details:
+      "The web proxy now accepts workbook uploads up to the current 50 MB file ceiling instead of rejecting requests above 1 MB. Administrator limits and archive safety checks remain unchanged. The safe 200 MB rollout strategy is documented; that higher ceiling is not enabled yet.",
+    publishedAt: "2026-11-15T11:08:00.000Z",
+  },
+  {
+    id: "changelog-20261115-user-acronym-ui-v6",
+    title: "Use factory acronyms when managing accounts",
+    details:
+      "Account creation, editing and base assignment now use the acronym-based API. Login usernames stay separate from full names, existing base selections remain visible, and local and provider-managed password controls are preserved.",
+    publishedAt: "2026-11-15T10:55:00.000Z",
+  },
+  {
+    id: "changelog-20261115-user-acronym-api-v6",
+    title: "Create and edit accounts using factory acronyms",
+    details:
+      "Administrators can create and edit accounts through the versioned API using a login username, separate full name, email and factory acronym. Existing login identities and UUID-based integrations remain compatible.",
+    publishedAt: "2026-11-15T10:40:00.000Z",
+  },
+  {
     id: "changelog-20261115-base-acronym-api-v6",
     title: "Manage factory bases by acronym through the API",
     details:

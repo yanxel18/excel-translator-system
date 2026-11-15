@@ -13,6 +13,7 @@ const { BaseController } = require("../dist/modules/base-management/base.control
 const { BaseV2Controller } = require("../dist/modules/base-management/base-v2.controller");
 const { AdminUsersService } = require("../dist/modules/admin-users/admin-users.service");
 const { AdminUsersController } = require("../dist/modules/admin-users/admin-users.controller");
+const { AdminUsersV2Controller } = require("../dist/modules/admin-users/admin-users-v2.controller");
 const { JwtAuthGuard } = require("../dist/modules/authentication/jwt-auth.guard");
 const { AdminAuthGuard } = require("../dist/modules/authentication/admin-auth.guard");
 const { KeycloakVerifierService } = require("../dist/modules/authentication/keycloak-verifier.service");
@@ -239,7 +240,7 @@ test("populated prior-schema upgrade, key reversal, identities and concurrent wr
     // Real HTTP boundary with the actual auth guards, services and PostgreSQL.
     const users = new AdminUsersService(prisma);
     const moduleRef = await Test.createTestingModule({
-      controllers: [BaseController, BaseV2Controller, AdminUsersController],
+      controllers: [BaseController, BaseV2Controller, AdminUsersController, AdminUsersV2Controller],
       providers: [
         JwtAuthGuard, AdminAuthGuard,
         { provide: BaseService, useValue: bases },
@@ -288,6 +289,40 @@ test("populated prior-schema upgrade, key reversal, identities and concurrent wr
     assert.equal(assigned.baseId, base.id);
     assert.equal(assigned.base.code, "V6ASSIGNED");
     assert.equal(assigned.base.name, base.name);
+    assert.equal((await request("/v2/admin/users", "POST", {}, normalToken)).status, 403);
+    assert.equal((await request("/v2/admin/users", "POST", {}, "")).status, 401);
+    const v2Input = { username: "jt0191340", fullName: "𠮷".repeat(50), email: "v6user@example.test", baseAcronym: "v6assigned", password: "v6-password-12345" };
+    assert.equal((await request("/v2/admin/users", "POST", { ...v2Input, fullName: "𠮷".repeat(51) })).status, 400);
+    assert.equal((await request("/v2/admin/users", "POST", { ...v2Input, fullName: null })).status, 400);
+    assert.equal((await request("/v2/admin/users", "POST", { ...v2Input, baseAcronym: "MISSING" })).status, 400);
+    const v2UserResponse = await request("/v2/admin/users", "POST", v2Input);
+    assert.equal(v2UserResponse.status, 201);
+    const v2User = await v2UserResponse.json();
+    assert.deepEqual(v2User, { id: v2User.id, username: v2Input.username, fullName: v2Input.fullName, email: v2Input.email, baseAcronym: "V6ASSIGNED", enabled: true });
+    assert.equal((await request("/v2/admin/users", "POST", v2Input)).status, 409);
+    assert.deepEqual(await (await request(`/v2/admin/users/${v2User.id}`)).json(), v2User);
+    assert.equal((await request(`/v2/admin/users/${v2User.id}`, "PATCH", {})).status, 400);
+    assert.equal((await request(`/v2/admin/users/${v2User.id}`, "PATCH", { fullName: null })).status, 400);
+    assert.equal((await request(`/v2/admin/users/${v2User.id}`, "PATCH", { gid: "legacy" })).status, 400);
+    assert.equal((await request(`/v2/admin/users/${v2User.id}`, "PATCH", { baseAcronym: "MISSING" })).status, 400);
+    const changedV2 = await request(`/v2/admin/users/${v2User.id}`, "PATCH", { username: "chosen-login", fullName: "山田 太郎", baseAcronym: null });
+    assert.equal(changedV2.status, 200);
+    assert.deepEqual(await changedV2.json(), { ...v2User, username: "chosen-login", fullName: "山田 太郎", baseAcronym: null });
+    const storedV2 = await prisma.user.findUnique({ where: { id: v2User.id }, include: { identities: true } });
+    assert.equal(storedV2.gid, null);
+    assert.equal(storedV2.baseId, null);
+    assert.equal(storedV2.identities.find((identity) => identity.provider === "LOCAL").subject, "chosen-login");
+    assert.equal(storedV2.sessionVersion, 1);
+    assert.equal((await auth.validateUser("jt0191340", v2Input.password)), null);
+    assert.equal((await auth.validateUser("chosen-login", v2Input.password)).userId, v2User.id);
+    const reassignedV2 = await request(`/v2/admin/users/${v2User.id}`, "PATCH", { baseAcronym: "v6assigned" });
+    assert.equal(reassignedV2.status, 200);
+    assert.equal((await reassignedV2.json()).baseAcronym, "V6ASSIGNED");
+    assert.equal((await prisma.user.findUnique({ where: { id: v2User.id } })).baseId, base.id);
+    const legacyV2 = await (await request(`/v2/admin/users/${userId}`)).json();
+    assert.equal(legacyV2.id, userId);
+    assert.equal(legacyV2.username, assigned.username);
+    assert.equal(legacyV2.baseAcronym, "V6ASSIGNED");
     const apiRename = await request(`/admin/bases/${base.id}`, "PATCH", { code: "v6http" });
     assert.equal(apiRename.status, 200);
     assert.equal((await apiRename.json()).id, base.id);
@@ -321,7 +356,7 @@ test("populated prior-schema upgrade, key reversal, identities and concurrent wr
     assert.equal(renamed.code, "V6NEW");
     assert.equal(renamed.id, base.id);
     assert.deepEqual((await snapshot()).users, assignedBefore);
-    assert.equal((await prisma.base.findUnique({ where: { code: "V6NEW" }, include: { users: true } })).users.length, 3);
+    assert.equal((await prisma.base.findUnique({ where: { code: "V6NEW" }, include: { users: true } })).users.length, assignedBefore.filter((user) => user.baseId === base.id).length);
     await assertLogin();
     await assert.rejects(bases.update(base.id, { code: "JTY" }, actorId), (error) => error.getStatus() === 409);
     await assert.rejects(bases.remove(base.id, actorId), (error) => error.getStatus() === 409);

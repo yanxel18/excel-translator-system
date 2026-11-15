@@ -404,7 +404,7 @@ export default function SystemSettings({
           username: username.trim(),
           fullName: fullName.trim(),
           email: email.trim(),
-          baseId: userBase,
+          baseAcronym: userBase,
           password,
         });
       if (dialog === "assign" && assigning)
@@ -428,7 +428,7 @@ export default function SystemSettings({
       setSaving(false);
     }
   };
-  const selectedBaseIds = [baseId, userBase].filter(Boolean);
+  const selectedBaseIds = [baseId].filter(Boolean);
   const toggleAccess = async (user: User) => {
     if (updatingUser) return;
     setUpdatingUser(user.id);
@@ -450,7 +450,7 @@ export default function SystemSettings({
     ...new Map(
       [
         ...bases,
-        ...knownBases.filter((base) => selectedBaseIds.includes(base.id)),
+        ...knownBases.filter((base) => selectedBaseIds.includes(base.id) || base.code === userBase),
       ].map((base) => [base.id, base]),
     ).values(),
   ];
@@ -461,6 +461,12 @@ export default function SystemSettings({
   for (const id of selectedBaseIds)
     if (!baseOptions.some((option) => option.value === id))
       baseOptions.push({ value: id, label: id });
+  const acronymOptions = optionBases.map((base) => ({
+    value: base.code,
+    label: base.code,
+  }));
+  if (userBase && !acronymOptions.some((option) => option.value === userBase))
+    acronymOptions.push({ value: userBase, label: userBase });
   const column = (key: string, title: string) => (
     <Table.Th
       aria-sort={
@@ -722,7 +728,7 @@ export default function SystemSettings({
                                       leftSection={<Building2 size={14} aria-hidden="true" />}
                                       onClick={() => {
                                         setAssigning(u);
-                                        setUserBase(u.baseId || "");
+                                        setUserBase(u.base?.code || "");
                                         setError("");
                                         setDialog("assign");
                                       }}
@@ -892,7 +898,7 @@ export default function SystemSettings({
                   required
                   searchable
                   label={t("Base")}
-                  data={baseOptions}
+                  data={acronymOptions}
                   value={userBase || null}
                   onSearchChange={setBaseSearch}
                   onChange={(v) => setUserBase(v || "")}
@@ -918,7 +924,7 @@ export default function SystemSettings({
                   required
                   searchable
                   label={t("Base")}
-                  data={baseOptions}
+                  data={acronymOptions}
                   value={userBase || null}
                   onSearchChange={setBaseSearch}
                   onChange={(v) => setUserBase(v || "")}
