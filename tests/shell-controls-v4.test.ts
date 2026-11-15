@@ -33,7 +33,7 @@ test("rail avatar opens account details and actions without a duplicate settings
   const account = page.getByRole("button", { name: "Account", exact: true });
   await expect(account).toBeVisible();
   await expect(page.locator(".navigation-rail").locator(".shell-account-trigger")).toBeVisible();
-  await expect(account).toContainText("AE");
+  await expect(account.locator(".shell-gid-identicon svg")).toBeVisible();
   await expect(page.locator(".navigation-rail .lucide-layout-dashboard")).toBeVisible();
   await account.focus();
   await page.keyboard.press("Enter");
@@ -53,7 +53,7 @@ test("mobile rail, theme, profile failure and navigation remain usable", async (
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("button", { name: "Workspace", exact: true })
-    .locator(".mantine-NavLink-section")).toHaveCSS("border-radius", "50%");
+    .locator(".mantine-NavLink-section")).toHaveCSS("border-radius", "0px");
   const account = page.getByRole("button", { name: "Account", exact: true });
   await expect(account).toBeVisible();
   await account.click();
@@ -73,6 +73,8 @@ test("mobile rail, theme, profile failure and navigation remain usable", async (
 test("single globe changes and persists all three languages", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await openWorkspace(page);
+  const toggle = page.locator(".mantine-Burger-root");
+  await toggle.click();
   const globe = page.locator(".shell-language-button");
   await expect(globe).toHaveCount(1);
   for (const [label, locale] of [["日本語", "ja"], ["中文", "zh"], ["English", "en"]] as const) {
@@ -80,6 +82,7 @@ test("single globe changes and persists all three languages", async ({ page }) =
     await page.keyboard.press("Enter");
     await page.getByRole("menuitem", { name: label }).click();
     await page.reload();
+    await toggle.click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("excel-translator-locale"))).toBe(locale);
     await expect(globe).toBeVisible();
   }

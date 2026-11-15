@@ -23,10 +23,12 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Search,
   Download,
   Eye,
   Languages,
   Trash2,
+  X,
 } from "lucide-react";
 import ApiService, {
   type HistoryQuery,
@@ -302,9 +304,25 @@ export default function HistoryPage({
 
       <Paper withBorder p="md" radius="md">
         <TextInput
+          className="history-search-field"
           type="search"
           label={t("Search workbooks")}
           placeholder={t("Search by Excel filename")}
+          leftSection={<Search size={18} />}
+          rightSection={
+            searchValue ? (
+              <ActionIcon
+                aria-label={t("Clear search")}
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={() => setSearchValue("")}
+              >
+                <X size={18} />
+              </ActionIcon>
+            ) : null
+          }
+          rightSectionPointerEvents="all"
           maxLength={200}
           value={searchValue}
           onChange={(event) => setSearchValue(event.currentTarget.value)}

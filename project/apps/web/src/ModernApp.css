@@ -1,4 +1,4 @@
-/* V4 surface system. Keep rail/account layout in the shell-owned App.css.
+/* Shared surface system. Keep rail/account layout in the shell-owned App.css.
    Scoped selectors deliberately survive either stylesheet import order. */
 :root {
   --visual-canvas: light-dark(#f0f3f6, #111b29);
@@ -8,7 +8,7 @@
   --visual-muted: light-dark(#526274, #afbed0);
   --shell-control-hover: light-dark(#edf4fa, #263b51);
   --shell-control-active: light-dark(#1d5664, #2d6177);
-  --visual-radius: 1rem;
+  --visual-radius: 0.75rem;
   --visual-focus: light-dark(#1864ab, #74c0fc);
 }
 .main-content,
@@ -28,9 +28,17 @@
   background: var(--visual-canvas);
 }
 .mantine-AppShell-root .app-header {
-  background: var(--visual-canvas);
+  background: var(--visual-surface);
   border-bottom: 1px solid var(--visual-border);
   backdrop-filter: none;
+}
+.mantine-AppShell-root .mantine-AppShell-navbar.navigation-rail {
+  width: 232px;
+  align-items: stretch;
+  gap: var(--mantine-spacing-xs);
+  padding: 1.25rem 0.75rem 0.75rem;
+  border-right: 1px solid var(--visual-border);
+  background: var(--visual-inset);
 }
 .app-header .app-header-content {
   padding-inline: 1.5rem;
@@ -43,13 +51,10 @@
   height: 44px;
 }
 .mantine-AppShell-root .navigation-rail .mantine-NavLink-root,
-.mantine-AppShell-root .shell-profile-controls > .mantine-ActionIcon-root,
-.mantine-AppShell-root .shell-account-trigger,
-.mantine-AppShell-root .shell-language-button,
 .mantine-AppShell-root .app-header .app-notification-trigger,
 .mantine-AppShell-root .app-header .mantine-Burger-root {
   border: 1px solid var(--visual-border);
-  border-radius: 50%;
+  border-radius: 0.5rem;
   background: var(--visual-surface);
   color: var(--visual-muted);
   box-shadow: none;
@@ -62,11 +67,32 @@
     color 140ms ease;
 }
 .mantine-AppShell-root .navigation-rail .mantine-NavLink-root {
-  width: 44px;
+  width: 100%;
   min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  border-color: transparent;
+  background: transparent;
+  text-align: start;
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-body {
+  display: block;
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-section {
+  margin-inline-end: 0.75rem;
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-label {
+  font-weight: 550;
+}
+.mantine-AppShell-root .navigation-rail .rail-caption {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  letter-spacing: 0.08em;
+}
+.mantine-AppShell-root .navigation-rail .nav-note {
+  display: none;
 }
 .mantine-AppShell-root .navigation-rail .mantine-NavLink-root:not([data-active]):hover,
-.mantine-AppShell-root .shell-profile-controls > .mantine-ActionIcon-root:hover,
+.mantine-AppShell-root .shell-profile-actions > .mantine-ActionIcon-root:hover,
 .mantine-AppShell-root .shell-account-trigger:hover,
 .mantine-AppShell-root .shell-language-button:hover,
 .mantine-AppShell-root .app-header .app-notification-trigger:hover,
@@ -77,10 +103,106 @@
 }
 .mantine-AppShell-root .navigation-rail .mantine-NavLink-root[data-active],
 .mantine-AppShell-root .navigation-rail .mantine-NavLink-root[data-active]:hover {
-  border-color: transparent;
-  background: var(--shell-control-active);
-  color: #fff;
+  border-color: var(--visual-border);
+  background: var(--shell-control-hover);
+  color: var(--visual-focus);
+  box-shadow: inset 3px 0 var(--visual-focus);
+}
+.mantine-AppShell-root .shell-profile-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.625rem;
+  width: 100%;
+  margin-top: auto;
+  padding: 0.75rem 0 calc(0.25rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--visual-border);
+}
+.mantine-AppShell-root .shell-account-wrap {
+  width: 100%;
+  min-width: 0;
+}
+.mantine-AppShell-root .shell-account-trigger {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 64px;
+  height: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--visual-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--visual-surface);
+  color: var(--mantine-color-text);
+  text-align: start;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+.mantine-AppShell-root .shell-account-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+.mantine-AppShell-root .shell-account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mantine-AppShell-root .shell-account-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mantine-AppShell-root .shell-profile-actions {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 0.5rem;
+}
+.mantine-AppShell-root .shell-profile-actions > .mantine-ActionIcon-root,
+.mantine-AppShell-root .shell-language-button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--visual-border);
+  border-radius: 0.5rem;
+  background: var(--visual-surface);
+  color: var(--visual-muted);
   box-shadow: none;
+  font-family: var(--mantine-font-family);
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+.mantine-AppShell-root .shell-language-control {
+  position: static;
+  z-index: auto;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+.mantine-AppShell-root .shell-language-button {
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  padding-inline: 0.625rem;
+}
+.mantine-AppShell-root .shell-profile-actions > .mantine-ActionIcon-root:hover,
+.mantine-AppShell-root .shell-account-trigger:hover,
+.mantine-AppShell-root .shell-language-button:hover {
+  border-color: var(--visual-focus);
+  background: var(--shell-control-hover);
+  color: var(--visual-focus);
+}
+.mantine-AppShell-root .shell-profile-actions > .mantine-ActionIcon-root[aria-pressed="true"] {
+  border-color: var(--visual-focus);
+  color: var(--visual-focus);
+}
+.mantine-AppShell-root .navigation-rail .mantine-NavLink-root[data-active] .mantine-NavLink-section {
+  color: var(--visual-focus);
 }
 .mantine-AppShell-root .shell-account-trigger .mantine-Avatar-root {
   border: 1px solid var(--visual-border);
@@ -89,8 +211,11 @@
   font-weight: 600;
 }
 .mantine-AppShell-root .shell-account-chevron {
-  border: 1px solid var(--visual-border);
-  background: var(--visual-surface);
+  position: static;
+  justify-self: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--visual-muted);
 }
 .mantine-AppShell-root :is(
@@ -115,7 +240,7 @@
   overscroll-behavior-y: contain;
   scroll-padding-block: 1rem;
   padding-top: 1.5rem;
-  padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
 }
 .mantine-AppShell-root .main-content > * {
   width: min(100%, 1380px);
@@ -130,18 +255,12 @@
   overflow: hidden;
   padding-bottom: 0;
 }
-.mantine-AppShell-root .shell-language-control {
-  position: fixed;
-  z-index: 210;
-  right: 12px;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-}
 .mantine-AppShell-root .app-footer {
   flex: 0 0 auto;
   margin-top: 0;
   border-color: var(--visual-border);
   color: var(--visual-muted);
-  padding: 1rem 5.25rem calc(1rem + env(safe-area-inset-bottom, 0px)) 1rem;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
   line-height: 1.6;
 }
 .main-content .mantine-Paper-root.mantine-Paper-root {
@@ -180,14 +299,73 @@
   border-color: var(--visual-border);
   background: var(--visual-surface);
 }
+.main-content .mantine-Button-root {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+.main-content .mantine-Button-root:not(:disabled):hover {
+  border-color: var(--visual-focus);
+}
+.main-content .mantine-Input-input,
+.main-content .mantine-Textarea-input,
+.main-content .mantine-Select-input {
+  border-color: var(--visual-border);
+  background: var(--visual-surface);
+}
+.main-content .mantine-Input-input:focus,
+.main-content .mantine-Textarea-input:focus,
+.main-content .mantine-Select-input:focus {
+  border-color: var(--visual-focus);
+}
+.main-content .mantine-Table-thead {
+  background: var(--visual-inset);
+}
+.main-content .mantine-Table-th {
+  border-bottom-color: var(--visual-border);
+  color: var(--visual-muted);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+.main-content .mantine-Table-tbody tr:hover {
+  background: var(--visual-inset);
+}
+.main-content .mantine-Tabs-tab {
+  min-height: 44px;
+  color: var(--visual-muted);
+}
+.main-content .mantine-Tabs-tab[data-active] {
+  color: var(--visual-focus);
+}
+.main-content .mantine-Tabs-list {
+  border-bottom-color: var(--visual-border);
+}
+.main-content .mantine-Alert-root {
+  border-color: var(--visual-border);
+  border-radius: var(--mantine-radius-md);
+}
+.main-content :is(h1, h2, h3) {
+  color: light-dark(#1d2b39, #eef4fa);
+}
+.main-content :is(.workspace-heading, .vocabulary-heading, .changelog-heading) h1 {
+  letter-spacing: -0.035em;
+}
+.main-content .profile-cover {
+  background: light-dark(#dceaf1, #22394a);
+}
+.main-content .profile-avatar {
+  border-color: var(--visual-surface);
+}
 .main-content .mantine-ActionIcon-root {
-  border-radius: 50%;
+  border-radius: 0.5rem;
 }
 .app-header .app-home-button:focus-visible,
 .mantine-AppShell-root .app-header .app-notification-trigger:focus-visible,
 .mantine-AppShell-root .app-header .mantine-Burger-root:focus-visible,
 .mantine-AppShell-root .navigation-rail .mantine-NavLink-root:focus-visible,
-.mantine-AppShell-root .shell-profile-controls > .mantine-ActionIcon-root:focus-visible,
+.mantine-AppShell-root .shell-profile-actions > .mantine-ActionIcon-root:focus-visible,
 .mantine-AppShell-root .shell-account-trigger:focus-visible,
 .mantine-AppShell-root .shell-language-button:focus-visible,
 .main-content :is(button, a, input, textarea, select):focus-visible {
@@ -198,9 +376,33 @@
   scroll-margin-block: 0.5rem;
 }
 @media (max-width: 47.99em) {
+  .mantine-AppShell-root .mantine-AppShell-navbar.navigation-rail {
+    width: 240px;
+    padding: 1rem !important;
+    border-right: 1px solid var(--visual-border);
+    background: var(--visual-surface);
+  }
   .mantine-AppShell-root .navigation-rail .mantine-NavLink-root {
     width: 100%;
-    border-radius: 8px;
+    border-radius: 0.5rem;
+  }
+  .mantine-AppShell-root .navigation-rail .mantine-NavLink-body {
+    display: block;
+  }
+  .mantine-AppShell-root .navigation-rail .mantine-NavLink-section {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    margin-inline-end: 0.75rem;
+    border-radius: 0;
+    background: transparent;
+  }
+  .mantine-AppShell-root .navigation-rail .mantine-NavLink-root[data-active] {
+    border-color: var(--visual-border);
+    background: var(--shell-control-hover);
+    color: var(--visual-focus);
+    box-shadow: inset 3px 0 var(--visual-focus);
   }
 }
 @media (max-width: 36em) {
@@ -211,7 +413,7 @@
     padding-inline: 0;
   }
   .mantine-AppShell-root .app-footer {
-    padding-inline-end: 4.5rem;
+    padding-inline-end: 1rem;
   }
   .main-content .upload-panel.upload-dropzone {
     padding: 1.25rem 1rem;

@@ -14,6 +14,34 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-refine-search-shell-notifications",
+    title: "Make search and app controls easier to use",
+    details:
+      "Workbook search now has a clearable search control, notification previews take less space with more legible icons, and the app uses Poppins with more distinct light and dark shell surfaces.",
+    publishedAt: "2026-11-15T06:00:00.000Z",
+  },
+  {
+    id: "changelog-20261115-sidebar-account-identity",
+    title: "Make account controls easy to identify",
+    details:
+      "The sidebar now shows your name and email beside a stable GID-based brick avatar, with language and theme controls grouped together below your account.",
+    publishedAt: "2026-11-15T05:00:00.000Z",
+  },
+  {
+    id: "changelog-20261115-modernize-web-interface",
+    title: "Bring a consistent look to the full app",
+    details:
+      "The workspace, history, vocabulary, profile, and notifications now share labeled navigation, clearer surfaces, and consistent controls across desktop and mobile.",
+    publishedAt: "2026-11-15T04:50:00.000Z",
+  },
+  {
+    id: "changelog-20261115-refresh-dev-stack-after-fixes",
+    title: "Refresh the development app after fixes",
+    details:
+      "Application fixes and runtime configuration changes now trigger a Docker Compose rebuild and startup of the local development stack, so the latest update is ready to review.",
+    publishedAt: "2026-11-15T04:25:00.000Z",
+  },
+  {
     id: "changelog-20261115-modern-system-settings",
     title: "Modernize System Settings",
     details:

@@ -221,6 +221,7 @@ export class ProductSurfacesService {
       where: { id: ownerId },
       select: {
         id: true,
+        gid: true,
         username: true,
         email: true,
         fullName: true,
@@ -252,6 +253,7 @@ export class ProductSurfacesService {
         data,
         select: {
           id: true,
+          gid: true,
           username: true,
           email: true,
           fullName: true,

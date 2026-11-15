@@ -7,6 +7,7 @@ const locales = [
   {
     code: "en",
     searchLabel: "Search workbooks",
+    clearLabel: "Clear search",
     fileName: "File name",
     fileSize: "File size",
     status: "Status",
@@ -19,6 +20,7 @@ const locales = [
   {
     code: "ja",
     searchLabel: "ワークブックを検索",
+    clearLabel: "検索をクリア",
     fileName: "ファイル名",
     fileSize: "ファイルサイズ",
     status: "状態",
@@ -31,6 +33,7 @@ const locales = [
   {
     code: "zh",
     searchLabel: "搜索工作簿",
+    clearLabel: "清除搜索",
     fileName: "文件名",
     fileSize: "文件大小",
     status: "状态",
@@ -90,6 +93,21 @@ for (const locale of locales) {
     const search = page.getByRole("searchbox", { name: locale.searchLabel });
     await expect(page.getByText(locale.searchLabel, { exact: true })).toBeVisible();
     await expect(search).toHaveAttribute("placeholder", locale.placeholder);
+    const searchIcon = page.locator(
+      ".history-search-field .mantine-Input-section[data-position='left'] svg",
+    );
+    await expect(searchIcon).toBeVisible();
+    await expect(searchIcon).toHaveCSS("width", "18px");
+    const clearSearch = page.getByRole("button", {
+      name: locale.clearLabel,
+      exact: true,
+    });
+    await expect(clearSearch).toHaveCount(0);
+    await search.fill("quarterly");
+    await expect(clearSearch).toBeVisible();
+    await clearSearch.click();
+    await expect(search).toHaveValue("");
+    await expect(clearSearch).toHaveCount(0);
     await expect(page.getByRole("table")).toBeVisible();
     await expect(
       page.locator('[aria-label*="breadcrumb" i]'),

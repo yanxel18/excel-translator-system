@@ -104,7 +104,7 @@ export default function AppHeader({
             opened={opened}
             onChange={setOpened}
             position="bottom-end"
-            width={360}
+            width={344}
             shadow="md"
             trapFocus
             returnFocus={restoreFocus}
@@ -130,7 +130,7 @@ export default function AppHeader({
                     setOpened(!opened);
                   }}
                 >
-                  <Bell size={19} />
+                  <Bell size={22} />
                 </ActionIcon>
               </Indicator>
             </Popover.Target>
