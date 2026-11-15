@@ -288,7 +288,7 @@ export default function HistoryPage({
     total === 0 && !queryText.trim() && !sourceLanguage && !targetLanguage;
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" className="history-page">
       <Group justify="space-between">
         <div>
           <Text component="h1" fz="h2" fw={700}>
@@ -346,6 +346,7 @@ export default function HistoryPage({
         </Paper>
       ) : (
         <Paper
+          className="history-table-card"
           withBorder
           radius="lg"
           shadow="sm"
@@ -359,9 +360,8 @@ export default function HistoryPage({
               </Text>
             </Box>
           </Group>
-          <ScrollArea.Autosize
+          <ScrollArea
             className="history-table-scroll"
-            mah="min(60vh, 36rem)"
             viewportProps={{
               role: "region",
               "aria-label": t("Translation history"),
@@ -495,7 +495,7 @@ export default function HistoryPage({
                 ))}
               </Table.Tbody>
             </Table>
-          </ScrollArea.Autosize>
+          </ScrollArea>
         </Paper>
       )}
 

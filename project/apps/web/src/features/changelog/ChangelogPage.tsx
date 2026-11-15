@@ -21,6 +21,20 @@ const initialHistory: ChangelogEntry[] = [
     publishedAt: "2026-11-15T04:00:00.000Z",
   },
   {
+    id: "changelog-20261114-workspace-scroll-area",
+    title: "Move the workspace scrollbar to the app edge",
+    details:
+      "Workspace content stays centered while its scroll area spans the app, and translation history keeps its own table scroll area.",
+    publishedAt: "2026-11-14T03:21:00.000Z",
+  },
+  {
+    id: "changelog-20261113-history-single-scroll",
+    title: "Simplify history scrolling",
+    details:
+      "Translation history now uses one vertical scroll area, making rows and pagination easier to navigate.",
+    publishedAt: "2026-11-13T14:15:00.000Z",
+  },
+  {
     id: "changelog-20261113-v5-verification",
     title: "Verify version 5 workflows",
     details:

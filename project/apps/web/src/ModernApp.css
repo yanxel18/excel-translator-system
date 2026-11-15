@@ -107,11 +107,19 @@
   --mantine-color-dimmed: var(--visual-muted);
   flex: 1 1 0%;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   scroll-padding-block: 1rem;
   padding-top: 1.5rem;
   padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+}
+.mantine-AppShell-root .main-content > * {
+  width: min(100%, 1380px);
+  margin-inline: auto;
 }
 .mantine-AppShell-root .mantine-AppShell-main {
   display: grid;

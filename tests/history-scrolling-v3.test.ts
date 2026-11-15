@@ -5,7 +5,7 @@ const web = process.env.WEB_BASE_PATH || "/excel-convert/";
 
 test("history scrolls its table independently of the search controls", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.addInitScript(() =>
     localStorage.setItem("excel-translator-token", "history-test-session"),
   );
@@ -49,6 +49,28 @@ test("history scrolls its table independently of the search controls", async ({
   await expect(search.locator("..").locator("..")).not.toHaveCSS("position", "sticky");
   const viewport = page.getByRole("region", { name: "Translation history" });
   await expect(viewport).toBeVisible();
+  for (const { width, height } of [
+    { width: 1440, height: 768 },
+    { width: 1024, height: 600 },
+    { width: 320, height: 600 },
+    { width: 320, height: 768 },
+  ]) {
+    await page.setViewportSize({ width, height });
+    await expect.poll(() =>
+      page.locator(".main-content").evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect.poll(() =>
+      viewport.evaluate((element) => element.scrollHeight > element.clientHeight),
+    ).toBe(true);
+    await expect(page.getByRole("textbox", { name: "Rows per page" })).toBeInViewport();
+    await page.screenshot({
+      path: testInfo.outputPath(`history-${width}x${height}.png`),
+      animations: "disabled",
+    });
+  }
+  await page.setViewportSize({ width: 1024, height: 768 });
   await expect.poll(() =>
     viewport.evaluate((element) => element.scrollHeight > element.clientHeight),
   ).toBe(true);
@@ -93,4 +115,51 @@ test("history scrolls its table independently of the search controls", async ({
   await lastFile.scrollIntoViewIfNeeded();
   await expect(lastFile).toBeVisible();
   await expect(page.getByLabel("History pages")).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 400 });
+  await expect.poll(() =>
+    page.locator(".main-content").evaluate(
+      (element) => element.scrollHeight > element.clientHeight,
+    ),
+  ).toBe(true);
+  await expect.poll(() =>
+    viewport.evaluate((element) => element.scrollHeight - element.clientHeight),
+  ).toBeLessThanOrEqual(1);
+  const content = page.locator(".main-content");
+  await content.evaluate((element) => {
+    const header = element.querySelector(".history-table-scroll thead th")!;
+    element.scrollTop +=
+      header.getBoundingClientRect().top - element.getBoundingClientRect().top + 180;
+  });
+  const shortHeader = await firstHeader.boundingBox();
+  await content.evaluate((element) => { element.scrollTop += 120; });
+  await expect.poll(async () => {
+    const header = await firstHeader.boundingBox();
+    return header && shortHeader
+      ? Math.abs(header.y - shortHeader.y)
+      : Number.POSITIVE_INFINITY;
+  }).toBeLessThan(2);
+  await lastFile.scrollIntoViewIfNeeded();
+  await expect(lastFile).toBeInViewport();
+  const lastAction = page.getByRole("button", {
+    name: "Preview source report-49.xlsx",
+  });
+  await lastAction.scrollIntoViewIfNeeded();
+  await lastAction.focus();
+  await expect(lastAction).toBeFocused();
+  const actionBounds = await lastAction.boundingBox();
+  const scrollBounds = await content.boundingBox();
+  expect(actionBounds).not.toBeNull();
+  expect(scrollBounds).not.toBeNull();
+  expect(actionBounds!.x).toBeGreaterThanOrEqual(scrollBounds!.x);
+  expect(actionBounds!.x + actionBounds!.width).toBeLessThanOrEqual(
+    scrollBounds!.x + scrollBounds!.width,
+  );
+  await page.getByLabel("History pages").scrollIntoViewIfNeeded();
+  await expect(page.getByLabel("History pages")).toBeInViewport();
+  await expect(page.getByRole("contentinfo")).toBeInViewport();
+  await page.screenshot({
+    path: testInfo.outputPath("history-320x400.png"),
+    animations: "disabled",
+  });
 });
