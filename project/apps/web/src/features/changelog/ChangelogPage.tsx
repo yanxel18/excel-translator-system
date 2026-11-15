@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-base-primary-key-v6",
+    title: "Use factory acronyms as base primary keys",
+    details:
+      "Factory acronyms now identify bases in storage. Existing UUID-based API requests and user assignments remain compatible; editing an acronym preserves every assigned user and account identity. Duplicate acronyms and deletion of assigned bases remain blocked.",
+    publishedAt: "2026-11-15T09:30:00.000Z",
+  },
+  {
     id: "changelog-20261115-full-name-storage-limit-v6",
     title: "Enforce the 50-character full-name limit",
     details:

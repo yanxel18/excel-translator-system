@@ -1,8 +1,10 @@
-# Identity and base contract (V6, before storage migration)
+# Identity and base contract (V6 compatibility slices)
 
 **Status:** Implemented validation contract and regression coverage for existing
 APIs, plus the focused full-name storage/OIDC limit. This document does not
 claim the broader account/base storage migration or acronym-only base UI has shipped.
+The focused [base primary-key migration](../project/docs/v6-base-primary-key-migration.md)
+now makes `Base.code` primary and retains unique immutable UUID `Base.id`.
 
 ## Current API and storage contract
 
@@ -56,8 +58,9 @@ Administrator API validation reports invalid input as HTTP 400 and a
 uniqueness conflict as HTTP 409. Storage constraints remain necessary for
 concurrent writes; this slice tests the service-level conflict mapping and
 checks the existing PostgreSQL index definitions. The focused full-name
-migration and login-preservation checks run against a disposable PostgreSQL 16
-container; the broader base-key migration is not implemented or verified here.
+migration and login-preservation checks run against disposable PostgreSQL 16.
+The focused base-key compatibility migration is also verified there; the broader
+account migration remains pending.
 
 ## Legacy data and authentication compatibility
 
@@ -67,8 +70,9 @@ container; the broader base-key migration is not implemented or verified here.
   expand/backfill/cutover/contract migration. Do not infer missing names or
   truncate stored values.
 - Keep `Base.id` and `User.baseId` as UUIDs for current API clients and
-  foreign-key relationships. No acronym primary-key conversion is included
-  here.
+  foreign-key relationships. `Base.code` is now the PostgreSQL primary key;
+  unique immutable `Base.id` remains the relationship target. This compatibility
+  strategy preserves all assignments without rewriting users on acronym edits.
 - Local identities continue to use `(LOCAL, username)` as their subject.
   Username edits remain explicit administrator actions and invalidate old
   sessions.
@@ -190,10 +194,12 @@ Migration sequence:
    have moved and the announced sunset has passed. Remove old columns and
    foreign keys only in a separate contract step.
 
-The user confirmed that acronym edits should update assigned users. Do not make
-the acronym a mutable primary key without testing atomic updates to every
-dependent foreign key. Until that migration exists, the current UUID remains
-the stable relationship key and `code` remains the current editable acronym.
+The user confirmed that acronym edits must preserve/update assigned users.
+The focused migration implements this through stable UUID relationships, not
+per-user updates: every assigned user resolves the edited acronym from the same
+base row. The actual primary key is mutable `code`, while UUID `id` remains the
+stable relationship/API key. A future acronym-based assignment API/UI is separate
+work; it must not break this compatibility surface.
 
 ## Decisions for implementation
 
@@ -208,4 +214,6 @@ Decisions retained across the focused slice and the remaining V6 work:
 4. Enforce the 50-code-point full-name limit for OIDC claims. The user chose
    to reject sign-in when a provider name exceeds the limit, rather than
    truncate it or silently omit it. Implemented in this focused slice, along
-   with the reversible storage CHECK; the base-key work remains pending.
+   with the reversible storage CHECK. The narrow base-primary-key compatibility
+   slice is implemented and verified; broader account storage and acronym-only
+   API/UI work remain pending.

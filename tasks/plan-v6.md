@@ -26,6 +26,11 @@ and built-in changelog.
 
 ## Decisions and boundaries
 
+The focused base-key migration preserves every record and identity. `Base.code` is the
+primary key, with unique immutable UUID `Base.id` retained for compatibility.
+See [migration scope and evidence](../project/docs/v6-base-primary-key-migration.md).
+The wider account migration and acronym-only UI/API remain pending.
+
 - The user confirmed the existing database contains test data and may be wiped
   if necessary. Prefer a non-destructive migration; do not delete data or
   volumes merely for convenience.

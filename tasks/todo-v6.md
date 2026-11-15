@@ -17,6 +17,13 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
   ([contract](identity-contract-v6.md)).
 - [ ] Migrate account and base storage safely, including dependent foreign keys;
   verify the migration using a disposable database and test existing identities.
+- [x] Make `Base.code` the PostgreSQL primary key while retaining immutable unique
+  UUID `Base.id` and compatible `User.baseId` assignments. Verify populated
+  prior-schema upgrade/reversal, old/new Prisma clients, UUID HTTP APIs,
+  local/OIDC identities, acronym edits, duplicate/delete restrictions and
+  migration/concurrency failures on disposable PostgreSQL
+  ([migration evidence](../project/docs/v6-base-primary-key-migration.md)).
+  This narrower slice does not complete the broader account/storage or acronym-only UI tasks.
 - [ ] Update user creation, editing, sign-in and profile flows to the new
   contracts. Verify both local and existing OIDC behavior.
 - [ ] Simplify base creation, editing and assignment to one acronym field.
