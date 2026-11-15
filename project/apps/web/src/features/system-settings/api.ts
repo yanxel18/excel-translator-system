@@ -5,6 +5,7 @@ export type User = {
   id: string;
   gid: string | null;
   username: string;
+  fullName: string | null;
   email: string | null;
   baseId: string | null;
   enabled: boolean;
@@ -19,6 +20,14 @@ export type ApplicationSettings = {
   maxUploadSizeMb: number;
   maxConcurrentTranslations: number;
 };
+export type MaintenanceSchedule = {
+  enabled: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+};
+export type MaintenanceNotice =
+  | { active: false }
+  | { active: true; startsAt: string; endsAt: string };
 type Page<T> = { data: T[]; total: number; page: number; pageSize: number };
 const write = (method: string, body?: object): RequestInit => ({
   method,
@@ -26,6 +35,22 @@ const write = (method: string, body?: object): RequestInit => ({
   ...(body ? { body: JSON.stringify(body) } : {}),
 });
 export const management = {
+  maintenanceSchedule: (token: string, signal?: AbortSignal) =>
+    request<MaintenanceSchedule>(
+      "/admin/maintenance-schedule",
+      { signal },
+      token,
+    ),
+  updateMaintenanceSchedule: (
+    token: string,
+    value: MaintenanceSchedule,
+    signal?: AbortSignal,
+  ) =>
+    request<MaintenanceSchedule>(
+      "/admin/maintenance-schedule",
+      { ...write("PUT", value), signal },
+      token,
+    ),
   applicationSettings: (token: string) =>
     request<ApplicationSettings>("/admin/application-settings", {}, token),
   updateApplicationSettings: (
@@ -64,7 +89,7 @@ export const management = {
     id: string,
     value: Partial<Pick<
       UserDetail,
-      "gid" | "username" | "email" | "baseId" | "enabled"
+      "gid" | "username" | "fullName" | "email" | "baseId" | "enabled"
     >>,
   ) =>
     request<UserDetail>(
@@ -87,11 +112,22 @@ export const management = {
   createUser: (
     token: string,
     value: {
-      gid: string;
       username: string;
+      fullName: string;
       email: string;
       baseId: string;
       password: string;
     },
   ) => request<User>("/admin/users", write("POST", value), token),
 };
+
+export const getMaintenanceNotice = (
+  token: string,
+  signal?: AbortSignal,
+) =>
+  request<MaintenanceNotice>(
+    "/maintenance-notice",
+    { signal },
+    token,
+    { silent: true },
+  );

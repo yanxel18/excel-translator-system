@@ -60,6 +60,12 @@ function fixture(overrides = {}) {
       ...overrides.user,
     },
     managementAudit: { create: async () => undefined },
+    userIdentity: {
+      updateMany: async (query) => {
+        calls.identityUpdate = query;
+        return { count: 1 };
+      },
+    },
     oidcSettings: { findUnique: async () => null, ...overrides.oidcSettings },
   };
   const prisma = {
@@ -76,6 +82,18 @@ test("returns user detail without password hashes and identifies available login
   assert.equal(detail.passwordHash, undefined);
   assert.equal(detail.hasLocalPassword, true);
   assert.deepEqual(detail.identityProviders, ["LOCAL"]);
+});
+
+test("updates a Unicode full name and rejects names longer than 50 characters", async () => {
+  const { service, calls } = fixture();
+  const fullName = "𠮷".repeat(50);
+  const response = await service.update(userId, { fullName }, "actor-id");
+  assert.equal(response.fullName, fullName);
+  assert.equal(calls.update[0].data.fullName, fullName);
+  await assert.rejects(
+    service.update(userId, { fullName: "山".repeat(51) }, "actor-id"),
+    BadRequestException,
+  );
 });
 
 test("updates approved user fields and increments session version when disabling", async () => {
@@ -101,6 +119,16 @@ test("updates approved user fields and increments session version when disabling
   });
   assert.equal(response.passwordHash, undefined);
   assert.equal(response.sessionVersion, 5);
+  assert.deepEqual(calls.identityUpdate, {
+    where: { userId, provider: "LOCAL" },
+    data: { subject: "alice2" },
+  });
+});
+
+test("renaming a username invalidates previous sessions", async () => {
+  const { service, calls } = fixture();
+  await service.update(userId, { username: "alice2" }, "actor-id");
+  assert.deepEqual(calls.update[0].data.sessionVersion, { increment: 1 });
 });
 
 test("rejects duplicate identifiers and malformed or privileged update fields", async () => {

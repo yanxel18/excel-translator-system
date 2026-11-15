@@ -12,6 +12,54 @@ const messages: Record<Locale, Record<string, string>> = {
     "Clear search": "検索をクリア",
     "System Settings": "システム設定",
     "Files & processing": "ファイルと処理",
+    "Maintenance notices": "メンテナンス通知",
+    "Configure the maintenance notice shown to signed-in users.":
+      "サインイン中のユーザーに表示するメンテナンス通知を設定します。",
+    "Maintenance schedule status": "メンテナンス通知の状態",
+    "No maintenance notice is configured yet.": "メンテナンス通知はまだ設定されていません。",
+    "Maintenance notice is disabled.": "メンテナンス通知は無効です。",
+    "Maintenance notice is scheduled.": "メンテナンス通知は予約されています。",
+    "Maintenance is active now.": "メンテナンス通知は現在有効です。",
+    "The maintenance window has expired.": "メンテナンス期間は終了しました。",
+    "Saved maintenance schedule has invalid dates.":
+      "保存されたメンテナンス予定の日付が無効です。",
+    "Enable maintenance notice": "メンテナンス通知を有効にする",
+    "Start time": "開始日時",
+    "End time": "終了日時",
+    "Browser time zone": "ブラウザーのタイムゾーン",
+    "Enter both local start and end times. They are saved as UTC instants.":
+      "開始日時と終了日時を入力してください。UTCの時刻として保存されます。",
+    "UTC instant": "UTC時刻",
+    "Start time occurs twice in this time zone. Choose a different local time.":
+      "開始日時はこのタイムゾーンで2回発生します。別の日時を選択してください。",
+    "End time occurs twice in this time zone. Choose a different local time.":
+      "終了日時はこのタイムゾーンで2回発生します。別の日時を選択してください。",
+    "Start time does not exist in this time zone. Choose a valid local time.":
+      "開始日時はこのタイムゾーンに存在しません。有効な日時を選択してください。",
+    "End time does not exist in this time zone. Choose a valid local time.":
+      "終了日時はこのタイムゾーンに存在しません。有効な日時を選択してください。",
+    "Enter a valid local date and time.": "有効な日時を入力してください。",
+    "End time must be later than start time.":
+      "終了日時は開始日時より後にしてください。",
+    "Save maintenance schedule": "メンテナンス予定を保存",
+    "Maintenance schedule saved.": "メンテナンス予定を保存しました。",
+    "Could not load the maintenance schedule.":
+      "メンテナンス予定を読み込めませんでした。",
+    "Could not save the maintenance schedule.":
+      "メンテナンス予定を保存できませんでした。",
+    "Loading maintenance schedule…": "メンテナンス予定を読み込み中…",
+    "Retry loading maintenance schedule": "メンテナンス予定の読み込みを再試行",
+    "This notice is informational and does not restrict application access.":
+      "この通知は情報提供のみを目的とし、アプリへのアクセスを制限しません。",
+    "Checking maintenance notice…": "メンテナンス通知を確認中…",
+    "Could not check the maintenance notice.":
+      "メンテナンス通知を確認できませんでした。",
+    "Retry checking maintenance notice": "メンテナンス通知の確認を再試行",
+    "Scheduled maintenance": "メンテナンスのお知らせ",
+    "The service may be temporarily unavailable during this maintenance window.":
+      "このメンテナンス期間中、サービスを一時的に利用できない場合があります。",
+    End: "終了",
+    "Times are shown in your browser time zone": "時刻はブラウザーのタイムゾーンで表示されています",
     "Manage people, bases, file limits, and sign-in preferences.":
       "ユーザー、拠点、ファイル上限、サインイン設定を管理します。",
     "Configure the upload size and the number of translations that can run at once.":
@@ -241,6 +289,8 @@ const messages: Record<Locale, Record<string, string>> = {
       "アカウント情報を管理します。",
     Username: "ユーザー名",
     "Full name": "氏名",
+    "Enter 1 to 50 characters.": "1～50文字で入力してください。",
+    "Username cannot contain control characters.": "ユーザー名に制御文字は使用できません。",
     "Full name must be 50 characters or fewer.": "氏名は50文字以内で入力してください。",
     Email: "メールアドレス",
     "Save changes": "変更を保存",
@@ -310,6 +360,49 @@ const messages: Record<Locale, Record<string, string>> = {
     "Preview version": "プレビューの種類",
   },
   zh: {
+    "Maintenance notices": "维护通知",
+    "Configure the maintenance notice shown to signed-in users.":
+      "配置向已登录用户显示的维护通知。",
+    "Maintenance schedule status": "维护通知状态",
+    "No maintenance notice is configured yet.": "尚未配置维护通知。",
+    "Maintenance notice is disabled.": "维护通知已停用。",
+    "Maintenance notice is scheduled.": "维护通知已排期。",
+    "Maintenance is active now.": "维护通知当前生效。",
+    "The maintenance window has expired.": "维护时段已结束。",
+    "Saved maintenance schedule has invalid dates.": "已保存的维护计划日期无效。",
+    "Enable maintenance notice": "启用维护通知",
+    "Start time": "开始时间",
+    "End time": "结束时间",
+    "Browser time zone": "浏览器时区",
+    "Enter both local start and end times. They are saved as UTC instants.":
+      "请输入本地开始和结束时间。系统将其保存为 UTC 时刻。",
+    "UTC instant": "UTC 时刻",
+    "Start time occurs twice in this time zone. Choose a different local time.":
+      "开始时间在此时区出现两次，请选择其他本地时间。",
+    "End time occurs twice in this time zone. Choose a different local time.":
+      "结束时间在此时区出现两次，请选择其他本地时间。",
+    "Start time does not exist in this time zone. Choose a valid local time.":
+      "开始时间在此时区不存在，请选择有效的本地时间。",
+    "End time does not exist in this time zone. Choose a valid local time.":
+      "结束时间在此时区不存在，请选择有效的本地时间。",
+    "Enter a valid local date and time.": "请输入有效的本地日期和时间。",
+    "End time must be later than start time.": "结束时间必须晚于开始时间。",
+    "Save maintenance schedule": "保存维护计划",
+    "Maintenance schedule saved.": "维护计划已保存。",
+    "Could not load the maintenance schedule.": "无法加载维护计划。",
+    "Could not save the maintenance schedule.": "无法保存维护计划。",
+    "Loading maintenance schedule…": "正在加载维护计划…",
+    "Retry loading maintenance schedule": "重试加载维护计划",
+    "This notice is informational and does not restrict application access.":
+      "此通知仅用于提供信息，不会限制应用访问。",
+    "Checking maintenance notice…": "正在检查维护通知…",
+    "Could not check the maintenance notice.": "无法检查维护通知。",
+    "Retry checking maintenance notice": "重试检查维护通知",
+    "Scheduled maintenance": "维护通知",
+    "The service may be temporarily unavailable during this maintenance window.":
+      "维护期间，服务可能暂时无法使用。",
+    End: "结束",
+    "Times are shown in your browser time zone": "时间按浏览器时区显示",
     "System Settings": "系统设置",
     "Files & processing": "文件与处理",
     "Manage people, bases, file limits, and sign-in preferences.":
@@ -533,6 +626,8 @@ const messages: Record<Locale, Record<string, string>> = {
     "Manage the details attached to your account.": "管理您的账户信息。",
     Username: "用户名",
     "Full name": "姓名",
+    "Enter 1 to 50 characters.": "请输入1至50个字符。",
+    "Username cannot contain control characters.": "用户名不能包含控制字符。",
     "Full name must be 50 characters or fewer.": "姓名不能超过50个字符。",
     Email: "电子邮件",
     "Save changes": "保存更改",

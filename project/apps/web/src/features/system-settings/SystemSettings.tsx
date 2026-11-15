@@ -16,13 +16,14 @@ import {
 } from "@mantine/core";
 import {
   ArrowDown, ArrowUp, ArrowUpDown, Building2, Check, ChevronRight,
-  CircleAlert, Eye, Hash, LockKeyhole, Mail, Pencil, Plus, Save,
+  CalendarClock, CircleAlert, Eye, Hash, LockKeyhole, Mail, Pencil, Plus, Save,
   Search, Settings, ShieldCheck, SlidersHorizontal, Trash2, UserRound, Users,
 } from "lucide-react";
 import type { View } from "../app-shell/types";
 import { useLocale } from "../shared/LocaleProvider";
 import AdminKeycloakSettings from "../profile/AdminKeycloakSettings";
 import ApplicationSettingsPanel from "./ApplicationSettingsPanel";
+import MaintenanceSettingsPanel from "./MaintenanceSettingsPanel";
 import { management, type Base, type User } from "./api";
 import UserDetailPage from "./UserDetailPage";
 import {
@@ -37,7 +38,8 @@ type Section =
   | "settings/users"
   | "settings/bases"
   | "settings/files"
-  | "settings/authentication";
+  | "settings/authentication"
+  | "settings/maintenance";
 type Props = {
   token: string;
   section: string;
@@ -46,7 +48,7 @@ type Props = {
 };
 const labels = {
   ja: {
-    "Manage people, bases, file limits, and sign-in preferences.": "ユーザー、拠点、ファイル上限、サインイン設定を管理します。",
+    "Manage people, bases, file limits, sign-in preferences, and maintenance notices.": "ユーザー、拠点、ファイル上限、サインイン設定、メンテナンス通知を管理します。",
     "Manage user accounts and application access.": "ユーザーアカウントとアプリへのアクセスを管理します。",
     "Organize the bases assigned to your users.": "ユーザーが所属する拠点を管理します。",
     "User access updated.": "ユーザーのアクセス設定を更新しました。",
@@ -64,6 +66,8 @@ const labels = {
     Bases: "拠点",
     Authentication: "認証",
     "Files & processing": "ファイルと処理",
+    "Maintenance notices": "メンテナンス通知",
+    "Configure the maintenance notice shown to signed-in users.": "サインイン中のユーザーに表示するメンテナンス通知を設定します。",
     Search: "検索",
     "Search users or bases": "ユーザーまたは拠点を検索",
     "Search bases": "拠点を検索",
@@ -77,6 +81,7 @@ const labels = {
     Code: "コード",
     Name: "名前",
     Username: "ユーザー名",
+    "Full name": "氏名",
     Email: "メールアドレス",
     Base: "拠点",
     Enabled: "有効",
@@ -94,7 +99,7 @@ const labels = {
       "ユーザーが所属する拠点は削除できません。",
   },
   zh: {
-    "Manage people, bases, file limits, and sign-in preferences.": "管理用户、据点、文件限制和登录设置。",
+    "Manage people, bases, file limits, sign-in preferences, and maintenance notices.": "管理用户、据点、文件限制、登录设置和维护通知。",
     "Manage user accounts and application access.": "管理用户账户和应用访问权限。",
     "Organize the bases assigned to your users.": "管理分配给用户的据点。",
     "User access updated.": "已更新用户访问权限。",
@@ -112,6 +117,8 @@ const labels = {
     Bases: "据点",
     Authentication: "身份验证",
     "Files & processing": "文件与处理",
+    "Maintenance notices": "维护通知",
+    "Configure the maintenance notice shown to signed-in users.": "配置向已登录用户显示的维护通知。",
     Search: "搜索",
     "Search users or bases": "搜索用户或据点",
     "Search bases": "搜索据点",
@@ -125,6 +132,7 @@ const labels = {
     Code: "代码",
     Name: "名称",
     Username: "用户名",
+    "Full name": "姓名",
     Email: "电子邮件",
     Base: "据点",
     Enabled: "启用",
@@ -144,13 +152,14 @@ const labels = {
 const validationLabels: Record<"ja" | "zh", Record<string, string>> = {
   ja: {
     "GID cannot contain control characters.": "GIDに制御文字は使用できません。",
+    "Username cannot contain control characters.": "ユーザー名に制御文字は使用できません。",
     "Password must contain 12 to 128 characters.":
       "パスワードは12～128文字で入力してください。",
     "Use ASCII letters, digits, underscore or hyphen.":
       "半角英数字、アンダースコア、ハイフンを使用してください。",
     "Enter a valid email address.": "有効なメールアドレスを入力してください。",
     ...Object.fromEntries(
-      [32, 64, 100, 254].map((max) => [
+      [32, 50, 64, 100, 254].map((max) => [
         `Enter 1 to ${max} characters.`,
         `1～${max}文字で入力してください。`,
       ]),
@@ -158,13 +167,14 @@ const validationLabels: Record<"ja" | "zh", Record<string, string>> = {
   },
   zh: {
     "GID cannot contain control characters.": "GID不能包含控制字符。",
+    "Username cannot contain control characters.": "用户名不能包含控制字符。",
     "Password must contain 12 to 128 characters.":
       "密码长度必须为12至128个字符。",
     "Use ASCII letters, digits, underscore or hyphen.":
       "请使用ASCII字母、数字、下划线或连字符。",
     "Enter a valid email address.": "请输入有效的电子邮件地址。",
     ...Object.fromEntries(
-      [32, 64, 100, 254].map((max) => [
+      [32, 50, 64, 100, 254].map((max) => [
         `Enter 1 to ${max} characters.`,
         `请输入1至${max}个字符。`,
       ]),
@@ -201,7 +211,7 @@ export default function SystemSettings({
   const allowedSort =
     selected === "settings/bases"
       ? ["code", "name"]
-      : ["gid", "username", "email", "base", "enabled"];
+      : ["username", "fullName", "email", "base", "enabled"];
   const sort = allowedSort.includes(params.get("sort") || "")
     ? params.get("sort")!
     : selected === "settings/bases"
@@ -235,15 +245,15 @@ export default function SystemSettings({
   >(null);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [gid, setGid] = useState("");
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [userBase, setUserBase] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const fieldValues = { gid, username, email, code, name, password };
+  const fieldValues = { gid: "", username, fullName, email, code, name, password };
   const fieldError = (field: ManagementField) => {
     const message = submitted
       ? validateManagementField(field, fieldValues[field])
@@ -355,8 +365,8 @@ export default function SystemSettings({
     setDialog("base");
   };
   const openUser = () => {
-    setGid("");
     setUsername("");
+    setFullName("");
     setEmail("");
     setUserBase("");
     setPassword("");
@@ -369,7 +379,7 @@ export default function SystemSettings({
       dialog === "base"
         ? ["code", "name"]
         : dialog === "user"
-          ? ["gid", "username", "email", "password"]
+          ? ["username", "fullName", "email", "password"]
           : [];
     if (
       fields.some((field) => validateManagementField(field, fieldValues[field]))
@@ -389,8 +399,8 @@ export default function SystemSettings({
         await management.deleteBase(token, editing.id);
       if (dialog === "user")
         await management.createUser(token, {
-          gid: gid.trim(),
           username: username.trim(),
+          fullName: fullName.trim(),
           email: email.trim(),
           baseId: userBase,
           password,
@@ -496,7 +506,7 @@ export default function SystemSettings({
             {t("System Settings")}
           </Text>
           <Text size="sm" c="dimmed" mt={4}>
-            {t("Manage people, bases, file limits, and sign-in preferences.")}
+            {t("Manage people, bases, file limits, sign-in preferences, and maintenance notices.")}
           </Text>
         </div>
       </Group>
@@ -515,6 +525,11 @@ export default function SystemSettings({
                 id: "settings/files",
                 label: "Files & processing",
                 Icon: SlidersHorizontal,
+              },
+              {
+                id: "settings/maintenance",
+                label: "Maintenance notices",
+                Icon: CalendarClock,
               },
             ] as const
           ).map(({ id, label, Icon }) => (
@@ -535,6 +550,8 @@ export default function SystemSettings({
         <Stack className="system-settings-content" gap="md">
           {selected === "settings/authentication" ? (
             <AdminKeycloakSettings token={token} />
+          ) : selected === "settings/maintenance" ? (
+            <MaintenanceSettingsPanel token={token} />
           ) : selected === "settings/files" ? (
             <ApplicationSettingsPanel token={token} />
           ) : (
@@ -641,8 +658,8 @@ export default function SystemSettings({
                     <Table.Tr>
                       {selected === "settings/users" ? (
                         <>
-                          {column("gid", "GID")}
                           {column("username", "Username")}
+                          {column("fullName", "Full name")}
                           {column("email", "Email")}
                           {column("base", "Base")}
                           {column("enabled", "Enabled")}
@@ -664,13 +681,13 @@ export default function SystemSettings({
                             const u = row as User;
                             return (
                               <Table.Tr key={u.id}>
-                                <Table.Td><Text size="sm" c="dimmed" ff="monospace">{u.gid || "—"}</Text></Table.Td>
                                 <Table.Td>
                                   <Group gap="xs" wrap="nowrap">
                                     <span className="settings-record-icon"><UserRound size={16} aria-hidden="true" /></span>
                                     <Text size="sm" fw={600}>{u.username}</Text>
                                   </Group>
                                 </Table.Td>
+                                <Table.Td>{u.fullName || "—"}</Table.Td>
                                 <Table.Td>{u.email || "—"}</Table.Td>
                                 <Table.Td>
                                   {u.base
@@ -856,15 +873,6 @@ export default function SystemSettings({
             {dialog === "user" && (
               <>
                 <TextInput
-                  leftSection={<Hash size={16} aria-hidden="true" />}
-                  required
-                  label="GID"
-                  error={fieldError("gid")}
-                  maxLength={fieldLimits.gid}
-                  value={gid}
-                  onChange={(e) => setGid(e.currentTarget.value)}
-                />
-                <TextInput
                   leftSection={<UserRound size={16} aria-hidden="true" />}
                   required
                   label={t("Username")}
@@ -872,6 +880,14 @@ export default function SystemSettings({
                   maxLength={fieldLimits.username}
                   value={username}
                   onChange={(e) => setUsername(e.currentTarget.value)}
+                />
+                <TextInput
+                  leftSection={<UserRound size={16} aria-hidden="true" />}
+                  required
+                  label={t("Full name")}
+                  error={fieldError("fullName")}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.currentTarget.value)}
                 />
                 <TextInput
                   leftSection={<Mail size={16} aria-hidden="true" />}

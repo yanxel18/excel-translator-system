@@ -10,4 +10,5 @@ export type View =
   | `settings/users/${string}`
   | "settings/bases"
   | "settings/files"
-  | "settings/authentication";
+  | "settings/authentication"
+  | "settings/maintenance";

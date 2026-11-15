@@ -3,6 +3,7 @@ import { AppShell, Box } from "@mantine/core";
 import type { View } from "./types";
 import AppHeader from "./AppHeader";
 import AppNavigation from "./AppNavigation";
+import MaintenanceNotice from "./MaintenanceNotice";
 import { AccountControls } from "./ShellControls";
 import ApiService from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
@@ -110,7 +111,10 @@ export default function AppFrame({
         />
       </AppShell.Navbar>
       <AppShell.Main>
-        <Box className="main-content">{children}</Box>
+        <Box className="main-content">
+          <MaintenanceNotice token={token} />
+          {children}
+        </Box>
         <footer className="app-footer" role="contentinfo">
           {t("Translation System Taiyo Yuden Co. Ltd")} ©{" "}
           {year ?? (yearUnavailable ? t("Year unavailable") : "…")}
