@@ -69,8 +69,11 @@ model User {
 }
 
 model Base {
-  id        String   @id @default(uuid())
-  code      String   @unique
+  /// Immutable UUID compatibility key; User.baseId and existing API routes still use it.
+  /// Immutability is enforced by the custom Base_id_immutable trigger.
+  id        String   @unique(map: "Base_id_key") @default(uuid())
+  /// Mutable factory acronym. Case-insensitive uniqueness also uses a custom index.
+  code      String   @id(map: "Base_pkey")
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
