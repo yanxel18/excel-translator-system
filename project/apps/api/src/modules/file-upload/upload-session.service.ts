@@ -13,7 +13,7 @@ import {
   UnsupportedMediaTypeException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import {
@@ -249,7 +249,6 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     request: IncomingMessage,
   ): Promise<UploadSessionResponse> {
     const release = this.admission.acquire();
-    let temporaryPath: string | undefined;
     try {
       let id: string;
       try {
@@ -273,9 +272,10 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       await this.assertChunkWritable(session, index);
       const expectedLength = this.chunkLength(session, index);
       const contentLength = request.headers["content-length"];
-      if (typeof contentLength !== "string" ||
-          !/^(0|[1-9][0-9]*)$/.test(contentLength) ||
-          Number(contentLength) !== expectedLength)
+      if (contentLength !== undefined &&
+          (typeof contentLength !== "string" ||
+           !/^(0|[1-9][0-9]*)$/.test(contentLength) ||
+           Number(contentLength) !== expectedLength))
         throw new BadRequestException({
           code: "UPLOAD_CHUNK_LENGTH",
           message: `Chunk ${index} must contain exactly ${expectedLength} bytes.`,
@@ -283,14 +283,8 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
 
       const directory = await this.ensureSessionStorage(session.id);
       await this.removeStaleChunkFiles(directory);
-      temporaryPath = join(directory, `.chunk-${randomUUID()}.tmp`);
-      const digest = await this.receiveTemporaryChunk(
-        request,
-        temporaryPath,
-        expectedLength,
-        session.chunkHashes[index],
-      );
-      if (digest !== session.chunkHashes[index])
+      const incoming = await this.receiveChunkBytes(request, expectedLength);
+      if (createHash("sha256").update(incoming).digest("hex") !== session.chunkHashes[index])
         throw new UnprocessableEntityException({
           code: "UPLOAD_CHUNK_HASH_MISMATCH",
           message: `Chunk ${index} does not match its declared SHA-256 hash.`,
@@ -303,7 +297,6 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       await this.assertWithinCurrentLimit(current.fileSize);
       if (index < current.nextChunkIndex) {
         const spool = await this.reconcileSpool(directory, current);
-        const incoming = await this.readExactFileRange(temporaryPath, 0, expectedLength);
         const acknowledged = await this.readExactFileRange(
           spool,
           index * current.chunkSize,
@@ -314,19 +307,16 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
             code: "UPLOAD_CHUNK_REPLAY_MISMATCH",
             message: `Chunk ${index} differs from the bytes already acknowledged.`,
           });
-        await this.removeTemporaryChunk(temporaryPath);
-        temporaryPath = undefined;
         return this.toPublicResponse(current);
       }
 
       if (index !== current.nextChunkIndex)
         throw this.chunkOrderError(current.nextChunkIndex);
       const spool = await this.reconcileSpool(directory, current);
-      await this.appendTemporaryChunk(
-        temporaryPath,
+      await this.appendChunk(
+        incoming,
         spool,
         current.bytesReceived,
-        expectedLength,
         directory,
       );
       const committed = await this.commitChunkProgress(
@@ -335,8 +325,6 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
         index,
         expectedLength,
       );
-      await this.removeTemporaryChunk(temporaryPath);
-      temporaryPath = undefined;
       return this.toPublicResponse(committed);
     } catch (error) {
       if (error instanceof HttpException) {
@@ -349,15 +337,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       }
       throw this.chunkStorageFailure(error);
     } finally {
-      try {
-        if (temporaryPath) {
-          await this.removeTemporaryChunk(temporaryPath);
-        }
-      } catch (error) {
-        throw this.chunkStorageFailure(error);
-      } finally {
-        release();
-      }
+      release();
     }
   }
 
@@ -419,18 +399,14 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     );
   }
 
-  private async receiveTemporaryChunk(
+  private async receiveChunkBytes(
     request: IncomingMessage,
-    temporaryPath: string,
     expectedLength: number,
-    expectedHash: string,
-  ): Promise<string> {
-    let handle: FileHandle | undefined;
+  ): Promise<Buffer> {
+    const bytes = Buffer.allocUnsafe(expectedLength);
     let received = 0;
-    const hash = createHash("sha256");
     try {
-      handle = await open(temporaryPath, "wx", 0o600);
-      for await (const part of request) {
+      for await (const part of request.iterator({ destroyOnReturn: false })) {
         if (!Buffer.isBuffer(part))
           throw new BadRequestException({
             code: "UPLOAD_CHUNK_BODY",
@@ -442,37 +418,22 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
             code: "UPLOAD_CHUNK_LENGTH",
             message: `Chunk body exceeds the exact ${expectedLength}-byte length.`,
           });
-        hash.update(part);
-        let written = 0;
-        while (written < part.length) {
-          const result = await handle.write(part, written, part.length - written, received - part.length + written);
-          if (result.bytesWritten <= 0) throw new Error("Chunk temporary write made no progress.");
-          written += result.bytesWritten;
-        }
+        part.copy(bytes, received - part.length);
       }
       if (received !== expectedLength)
         throw new BadRequestException({
           code: "UPLOAD_CHUNK_LENGTH",
           message: `Chunk body ended after ${received} bytes; exactly ${expectedLength} are required.`,
         });
-      const digest = hash.digest("hex");
-      if (digest !== expectedHash)
-        throw new UnprocessableEntityException({
-          code: "UPLOAD_CHUNK_HASH_MISMATCH",
-          message: "Chunk bytes do not match the declared SHA-256 hash.",
-        });
-      await handle.sync();
-      return digest;
+      return bytes;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      if (request.destroyed || request.aborted)
+      if (request.aborted || !request.complete)
         throw new BadRequestException({
           code: "UPLOAD_CHUNK_INTERRUPTED",
           message: "Chunk reception was interrupted; retry this chunk after checking session progress.",
         });
       throw error;
-    } finally {
-      await handle?.close();
     }
   }
 
@@ -484,17 +445,6 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       if (!info.isFile() || info.isSymbolicLink())
         throw new Error("Temporary chunk path is not a regular owned file.");
       await unlink(file);
-    }
-  }
-
-  private async removeTemporaryChunk(file: string, _directory?: string): Promise<void> {
-    try {
-      const info = await lstat(file);
-      if (!info.isFile() || info.isSymbolicLink())
-        throw new Error("Temporary chunk path is not a regular owned file.");
-      await unlink(file);
-    } catch (error) {
-      if (!this.isCode(error, "ENOENT")) throw error;
     }
   }
 
@@ -514,8 +464,6 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
           spool,
           fsConstants.O_RDWR | (fsConstants.O_NOFOLLOW || 0),
         );
-        if (!(await handle.stat()).isFile())
-          throw new Error("Assembled upload spool is not a regular file.");
       } catch (error) {
         if (!this.isCode(error, "ENOENT") || session.bytesReceived !== 0)
           throw error;
@@ -524,6 +472,8 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       }
       try {
         const stat = await handle.stat();
+        if (!stat.isFile())
+          throw new Error("Assembled upload spool is not a regular file.");
         if (stat.size < session.bytesReceived)
           throw new Error("Committed upload prefix is missing from private storage.");
         if (stat.size > session.bytesReceived) {
@@ -579,48 +529,28 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     return bytes;
   }
 
-  private async appendTemporaryChunk(
-    temporaryPath: string,
+  private async appendChunk(
+    bytes: Buffer,
     spool: string,
     offset: number,
-    length: number,
     directory: string,
   ): Promise<void> {
-    let source: FileHandle | undefined;
     let destination: FileHandle | undefined;
     try {
-      source = await open(temporaryPath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0));
-      const tempInfo = await source.stat();
-      if (!tempInfo.isFile() || tempInfo.size !== length)
-        throw new Error("Temporary chunk changed before append.");
       destination = await open(spool, fsConstants.O_RDWR | (fsConstants.O_NOFOLLOW || 0));
       const spoolInfo = await destination.stat();
       if (!spoolInfo.isFile() || spoolInfo.size !== offset)
         throw new Error("Assembled upload spool changed before append.");
-      const buffer = Buffer.allocUnsafe(64 * 1024);
-      let copied = 0;
-      while (copied < length) {
-        const requested = Math.min(buffer.length, length - copied);
-        const read = await source.read(buffer, 0, requested, copied);
-        if (read.bytesRead <= 0) throw new Error("Temporary chunk ended during append.");
-        let written = 0;
-        while (written < read.bytesRead) {
-          const result = await destination.write(
-            buffer,
-            written,
-            read.bytesRead - written,
-            offset + copied + written,
-          );
-          if (result.bytesWritten <= 0) throw new Error("Assembled upload write made no progress.");
-          written += result.bytesWritten;
-        }
-        copied += read.bytesRead;
+      let written = 0;
+      while (written < bytes.length) {
+        const result = await destination.write(bytes, written, bytes.length - written, offset + written);
+        if (result.bytesWritten <= 0) throw new Error("Assembled upload write made no progress.");
+        written += result.bytesWritten;
       }
       await destination.sync();
       await this.syncDirectory(directory);
     } finally {
       await destination?.close();
-      await source?.close();
     }
   }
 

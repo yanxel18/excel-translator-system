@@ -175,13 +175,16 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
   const { JwtService } = require("@nestjs/jwt");
   const { AppModule } = require("../dist/app.module");
+  const { mountProductSurfacesGraphql } = require("../dist/modules/product-surfaces/graphql-http");
   const { PrismaService } = require("../dist/modules/persistence/prisma.service");
   const { UploadAdmissionService } = require("../dist/modules/file-upload/upload-admission.service");
   const { UploadSessionService } = require("../dist/modules/file-upload/upload-session.service");
   const startApp = async () => {
     const instance = await NestFactory.create(AppModule, { logger: false, bodyParser: false });
+    instance.enableCors({ origin: ["http://localhost:5173"], credentials: true });
     installRequestBodyParsers(instance);
     instance.setGlobalPrefix("api");
+    await mountProductSurfacesGraphql(instance);
     app = instance;
     await instance.listen(0, "127.0.0.1");
     return {
@@ -241,7 +244,7 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
       reject(new Error(`Owned API worker exited before ${type} (code ${code}, signal ${signal}).`));
     });
   });
-  const startOwnedApiWorker = async (holdSessionId) => {
+  const startOwnedApiWorker = async (holdSessionId, holdStage = "after-commit") => {
     const port = await unusedLoopbackPort();
     const source = `
       const {NestFactory}=require('@nestjs/core');
@@ -255,15 +258,26 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const hold=process.env.V6_TEST_HOLD_SESSION;
         if(hold){
           const sessions=app.get(UploadSessionService);
-          const original=sessions.receiveChunk.bind(sessions);
-          sessions.receiveChunk=async(...args)=>{
-            const result=await original(...args);
-            if(String(args[1]).toLowerCase()===hold){
-              process.send({type:'after-commit'});
-              await new Promise(resolve=>process.once('message',resolve));
-            }
-            return result;
-          };
+          if(process.env.V6_TEST_HOLD_STAGE==='before-commit'){
+            const original=sessions.commitChunkProgress.bind(sessions);
+            sessions.commitChunkProgress=async(...args)=>{
+              if(String(args[1].id).toLowerCase()===hold){
+                process.send({type:'before-commit'});
+                await new Promise(resolve=>process.once('message',resolve));
+              }
+              return original(...args);
+            };
+          } else {
+            const original=sessions.receiveChunk.bind(sessions);
+            sessions.receiveChunk=async(...args)=>{
+              const result=await original(...args);
+              if(String(args[1]).toLowerCase()===hold){
+                process.send({type:'after-commit'});
+                await new Promise(resolve=>process.once('message',resolve));
+              }
+              return result;
+            };
+          }
         }
         await app.listen(Number(process.env.PORT),'127.0.0.1');
         process.send({type:'ready'});
@@ -280,6 +294,7 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         BASE_PATH: "api",
         PORT: String(port),
         ...(holdSessionId ? { V6_TEST_HOLD_SESSION: holdSessionId.toLowerCase() } : {}),
+        V6_TEST_HOLD_STAGE: holdStage,
       },
       stdio: ["ignore", "ignore", "pipe", "ipc"],
     });
@@ -714,6 +729,95 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     assert.equal(await budget(), budgetBefore);
   });
 
+  await t.test("chunked transfer encoding enforces exact size without Content-Length", async () => {
+    const owner = await addUser("chunked-transfer");
+    const token = tokenFor(owner);
+    const bytes = Buffer.alloc(128, 0x31);
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "streamed.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    const send = async (body) => {
+      const url = new URL(chunkPath(runtime.baseUrl, created.body.id, 0));
+      const outgoing = httpRequest({
+        hostname: url.hostname, port: url.port, path: url.pathname, method: "PUT",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/octet-stream" },
+      });
+      const response = new Promise((resolve, reject) => {
+        outgoing.on("response", resolve);
+        outgoing.on("error", reject);
+      });
+      outgoing.write(body.subarray(0, 1));
+      outgoing.end(body.subarray(1));
+      const incoming = await response;
+      return { status: incoming.statusCode, body: JSON.parse(await readHttpBody(incoming)) };
+    };
+    try {
+      for (const body of [bytes.subarray(0, 127), Buffer.concat([bytes, Buffer.from([0])])]) {
+        const rejected = await send(body);
+        assert.equal(rejected.status, 400, JSON.stringify(rejected.body));
+        assert.equal(rejected.body.code, "UPLOAD_CHUNK_LENGTH");
+      }
+      const accepted = await send(bytes);
+      assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+      assert.equal(accepted.body.bytesReceived, bytes.length);
+    } finally {
+      assert.equal((await request(sessionPath(runtime.baseUrl, created.body.id), "DELETE", token)).status, 200);
+    }
+  });
+
+  await t.test("receiving a partial chunk does not duplicate reserved bytes on disk", async () => {
+    const owner = await addUser("no-chunk-spool");
+    const token = tokenFor(owner);
+    const bytes = Buffer.alloc(MiB, 0x32);
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "bounded.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    const url = new URL(chunkPath(runtime.baseUrl, created.body.id, 0));
+    const outgoing = httpRequest({
+      hostname: url.hostname, port: url.port, path: url.pathname, method: "PUT",
+      headers: {
+        authorization: `Bearer ${token}`, "content-type": "application/octet-stream",
+        "content-length": String(bytes.length),
+      },
+    });
+    const result = new Promise((resolve, reject) => {
+      outgoing.on("response", resolve);
+      outgoing.on("error", reject);
+    });
+    try {
+      outgoing.write(bytes.subarray(0, 64 * 1024));
+      const directory = path.join(storageDir, created.body.id);
+      let entries;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        try { entries = await fs.readdir(directory); } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+        if (entries) break;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      assert.ok(entries, "Receiver prepared its owned session directory.");
+      assert.equal(entries.some((name) => name.startsWith(".chunk-")), false);
+      outgoing.end(bytes.subarray(64 * 1024));
+      const response = await result;
+      assert.equal(response.statusCode, 200, await readHttpBody(response));
+    } finally {
+      outgoing.destroy();
+      await result.catch(() => {});
+      let canceled = false;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const response = await request(sessionPath(runtime.baseUrl, created.body.id), "DELETE", token);
+        if (response.status === 200) { canceled = true; break; }
+        assert.equal(response.status, 409);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      assert.equal(canceled, true);
+    }
+  });
+
   await t.test("chunk validation, ownership, length, expiry and current limits fail explicitly", async () => {
     const budgetBefore = await budget();
     const owner = await addUser("chunk-validation-owner");
@@ -959,19 +1063,18 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         first.on("error", reject);
       }).then((value) => ({ value }), (error) => ({ error }));
       first.write(concurrentBytes.subarray(0, 64 * 1024));
-      let tempVisible = false;
+      let receiving = false;
       for (let attempt = 0; attempt < 50; attempt++) {
-        let entries = [];
         try {
-          entries = await fs.readdir(path.join(storageDir, concurrent.body.id));
+          await fs.access(path.join(storageDir, concurrent.body.id, ".upload-session-owner"));
+          receiving = true;
         } catch (error) {
           if (error.code !== "ENOENT") throw error;
         }
-        tempVisible = entries.some((name) => /^\.chunk-[0-9a-f-]{36}\.tmp$/.test(name));
-        if (tempVisible) break;
+        if (receiving) break;
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
-      assert.equal(tempVisible, true);
+      assert.equal(receiving, true);
       const competingAddress = new URL(chunkPath(runtime.baseUrl, concurrent.body.id, 0));
       const competingRequest = httpRequest({
         hostname: competingAddress.hostname,
@@ -1066,10 +1169,11 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     const token = tokenFor(await addUser("chunk-json-parser"));
     const malformed = await fetch(`${runtime.baseUrl}/api/upload-sessions`, {
       method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json", origin: "http://localhost:5173" },
       body: '{"clientUploadId":',
     });
     assert.equal(malformed.status, 400);
+    assert.equal(malformed.headers.get("access-control-allow-origin"), "http://localhost:5173");
     const oversized = await fetch(`${runtime.baseUrl}/api/upload-sessions`, {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
@@ -1077,6 +1181,21 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     });
     assert.equal(oversized.status, 413);
     assert.equal(await budget(), budgetBefore);
+  });
+
+  await t.test("production GraphQL parser leaves chunk bodies for authenticated admission", async () => {
+    const owner = await addUser("parser-chunk-owner");
+    const token = tokenFor(owner);
+    const created = await create(runtime.baseUrl, token, intent());
+    assert.equal(created.response.status, 201);
+    const response = await fetch(chunkPath(runtime.baseUrl, created.body.id, 0), {
+      method: "PUT",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: "{",
+    });
+    assert.equal(response.status, 415);
+    assert.equal((await response.json()).code, "UPLOAD_CHUNK_CONTENT_TYPE");
+    assert.equal((await request(sessionPath(runtime.baseUrl, created.body.id), "DELETE", token)).status, 200);
   });
 
   await t.test("failed progress commit leaves an unacknowledged tail that is reconciled before retry", async () => {
@@ -1129,6 +1248,118 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     assert.equal(await budget(), budgetBefore);
   });
 
+  await t.test("a filesystem sync failure after request EOF is a storage error and closes the handle", async () => {
+    const owner = await addUser("chunk-sync-failure");
+    const token = tokenFor(owner);
+    const bytes = Buffer.alloc(128, 0x63);
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "sync-failure.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    const originalOpen = fs.open;
+    let injected = false;
+    let closed = false;
+    try {
+      fs.open = async (...args) => {
+        const handle = await originalOpen(...args);
+        const file = String(args[0]);
+        const target = file.includes(`.chunk-`) ||
+          (file.endsWith("assembled.bin") && typeof args[1] === "number");
+        if (!injected && target) {
+          injected = true;
+          const close = handle.close.bind(handle);
+          handle.sync = async () => { throw new Error("Injected filesystem sync failure"); };
+          handle.close = async () => { await close(); closed = true; };
+        }
+        return handle;
+      };
+      const failed = await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes);
+      assert.equal(failed.response.status, 503, JSON.stringify(failed.body));
+      assert.equal(failed.body.code, "UPLOAD_STORAGE_FAILURE");
+      assert.equal(injected, true);
+      assert.equal(closed, true);
+      assert.equal((await runtime.prisma.uploadSession.findUniqueOrThrow({
+        where: { id: created.body.id },
+      })).bytesReceived, 0);
+    } finally {
+      fs.open = originalOpen;
+    }
+    const retried = await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes);
+    assert.equal(retried.response.status, 200, JSON.stringify(retried.body));
+    assert.equal((await request(sessionPath(runtime.baseUrl, created.body.id), "DELETE", token)).status, 200);
+  });
+
+  await t.test("expiry between the transaction check and update never acknowledges a chunk", {
+    timeout: 20000,
+  }, async () => {
+    const owner = await addUser("commit-expiry-race");
+    const token = tokenFor(owner);
+    const bytes = Buffer.alloc(128, 0x64);
+    const [{ created }] = (await client.query(
+      "SELECT clock_timestamp() - interval '24 hours' + interval '3 seconds' AS created",
+    )).rows;
+    const expiresAt = new Date(created.getTime() + 24 * 60 * 60 * 1000);
+    const session = await runtime.prisma.uploadSession.create({
+      data: {
+        ownerId: owner.id, clientUploadId: randomUUID(), fileName: "expiry-race.xlsx",
+        fileSize: bytes.length, chunkHashes: [sha256(bytes)], reservedBytes: bytes.length,
+        createdAt: created, expiresAt,
+      },
+    });
+    await client.query("BEGIN");
+    const originalTransaction = runtime.prisma.$transaction;
+    try {
+      runtime.prisma.$transaction = function (callback, ...options) {
+        if (typeof callback !== "function") return originalTransaction.call(this, callback, ...options);
+        return originalTransaction.call(this, async (tx) => {
+          const wrapped = new Proxy(tx, {
+            get(target, property) {
+              const value = target[property];
+              if (property === "$queryRaw") return async (...args) => {
+                const result = await value.apply(target, args);
+                const sql = Array.isArray(args[0]) ? args[0].join("?") : "";
+                if (sql.includes('FROM "UploadSession"') && sql.includes("FOR UPDATE"))
+                  await client.query(`SELECT "id" FROM "ApplicationSettings" WHERE "id"='default' FOR UPDATE`);
+                return result;
+              };
+              return typeof value === "function" ? value.bind(target) : value;
+            },
+          });
+          return callback(wrapped);
+        }, ...options);
+      };
+      const pending = putChunk(runtime.baseUrl, token, session.id, 0, bytes);
+      let blocked = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        await client.query("SELECT pg_stat_clear_snapshot()");
+        const observed = await client.query(`
+          SELECT count(*)::int AS count FROM pg_stat_activity
+          WHERE datname=current_database() AND wait_event_type='Lock'
+            AND query LIKE '%maxUploadSizeMb%FOR SHARE%'
+        `);
+        if (observed.rows[0].count > 0) { blocked = true; break; }
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+      assert.equal(blocked, true, "The progress transaction passed its expiry check and is waiting for settings.");
+      await client.query(
+        "SELECT pg_sleep(GREATEST(0, EXTRACT(EPOCH FROM ($1::timestamptz - clock_timestamp())) + 0.1))",
+        [expiresAt],
+      );
+      await client.query("COMMIT");
+      const expired = await pending;
+      assert.equal(expired.response.status, 410, JSON.stringify(expired.body));
+      assert.equal(expired.body.code, "UPLOAD_EXPIRED");
+      assert.equal((await runtime.prisma.uploadSession.findUniqueOrThrow({
+        where: { id: session.id },
+      })).bytesReceived, 0);
+    } finally {
+      runtime.prisma.$transaction = originalTransaction;
+      await client.query("ROLLBACK");
+      assert.equal((await request(sessionPath(runtime.baseUrl, session.id), "DELETE", token)).status, 200);
+    }
+  });
+
   await t.test("a committed transaction with a lost response is confirmed by replay, not appended twice", async () => {
     const budgetBefore = await budget();
     const owner = await addUser("chunk-lost-ack");
@@ -1173,8 +1404,11 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     const budgetBefore = await budget();
     const ownerBefore = await addUser("process-before-commit");
     const ownerAfter = await addUser("process-after-commit");
+    const ownerTail = await addUser("process-synced-tail");
     const beforeBytes = Buffer.alloc(MiB, 0x71);
     const afterBytes = Buffer.alloc(MiB, 0x72);
+    const prefixBytes = Buffer.alloc(MiB, 0x73);
+    const tailBytes = Buffer.alloc(123, 0x74);
     const beforeSession = await create(runtime.baseUrl, tokenFor(ownerBefore), {
       clientUploadId: randomUUID(), fileName: "before-commit.xlsx", fileSize: MiB,
       chunkHashes: [sha256(beforeBytes)],
@@ -1183,8 +1417,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
       clientUploadId: randomUUID(), fileName: "after-commit.xlsx", fileSize: MiB,
       chunkHashes: [sha256(afterBytes)],
     });
+    const tailSession = await create(runtime.baseUrl, tokenFor(ownerTail), {
+      clientUploadId: randomUUID(), fileName: "synced-tail.xlsx", fileSize: MiB + tailBytes.length,
+      chunkHashes: [sha256(prefixBytes), sha256(tailBytes)],
+    });
     assert.equal(beforeSession.response.status, 201);
     assert.equal(afterSession.response.status, 201);
+    assert.equal(tailSession.response.status, 201);
     await app.close();
     app = undefined;
 
@@ -1205,19 +1444,18 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     });
     partial.on("error", () => {});
     partial.write(beforeBytes.subarray(0, 128 * 1024));
-    let temporaryBytes = 0;
+    let receiving = false;
     for (let attempt = 0; attempt < 100; attempt++) {
       try {
-        for (const name of await fs.readdir(beforeDirectory)) {
-          if (!/^\.chunk-[0-9a-f-]{36}\.tmp$/.test(name)) continue;
-          temporaryBytes = (await fs.stat(path.join(beforeDirectory, name))).size;
-          if (temporaryBytes > 0) break;
-        }
-      } catch {}
-      if (temporaryBytes > 0) break;
+        await fs.access(path.join(beforeDirectory, ".upload-session-owner"));
+        receiving = true;
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+      if (receiving) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    assert.ok(temporaryBytes > 0, "The child API wrote an incomplete raw chunk to its bounded temporary file.");
+    assert.ok(receiving, "The child API began receiving the incomplete raw chunk.");
     await killOwnedWorker(active.worker);
     partial.destroy();
     const beforeProgress = (await client.query(
@@ -1260,14 +1498,39 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     assert.equal(replay.response.status, 200, JSON.stringify(replay.body));
     assert.equal(replay.body.bytesReceived, MiB);
     assert.deepEqual(await fs.readFile(afterSpool), afterBytes);
+    const first = await putChunk(active.baseUrl, tokenFor(ownerTail), tailSession.body.id, 0, prefixBytes);
+    assert.equal(first.response.status, 200, JSON.stringify(first.body));
+    await killOwnedWorker(active.worker);
+
+    active = await startOwnedApiWorker(tailSession.body.id, "before-commit");
+    const tailRequest = putChunk(
+      active.baseUrl, tokenFor(ownerTail), tailSession.body.id, 1, tailBytes,
+    ).then((value) => ({ value }), (error) => ({ error }));
+    await waitForWorkerMessage(active.worker, "before-commit");
+    const tailSpool = path.join(storageDir, tailSession.body.id, "assembled.bin");
+    assert.deepEqual(await fs.readFile(tailSpool), Buffer.concat([prefixBytes, tailBytes]));
+    assert.deepEqual((await client.query(
+      'SELECT "bytesReceived", "nextChunkIndex" FROM "UploadSession" WHERE "id"=$1', [tailSession.body.id],
+    )).rows[0], { bytesReceived: MiB, nextChunkIndex: 1 });
+    await killOwnedWorker(active.worker);
+    assert.ok((await tailRequest).error, "The client lost the response before the progress commit.");
+    active = await startOwnedApiWorker();
+    const tailRetry = await putChunk(active.baseUrl, tokenFor(ownerTail), tailSession.body.id, 1, tailBytes);
+    assert.equal(tailRetry.response.status, 200, JSON.stringify(tailRetry.body));
+    assert.equal(tailRetry.body.bytesReceived, MiB + tailBytes.length);
+    assert.deepEqual(await fs.readFile(tailSpool), Buffer.concat([prefixBytes, tailBytes]));
     const canceledBefore = await request(
       sessionPath(active.baseUrl, beforeSession.body.id), "DELETE", tokenFor(ownerBefore),
     );
     const canceledAfter = await request(
       sessionPath(active.baseUrl, afterSession.body.id), "DELETE", tokenFor(ownerAfter),
     );
+    const canceledTail = await request(
+      sessionPath(active.baseUrl, tailSession.body.id), "DELETE", tokenFor(ownerTail),
+    );
     assert.equal(canceledBefore.status, 200);
     assert.equal(canceledAfter.status, 200);
+    assert.equal(canceledTail.status, 200);
     assert.equal((await client.query(
       'SELECT "reservedBytes" FROM "UploadStorageBudget" WHERE "id"=\'default\'',
     )).rows[0].reservedBytes, budgetBefore,

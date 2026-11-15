@@ -14,6 +14,20 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-chunk-safety-v6",
+    title: "Strengthen resumable upload chunk handling",
+    details:
+      "Upload chunks now use bounded memory instead of an extra temporary disk copy, accept correctly sized streamed requests, and preserve acknowledged data after interrupted writes. The web proxy returns busy responses without waiting for the entire chunk. Automatic browser resume, job completion and 200 MB uploads are not enabled yet.",
+    publishedAt: "2026-11-15T22:49:00.000Z",
+  },
+  {
+    id: "changelog-20261116-upload-parser-review-v6",
+    title: "Improve upload request handling",
+    details:
+      "The upload draft now keeps raw chunk requests separate from GraphQL JSON parsing, while preserving cross-origin error responses and existing GraphQL and REST behavior. The remaining chunk safety checks are still in review; automatic browser resume and 200 MB uploads are not enabled.",
+    publishedAt: "2026-11-15T22:35:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-chunk-review-pause-v6",
     title: "Save chunk uploads as a review draft",
     details:

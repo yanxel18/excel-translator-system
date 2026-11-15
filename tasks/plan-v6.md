@@ -321,11 +321,9 @@ The separate 200 MiB processing/preview gates remain open.
   path from starving later expired sessions while selecting at most 20 per
   pass. Storage paths derive from the persisted canonical session ID. A lowered
   administrator limit is rechecked on status and exposed as a reusable service
-  check for chunk/finalization work. Task 5 has a paused draft implementation
-  of authenticated raw chunk writes. Its storage accounting, error handling,
-  parser/bootstrap parity and critical crash/expiry evidence still require
-  correction and final verification; it is not complete or approved to merge.
-  See the task-5 review gates in [the tracker](todo-v6.md). Completion remains
+  check for chunk/finalization work. Task 5 now uses bounded in-memory chunks,
+  synced spool writes and persisted progress, with crash, expiry and proxy
+  verification recorded in [the tracker](todo-v6.md). Completion remains
   unimplemented.
   The owner-deletion applicability audit confirms PostgreSQL blocks
   cascading deletion while a session retains a reservation, but neither
@@ -333,9 +331,9 @@ The separate 200 MiB processing/preview gates remain open.
   mapping is not applicable until one exists. Adding a new destructive
   user-delete API is out of scope; any future delete route must surface the
   existing database block explicitly.
-- A raw chunk is exactly 1 MiB or shorter. The draft nginx chunk-specific
-  location has that envelope and disables request buffering; accepted trailing
-  slashes and production parser ordering still need early-rejection verification.
+- A raw chunk is exactly 1 MiB or shorter. The nginx chunk-specific location
+  has that envelope, accepts a trailing slash and disables request buffering
+  for streamed bodies; production parser ordering preserves admission.
   Multipart headers are not part of this protocol. Do not broaden unrelated
   JSON route limits.
 - The API client already has tracked requests and session-expiry handling.
