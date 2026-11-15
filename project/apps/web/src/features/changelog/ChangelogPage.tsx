@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-modern-system-settings",
+    title: "Modernize System Settings",
+    details:
+      "System Settings now has left-aligned icon navigation, clearer filters and forms, consistent icons across user, base, and authentication settings, and switches to enable or disable user access.",
+    publishedAt: "2026-11-15T04:00:00.000Z",
+  },
+  {
     id: "changelog-20261113-v5-verification",
     title: "Verify version 5 workflows",
     details:

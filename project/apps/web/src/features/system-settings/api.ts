@@ -47,10 +47,10 @@ export const management = {
   updateUser: (
     token: string,
     id: string,
-    value: Pick<
+    value: Partial<Pick<
       UserDetail,
       "gid" | "username" | "email" | "baseId" | "enabled"
-    >,
+    >>,
   ) =>
     request<UserDetail>(
       `/admin/users/${encodeURIComponent(id)}`,

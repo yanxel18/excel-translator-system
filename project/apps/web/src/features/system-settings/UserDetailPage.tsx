@@ -12,7 +12,10 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft, Building2, Check, CircleAlert, Hash, KeyRound,
+  LockKeyhole, Mail, Save, UserRound,
+} from "lucide-react";
 import { useLocale } from "../shared/LocaleProvider";
 import { management, type Base, type UserDetail } from "./api";
 import { validateManagementField, type ManagementField } from "./validation";
@@ -154,19 +157,22 @@ export default function UserDetailPage({
   };
 
   return (
-    <Stack gap="md" maw={760}>
+    <Stack gap="lg" className="settings-user-detail">
       <Button
         variant="subtle"
-        leftSection={<ArrowLeft size={16} />}
+        leftSection={<ArrowLeft size={16} aria-hidden="true" />}
         onClick={onBack}
         w="fit-content"
       >
         {t("Back to users")}
       </Button>
       <Group justify="space-between">
+        <Group gap="md">
+        <span className="settings-heading-icon"><UserRound size={24} aria-hidden="true" /></span>
         <Text component="h1" fz="h2" fw={700}>
           {t("Edit user")}
         </Text>
+        </Group>
         {user && (
           <Text size="sm" c="dimmed">
             {user.username}
@@ -174,12 +180,12 @@ export default function UserDetailPage({
         )}
       </Group>
       {error && (
-        <Alert color="red" role="alert">
+        <Alert color="red" role="alert" icon={<CircleAlert size={18} aria-hidden="true" />}>
           {error}
         </Alert>
       )}
       {saved && (
-        <Alert color="teal" role="status">
+        <Alert color="teal" role="status" icon={<Check size={18} aria-hidden="true" />}>
           {t("User saved.")}
         </Alert>
       )}
@@ -187,10 +193,15 @@ export default function UserDetailPage({
         <Text role="status">{t("Loading")}</Text>
       ) : (
         user && (
-          <Paper withBorder p="lg">
-            <Stack>
-              <Text fw={650}>{t("User details")}</Text>
+          <Paper withBorder p="lg" className="settings-panel">
+            <Stack gap="lg">
+              <Group gap="xs">
+                <UserRound size={20} aria-hidden="true" />
+                <Text component="h2" fz="lg" fw={650} m={0}>{t("User details")}</Text>
+              </Group>
+              <div className="settings-form-grid">
               <TextInput
+                leftSection={<Hash size={16} aria-hidden="true" />}
                 required
                 label="GID"
                 value={gid}
@@ -199,6 +210,7 @@ export default function UserDetailPage({
                 onChange={(event) => setGid(event.currentTarget.value)}
               />
               <TextInput
+                leftSection={<UserRound size={16} aria-hidden="true" />}
                 required
                 label={t("Username")}
                 value={username}
@@ -207,6 +219,8 @@ export default function UserDetailPage({
                 onChange={(event) => setUsername(event.currentTarget.value)}
               />
               <TextInput
+                className="settings-form-wide"
+                leftSection={<Mail size={16} aria-hidden="true" />}
                 type="email"
                 label={t("Email")}
                 value={email}
@@ -215,6 +229,8 @@ export default function UserDetailPage({
                 onChange={(event) => setEmail(event.currentTarget.value)}
               />
               <Select
+                className="settings-form-wide"
+                leftSection={<Building2 size={16} aria-hidden="true" />}
                 label={t("Base")}
                 clearable
                 searchable
@@ -225,20 +241,25 @@ export default function UserDetailPage({
                 value={baseId}
                 onChange={setBaseId}
               />
+              </div>
+              <div className="settings-access-row">
               <Switch
+                role="switch"
                 label={t("Enabled")}
                 checked={enabled}
                 onChange={(event) => setEnabled(event.currentTarget.checked)}
               />
+              </div>
               {passwordSaved && (
-                <Alert color="teal" role="status">
+                <Alert color="teal" role="status" icon={<Check size={18} aria-hidden="true" />}>
                   {t("Local password reset. The user must sign in again.")}
                 </Alert>
               )}
-              <Group justify="space-between" wrap="wrap">
+              <Group justify="space-between" wrap="wrap" className="settings-form-actions">
                 {user.hasLocalPassword ? (
                   <Button
                     variant="default"
+                    leftSection={<KeyRound size={16} aria-hidden="true" />}
                     onClick={() => {
                       setPasswordError("");
                       setPasswordDialog(true);
@@ -253,7 +274,7 @@ export default function UserDetailPage({
                     )}
                   </Text>
                 )}
-                <Button onClick={() => void save()} loading={saving}>
+                <Button leftSection={<Save size={16} aria-hidden="true" />} onClick={() => void save()} loading={saving}>
                   {t("Save changes")}
                 </Button>
               </Group>
@@ -284,6 +305,7 @@ export default function UserDetailPage({
               {t("This reset does not reveal the current password.")}
             </Text>
             <PasswordInput
+              leftSection={<LockKeyhole size={16} aria-hidden="true" />}
               required
               label={t("New password")}
               autoComplete="new-password"
@@ -293,6 +315,7 @@ export default function UserDetailPage({
               onChange={(event) => setNewPassword(event.currentTarget.value)}
             />
             <PasswordInput
+              leftSection={<LockKeyhole size={16} aria-hidden="true" />}
               required
               label={t("Confirm new password")}
               autoComplete="new-password"
@@ -312,7 +335,7 @@ export default function UserDetailPage({
               >
                 {t("Cancel")}
               </Button>
-              <Button type="submit" loading={saving}>
+              <Button type="submit" leftSection={<KeyRound size={16} aria-hidden="true" />} loading={saving}>
                 {t("Reset password")}
               </Button>
             </Group>
