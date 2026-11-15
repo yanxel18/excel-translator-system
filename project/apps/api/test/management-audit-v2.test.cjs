@@ -185,6 +185,7 @@ test("user edit audit is atomic and contains only approved changed-field names",
         return { id: targetId, ...query.data, identities: [] };
       },
     },
+    userIdentity: { updateMany: async () => ({ count: 1 }) },
     managementAudit: {
       create: async ({ data }) => {
         audit = data;

@@ -25,8 +25,8 @@ test("deployed settings preserve routes and enforce roles with a real API", asyn
   await page.goto(`${web}settings/users/new`);
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("GID").fill(`E2E-${suffix}`);
   await dialog.getByLabel("Username").fill(username);
+  await dialog.getByLabel("Full name").fill("Test User");
   await dialog.getByLabel("Email").fill(`${username}@example.invalid`);
   await dialog.getByLabel("Base").click();
   await page.getByRole("option", { name: /JTY/ }).first().click();

@@ -113,6 +113,7 @@ test("administrator settings preserve list state and support management actions"
     id: "22222222-2222-2222-2222-222222222222",
     gid: "G123",
     username: "alice",
+    fullName: "Alice Example",
     email: "alice@example.com",
     baseId: null,
     base: null,
@@ -183,7 +184,8 @@ test("administrator settings preserve list state and support management actions"
   expect(writes).toContain(`PATCH /admin/users/${user.id}/base`);
   await page.getByRole("button", { name: "Create user" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("GID").fill(" G123 ");
+  await expect(dialog.getByLabel("GID")).toHaveCount(0);
+  await dialog.getByLabel("Full name").fill(" 山田 太郎 ");
   await dialog.getByLabel("Username").fill("　 ");
   await dialog.getByLabel("Email").fill("alice@example.com");
   await dialog.getByLabel("Base").click();
@@ -209,8 +211,8 @@ test("administrator settings preserve list state and support management actions"
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("User created.")).toBeVisible();
   expect(createdUser).toMatchObject({
-    gid: "G123",
     username: "山田・张伟",
+    fullName: "山田 太郎",
     password: exactPassword,
   });
   expect(writes).toContain("POST /admin/users");
@@ -293,6 +295,7 @@ test("administrator user list supports keyboard sorting and preserves combined f
     id: "22222222-2222-2222-2222-222222222222",
     gid: "G123",
     username: "alice",
+    fullName: "Alice Example",
     email: "alice@example.com",
     baseId,
     base: { id: baseId, code: "JTY", name: "Tokyo" },
@@ -347,18 +350,18 @@ test("administrator user list supports keyboard sorting and preserves combined f
     direction: "asc",
   });
 
-  const gidSort = page.getByRole("button", { name: /GID/ });
-  await gidSort.focus();
+  const nameSort = page.getByRole("button", { name: /Full name/ });
+  await nameSort.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/sort=gid/);
+  await expect(page).toHaveURL(/sort=fullName/);
   await expect(page).not.toHaveURL(/page=2/);
-  await expect(page.getByRole("columnheader", { name: /GID/ })).toHaveAttribute(
+  await expect(page.getByRole("columnheader", { name: /Full name/ })).toHaveAttribute(
     "aria-sort",
     "ascending",
   );
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/direction=desc/);
-  await expect(page.getByRole("columnheader", { name: /GID/ })).toHaveAttribute(
+  await expect(page.getByRole("columnheader", { name: /Full name/ })).toHaveAttribute(
     "aria-sort",
     "descending",
   );
@@ -372,7 +375,7 @@ test("administrator user list supports keyboard sorting and preserves combined f
     enabled: "true",
     page: "2",
     pageSize: "10",
-    sort: "gid",
+    sort: "fullName",
     direction: "desc",
   });
 
@@ -394,6 +397,7 @@ test("administrator can edit user details and a rejected disable toggle rolls ba
     id: userId,
     gid: "G123",
     username: "alice",
+    fullName: "Alice Example",
     email: "alice@example.com",
     baseId,
     base: { id: baseId, code: "JTY", name: "Tokyo" },
@@ -465,7 +469,7 @@ test("administrator can edit user details and a rejected disable toggle rolls ba
 
   await page.goto(`${webBasePath}settings/users/${userId}`);
   await expect(page.getByRole("heading", { name: "Edit user" })).toBeVisible();
-  await expect(page.getByLabel("GID")).toHaveValue("G123");
+  await expect(page.getByLabel("Full name")).toHaveValue("Alice Example");
   await page.getByRole("button", { name: "Reset local password" }).click();
   const resetPassword = "temporary reset password";
   await page.getByLabel(/^New password/).fill(resetPassword);

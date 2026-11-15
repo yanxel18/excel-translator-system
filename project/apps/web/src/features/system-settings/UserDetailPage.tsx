@@ -13,7 +13,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import {
-  ArrowLeft, Building2, Check, CircleAlert, Hash, KeyRound,
+  ArrowLeft, Building2, Check, CircleAlert, KeyRound,
   LockKeyhole, Mail, Save, UserRound,
 } from "lucide-react";
 import { useLocale } from "../shared/LocaleProvider";
@@ -32,8 +32,8 @@ export default function UserDetailPage({
   const { t } = useLocale();
   const [user, setUser] = useState<UserDetail | null>(null);
   const [bases, setBases] = useState<Base[]>([]);
-  const [gid, setGid] = useState("");
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [baseId, setBaseId] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -58,8 +58,8 @@ export default function UserDetailPage({
         if (!active) return;
         setUser(detail);
         setBases(result.data);
-        setGid(detail.gid || "");
         setUsername(detail.username);
+        setFullName(detail.fullName || "");
         setEmail(detail.email || "");
         setBaseId(detail.baseId);
         setEnabled(detail.enabled);
@@ -81,8 +81,9 @@ export default function UserDetailPage({
   }, [token, userId, t]);
 
   const values: Record<ManagementField, string> = {
-    gid,
+    gid: "",
     username,
+    fullName,
     email,
     code: "",
     name: "",
@@ -90,30 +91,30 @@ export default function UserDetailPage({
   };
   const fieldError = (field: ManagementField) =>
     submitted
-      ? validateManagementField(field, values[field]) || undefined
+      ? t(validateManagementField(field, values[field]) || "") || undefined
       : undefined;
   const save = async () => {
     setSubmitted(true);
     setError("");
     setSaved(false);
     if (
-      validateManagementField("gid", gid) ||
       validateManagementField("username", username) ||
+      validateManagementField("fullName", fullName) ||
       (email.trim() && validateManagementField("email", email))
     )
       return;
     setSaving(true);
     try {
       const updated = await management.updateUser(token, userId, {
-        gid: gid.trim(),
         username: username.trim(),
+        fullName: fullName.trim(),
         email: email.trim() || null,
         baseId,
         enabled,
       });
       setUser(updated);
-      setGid(updated.gid || "");
       setUsername(updated.username);
+      setFullName(updated.fullName || "");
       setEmail(updated.email || "");
       setBaseId(updated.baseId);
       setEnabled(updated.enabled);
@@ -201,15 +202,6 @@ export default function UserDetailPage({
               </Group>
               <div className="settings-form-grid">
               <TextInput
-                leftSection={<Hash size={16} aria-hidden="true" />}
-                required
-                label="GID"
-                value={gid}
-                maxLength={64}
-                error={fieldError("gid")}
-                onChange={(event) => setGid(event.currentTarget.value)}
-              />
-              <TextInput
                 leftSection={<UserRound size={16} aria-hidden="true" />}
                 required
                 label={t("Username")}
@@ -217,6 +209,14 @@ export default function UserDetailPage({
                 maxLength={100}
                 error={fieldError("username")}
                 onChange={(event) => setUsername(event.currentTarget.value)}
+              />
+              <TextInput
+                leftSection={<UserRound size={16} aria-hidden="true" />}
+                required
+                label={t("Full name")}
+                value={fullName}
+                error={fieldError("fullName")}
+                onChange={(event) => setFullName(event.currentTarget.value)}
               />
               <TextInput
                 className="settings-form-wide"

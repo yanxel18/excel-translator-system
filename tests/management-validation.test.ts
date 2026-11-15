@@ -8,6 +8,7 @@ test("management limits match the V2 field matrix", () => {
   expect(fieldLimits).toEqual({
     gid: 64,
     username: 100,
+    fullName: 50,
     email: 254,
     code: 32,
     name: 100,
@@ -15,7 +16,7 @@ test("management limits match the V2 field matrix", () => {
   });
 });
 
-for (const field of ["gid", "username", "name"] as const) {
+for (const field of ["gid", "username", "fullName", "name"] as const) {
   test(`${field} permits CJK and rejects blank or oversized text`, () => {
     expect(
       validateManagementField(field, "  山田 太郎・张伟  "),
@@ -34,6 +35,11 @@ test("GID rejects controls without stripping them", () => {
   for (const control of ["\n", "\t", "\u0000", "\u007f", "\u0085"]) {
     expect(validateManagementField("gid", `${control}社員1`)).toBeTruthy();
   }
+});
+
+test("full names count supplementary Unicode characters correctly", () => {
+  expect(validateManagementField("fullName", "𠮷".repeat(50))).toBeUndefined();
+  expect(validateManagementField("fullName", "𠮷".repeat(51))).toBeTruthy();
 });
 
 test("Base code allows only the documented ASCII characters", () => {
