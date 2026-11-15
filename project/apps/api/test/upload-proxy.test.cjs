@@ -57,7 +57,7 @@ async function post(port, path, size, chunked = false) {
   return result;
 }
 
-async function putRaw(port, path, size, firstWriteOnly = false) {
+async function putRaw(port, path, size, firstWriteOnly = false, chunked = false) {
   const req = request({
     hostname: "127.0.0.1",
     port,
@@ -65,7 +65,7 @@ async function putRaw(port, path, size, firstWriteOnly = false) {
     method: "PUT",
     headers: {
       "Content-Type": "application/octet-stream",
-      "Content-Length": size,
+      ...(!chunked && { "Content-Length": size }),
     },
   });
   req.setTimeout(15000, () => req.destroy(new Error("Proxy test timed out.")));
@@ -112,7 +112,8 @@ test("web proxy accepts current multipart uploads and retains bounded ingress", 
   const config = resolve(__dirname, "../../web/nginx.conf");
   const upstream = `
     require("node:http").createServer((req, res) => {
-      if (req.url === '/excel-convert/upload-sessions/busy/chunks/0') {
+      if (req.url === '/excel-convert/upload-sessions/busy/chunks/0' ||
+          req.url === '/excel-convert/upload-sessions/busy/chunks/0/') {
         req.once('data', () => {
           res.writeHead(409, { "Content-Type": "application/json", "Retry-After": "1" });
           res.end(JSON.stringify({ code: "UPLOAD_BUSY" }));
@@ -185,11 +186,25 @@ test("web proxy accepts current multipart uploads and retains bounded ingress", 
     });
     const rawOversized = await putRaw(port, "/api/upload-sessions/oversized/chunks/0", mib + 1);
     assert.equal(rawOversized.status, 413, rawOversized.body);
+    const streamed = await putRaw(port, `${rawPath}/`, mib, false, true);
+    assert.equal(streamed.status, 201, streamed.body);
+    assert.equal(JSON.parse(streamed.body).bytes, mib);
+    const streamedOversized = await putRaw(
+      port, "/api/upload-sessions/oversized/chunks/0/", mib + 1, false, true,
+    );
+    assert.equal(streamedOversized.status, 413, streamedOversized.body);
 
     const earlyResponse = await putRaw(port, "/api/upload-sessions/busy/chunks/0", mib, true);
     assert.equal(earlyResponse.status, 409, earlyResponse.body);
     assert.equal(earlyResponse.headers["retry-after"], "1");
     assert.deepEqual(JSON.parse(earlyResponse.body), { code: "UPLOAD_BUSY" });
+    for (const suffix of ["", "/"]) {
+      const earlyChunked = await putRaw(
+        port, `/api/upload-sessions/busy/chunks/0${suffix}`, mib, true, true,
+      );
+      assert.equal(earlyChunked.status, 409, earlyChunked.body);
+      assert.equal(earlyChunked.headers["retry-after"], "1");
+    }
   } finally {
     if (webCreated) docker("rm", "-f", web);
     if (apiCreated) docker("rm", "-f", api);

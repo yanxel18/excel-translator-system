@@ -259,23 +259,12 @@ and [disposable HTTP/PostgreSQL lifecycle tests](../apps/api/test/upload-session
 Source: [PostgreSQL 16 row locking](https://www.postgresql.org/docs/16/explicit-locking.html#LOCKING-ROWS).
 Existing Prisma 7 transaction patterns and generated types are retained.
 
-### Paused draft raw chunk reception (Task 5)
+### Raw chunk reception (Task 5)
 
-**Not approved to merge or deploy to production.** Development stopped at the
-user's request on 2026-11-16 at 00:14 JST. The implementation below describes
-the saved candidate, not a completed safety gate. No final-review corrections
-were implemented before the pause. Existing published changelog entries remain
-immutable; a newer pause entry identifies the draft status.
-
-Before resuming delivery, resolve duplicate temporary bytes beyond declared
-reservations; normal-EOF versus filesystem-error classification; guaranteed
-handle closure; valid bodies without Content-Length; GraphQL's global JSON
-parser undoing the intended raw-route bypass; CORS ordering; and accepted
-trailing-slash proxy handling. Add deterministic commit-time expiry coverage and
-an actual process crash after syncing a second chunk while its first chunk is
-already acknowledged. Then rerun final host/Node 22, storage, legacy,
-GraphQL/REST and proxy checks. The full gate list is in
-[the task-5 tracker](../../tasks/todo-v6.md).
+The earlier draft was paused on 2026-11-16 at 00:14 JST. The subsequent review
+addresses its storage accounting, error handling, parser and proxy issues. This
+slice does not implement session completion or browser recovery; the full task
+status and verification are in [the tracker](../../tasks/todo-v6.md).
 
 The authenticated `PUT /upload-sessions/:id/chunks/:index` route accepts only
 raw `application/octet-stream`. The chunk index is a canonical non-negative
@@ -296,13 +285,15 @@ limits. This intentionally does not enable Nest `rawBody`, which buffers the
 entire request. The controller's JWT guard runs before the service acquires the
 shared legacy/session admission slot or reads the body. `UPLOAD_BUSY` retains
 409 and `Retry-After: 1`. The chunk-specific nginx location caps the raw body
-at 1 MiB and sets `proxy_request_buffering off`, so a proxy can forward an
-early auth/admission response instead of first buffering the whole chunk.
+at 1 MiB, accepts the optional trailing slash and uses HTTP/1.1 with request
+buffering disabled, so even transfer-encoded requests can receive an early
+auth/admission response.
 
-Reception streams one chunk into a random, exclusive 0600 temporary file under
-the private directory derived from the persisted canonical session ID. It
-does not buffer the workbook, encode chunk data as JSON/base64, follow client
-filenames, or retry the legacy multipart endpoint. Before append/replay it
+Reception holds one expected incoming chunk in memory and writes no duplicate
+temporary chunk file. Prefix and replay verification may use another bounded
+chunk-sized buffer. It does not buffer the workbook, encode chunk data as
+JSON/base64, follow client filenames, or retry the legacy multipart endpoint.
+Stale chunk files from the earlier draft are removed safely. Before append/replay it
 reloads persisted progress. The assembled spool's committed prefix is checked
 for exact length and each stored hash; a missing, short or corrupt committed
 prefix is an explicit storage/integrity failure. A tail beyond the fresh
@@ -310,40 +301,30 @@ database offset is truncated only after that offset is confirmed from
 PostgreSQL. Matching replay also checks the incoming digest and compares its
 actual bytes with the acknowledged spool range, so it cannot append twice.
 
-The chunk is acknowledged only after the temporary file is synced, appended
-spool bytes are synced, and a short PostgreSQL transaction commits progress.
+The chunk is acknowledged only after appended spool bytes are synced and a
+short PostgreSQL transaction commits progress.
 The transaction rechecks status, expiry, progress and current settings while
 conditionally advancing the offset. No transaction or settings lock spans
 slow client I/O. If a progress commit fails or its outcome is uncertain, the
 spool tail is retained until a later fresh read determines whether PostgreSQL
 committed it; a committed prefix is never truncated using stale process state.
-The admission lease remains held until request reception and temporary-file
-cleanup settle, including disconnects. Directory sync is attempted where the
+The admission lease remains held until request reception, writing and commit
+settle, including disconnects. Directory sync is attempted where the
 platform supports it. Linux uses 0700 directories/0600 files; Windows relies
 on the local account's filesystem ACLs. These process-crash tests do not promise
 host power-loss durability or an atomic transaction spanning filesystem and
 PostgreSQL.
 
-The last host HTTP/process run reported 18 passing tests (one parent plus 17
-cases). The earlier Node 22 run also passed 18, but preceded the final expiry
-adjustment; neither result resolves the review gates above. It uses authenticated
-HTTP and guarded disposable PostgreSQL; actual owned API workers are terminated
-while receiving an incomplete first chunk and after commit-before-response,
-then restarted to verify database offsets and spool bytes. It does not yet
-test the critical synced unacknowledged tail following an acknowledged prefix.
-Another test uses a real
-committed PostgreSQL transaction whose outcome is deliberately hidden from the
-request, then verifies a matching replay. Changing the administrator limit
-immediately before the progress transaction rejects the chunk; restoring it
-allows safe tail reconciliation. An expired session rejects a chunk without
-writing bytes. The separate guarded storage suite passes 6 tests, legacy disk
-and admission regressions pass 12, and the enabled real-nginx proxy test passes
-1 with exact 1 MiB forwarding, +1-byte rejection and early retryable busy
-response. These earlier runs must be repeated after the corrections.
-The attempted exact expiry-race test produced a harness-level 503 and was
-discarded; it is not a passing expiry-race test. Disabling both hash checks made
-the altered-byte assertion fail
-(HTTP 200 instead of 422); guards were restored before the passing runs.
+Authenticated HTTP tests on the host and Node 22 Linux use disposable PostgreSQL
+and terminate owned API workers during reception, after a synced second chunk
+but before its progress commit, and after commit before response. They verify
+the committed prefix and safe retry. A PostgreSQL row lock deterministically
+crosses expiry between the transaction's check and update. Injected sync
+failure verifies explicit storage errors and handle closure. Tests also cover
+exact, short and oversized transfer-encoded chunks, the absence of duplicate
+chunk files, and real-nginx early responses and size boundaries with and
+without a trailing slash. These tests do not establish host power-loss
+durability.
 
 Sources: [Nest raw-body FAQ](https://docs.nestjs.com/faq/raw-body),
 [Nest middleware](https://docs.nestjs.com/middleware),
