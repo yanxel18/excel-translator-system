@@ -58,7 +58,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: min(30rem, calc(100dvh - 6rem));
+  max-height: min(26rem, calc(100dvh - 6rem));
   min-height: 0;
 }
 .notification-preview-header {
@@ -199,21 +199,21 @@
   gap: 0.5rem;
 }
 .notification-feed-compact .mantine-ThemeIcon-root {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
 }
 .notification-feed-compact .mantine-ThemeIcon-root svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 .notification-feed-compact .notification-card-heading {
   padding-right: 0.25rem;
 }
 .notification-feed-compact .notification-time,
 .notification-feed-compact .notification-message {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
 }
 .notification-feed-compact .notification-message {
   margin-top: 0.125rem;

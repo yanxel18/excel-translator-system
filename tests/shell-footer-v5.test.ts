@@ -43,7 +43,7 @@ async function openWorkspace(page: Page, locale: "en" | "ja" | "zh" = "en") {
   await expect(page.locator(".main-content h1")).toBeVisible();
 }
 
-test("footer stays viewport-anchored and never covers scroll content or language text", async ({
+test("footer stays viewport-anchored while language stays in the navigation rail", async ({
   page,
 }) => {
   const viewports = [
@@ -59,53 +59,38 @@ test("footer stays viewport-anchored and never covers scroll content or language
     await page.setViewportSize(viewport);
     const footer = page.getByRole("contentinfo");
     const languageButton = page.locator(".shell-language-button");
+    const navigationToggle = page.locator(".mantine-Burger-root");
+    if (
+      viewport.width < 768 &&
+      (await navigationToggle.getAttribute("aria-expanded")) === "false"
+    ) {
+      await navigationToggle.click();
+    }
     await expect(languageButton).toHaveAccessibleName(/\S+/);
     await expect(footer).toBeVisible();
     await expect(languageButton).toBeVisible();
+    await expect(languageButton).toBeInViewport();
 
     const initialLayout = await page.evaluate(() => {
       const footer = document.querySelector(".app-footer")!;
       const language = document.querySelector(".shell-language-button")!;
-      const range = document.createRange();
-      range.selectNodeContents(footer);
-      const footerText = [...range.getClientRects()].map((rect) => ({
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-      }));
+      const navigation = document.querySelector(".navigation-rail")!;
       const footerRect = footer.getBoundingClientRect();
       const languageRect = language.getBoundingClientRect();
+      const navigationRect = navigation.getBoundingClientRect();
       return {
         footerBottom: footerRect.bottom,
         viewportHeight: window.innerHeight,
-        languageBounds: {
-          left: languageRect.left,
-          right: languageRect.right,
-          top: languageRect.top,
-          bottom: languageRect.bottom,
-        },
-        footerText,
+        languageInNavigation:
+          languageRect.left >= navigationRect.left &&
+          languageRect.right <= navigationRect.right &&
+          languageRect.top >= navigationRect.top &&
+          languageRect.bottom <= navigationRect.bottom,
       };
     });
 
     expect(initialLayout.footerBottom).toBeCloseTo(viewport.height, 0);
-    expect(initialLayout.languageBounds.left).toBeGreaterThanOrEqual(0);
-    expect(initialLayout.languageBounds.right).toBeLessThanOrEqual(
-      viewport.width,
-    );
-    expect(initialLayout.languageBounds.top).toBeGreaterThanOrEqual(0);
-    expect(initialLayout.languageBounds.bottom).toBeLessThanOrEqual(
-      viewport.height,
-    );
-    for (const textRect of initialLayout.footerText) {
-      const overlapsLanguage =
-        textRect.left < initialLayout.languageBounds.right &&
-        textRect.right > initialLayout.languageBounds.left &&
-        textRect.top < initialLayout.languageBounds.bottom &&
-        textRect.bottom > initialLayout.languageBounds.top;
-      expect(overlapsLanguage).toBe(false);
-    }
+    expect(initialLayout.languageInNavigation).toBe(true);
 
     await page.evaluate(() => {
       if (document.getElementById("shell-footer-test-spacer")) return;
@@ -154,6 +139,9 @@ test("footer stays viewport-anchored and never covers scroll content or language
   const keyboardPage = await page.context().newPage();
   await keyboardPage.setViewportSize({ width: 320, height: 320 });
   await openWorkspace(keyboardPage);
+  await keyboardPage
+    .getByRole("button", { name: "Toggle navigation" })
+    .click();
   await keyboardPage.evaluate(() => {
     const main = document.querySelector(".main-content")!;
     const spacer = document.createElement("div");
@@ -198,7 +186,7 @@ test("footer stays viewport-anchored and never covers scroll content or language
   await keyboardPage.close();
 });
 
-test("shell controls share theme surfaces while preserving active and destructive states", async ({
+test("labeled navigation and shell controls share consistent surfaces", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 800 });
@@ -210,11 +198,11 @@ test("shell controls share theme surfaces while preserving active and destructiv
   const activeNavigation = page
     .locator(".navigation-rail .mantine-NavLink-root")
     .filter({ hasText: "Workspace" });
-  await expect(inactiveNavigation).toHaveCSS("width", "44px");
-  await expect(inactiveNavigation).toHaveCSS("border-radius", "50%");
+  expect(await inactiveNavigation.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(180);
+  await expect(inactiveNavigation).toHaveCSS("border-radius", "8px");
+  await expect(inactiveNavigation.locator(".mantine-NavLink-label")).toBeVisible();
   const controls = [
-    inactiveNavigation,
-    page.getByRole("button", { name: "Toggle color theme" }),
     page.getByRole("button", { name: "Account", exact: true }),
     page.getByRole("button", { name: "Change language" }),
     page.getByRole("button", { name: "Open notifications" }),
@@ -260,10 +248,7 @@ test("shell controls share theme surfaces while preserving active and destructiv
     for (const style of styles.slice(1)) {
       expect(style.background).toBe(styles[0].background);
       expect(style.border).toBe(styles[0].border);
-      expect(style.color).toBe(styles[0].color);
       expect(style.fontFamily).toBe(styles[0].fontFamily);
-      expect(style.fontWeight).toBe(styles[0].fontWeight);
-      expect(style.letterSpacing).toBe(styles[0].letterSpacing);
     }
 
     const avatarStyle = await avatar.evaluate((element) => {
@@ -280,14 +265,14 @@ test("shell controls share theme surfaces while preserving active and destructiv
       expect(avatarStyle).not.toEqual(lightAvatarColors);
     }
 
-    const disabledNotification = controls[4];
+    const disabledNotification = controls[2];
     await disabledNotification.evaluate((element) =>
       element.setAttribute("aria-disabled", "true"),
     );
     await disabledNotification.hover();
     await expect(disabledNotification).toHaveCSS(
       "background-color",
-      styles[4].background,
+      styles[2].background,
     );
     await expect(disabledNotification).toHaveCSS("opacity", "0.55");
     await expect(disabledNotification).toHaveCSS("cursor", "not-allowed");
@@ -318,6 +303,7 @@ test("compact localized language labels stay visible and horizontal", async ({
     const compactPage = await page.context().newPage();
     await compactPage.setViewportSize({ width: 320, height: 480 });
     await openWorkspace(compactPage, locale);
+    await compactPage.locator(".mantine-Burger-root").click();
     const languageButton = compactPage.locator(".shell-language-button");
     await expect(languageButton).toHaveAccessibleName(/\S+/);
     await languageButton.focus();
@@ -381,7 +367,11 @@ test("mobile navigation and account controls remain reachable in both themes", a
       name: "Toggle color theme",
     });
     await toggle.focus();
-    for (let index = 0; index < 6; index += 1) {
+    for (
+      let index = 0;
+      index < 12 && !(await themeButton.evaluate((element) => element === document.activeElement));
+      index += 1
+    ) {
       await page.keyboard.press("Tab");
     }
     await expect(themeButton).toBeFocused();

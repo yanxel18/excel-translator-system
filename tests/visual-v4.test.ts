@@ -96,6 +96,16 @@ for (const width of [320, 768, 1024, 1440]) {
         if (width < 768) await page.getByRole("button", { name: "Toggle navigation" }).click();
       }
       await expect(page.locator("html")).toHaveAttribute("data-mantine-color-scheme", theme);
+      await expect.poll(() =>
+        page.locator("body").evaluate((element) => getComputedStyle(element).fontFamily),
+      ).toContain("Poppins");
+      const shellColors = await page.evaluate(() => ({
+        app: getComputedStyle(document.querySelector(".mantine-AppShell-root")!).backgroundColor,
+        navigation: getComputedStyle(document.querySelector(".navigation-rail")!).backgroundColor,
+        header: getComputedStyle(document.querySelector(".app-header")!).backgroundColor,
+      }));
+      expect(shellColors.navigation).not.toBe(shellColors.app);
+      expect(shellColors.header).not.toBe(shellColors.app);
       await expectFooterAtViewportBottom(page);
       const trigger = page.getByRole("button", { name: "Open notifications" });
       await trigger.click();
@@ -104,11 +114,17 @@ for (const width of [320, 768, 1024, 1440]) {
       await expect(preview.locator(".notification-card")).toHaveCount(2);
       await expect(preview).toHaveCSS("opacity", "1");
       const bounds = await preview.boundingBox();
-      expect(bounds!.width).toBeLessThanOrEqual(360);
+      expect(bounds!.width).toBeLessThanOrEqual(344);
+      expect(bounds!.height).toBeLessThanOrEqual(440);
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
       expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(900);
       expect(await preview.locator(".notification-card").first().evaluate((el) => parseFloat(getComputedStyle(el).minHeight))).toBeLessThanOrEqual(72);
+      const notificationIcon = preview
+        .locator(".notification-card")
+        .first()
+        .locator(".mantine-ThemeIcon-root svg");
+      await expect(notificationIcon).toHaveCSS("width", "22px");
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: testInfo.outputPath(`v4-${width}-${theme}.png`) });

@@ -1,4 +1,4 @@
-import { NavLink, Text, Box, Tooltip } from "@mantine/core";
+import { NavLink, Text, Box } from "@mantine/core";
 import { BookOpen, History, LayoutDashboard } from "lucide-react";
 import type { View } from "./types";
 import { useLocale } from "../shared/LocaleProvider";
@@ -17,7 +17,7 @@ export default function AppNavigation({
 }) {
   const { t } = useLocale();
   return (
-    <>
+    <Box className="navigation-menu">
       <Text
         className="rail-caption"
         size="xs"
@@ -30,24 +30,17 @@ export default function AppNavigation({
         {t("Workspace")}
       </Text>
       {items.map(({ view: destination, label, icon: Icon }) => (
-        <Tooltip
+        <NavLink
           key={destination}
+          aria-label={t(label)}
+          component="button"
+          type="button"
+          active={view === destination}
+          aria-current={view === destination ? "page" : undefined}
           label={t(label)}
-          position="right"
-          openDelay={300}
-        >
-          <NavLink
-            aria-label={t(label)}
-            component="button"
-            type="button"
-            key={destination}
-            active={view === destination}
-            aria-current={view === destination ? "page" : undefined}
-            label={t(label)}
-            leftSection={<Icon size={19} />}
-            onClick={() => onNavigate(destination)}
-          />
-        </Tooltip>
+          leftSection={<Icon size={19} />}
+          onClick={() => onNavigate(destination)}
+        />
       ))}
       <Box className="nav-note">
         <Text fw={700} size="sm">
@@ -57,6 +50,6 @@ export default function AppNavigation({
           {t("Your workbook translation workspace")}
         </Text>
       </Box>
-    </>
+    </Box>
   );
 }

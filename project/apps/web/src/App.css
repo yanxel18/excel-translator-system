@@ -1,7 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700;750&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;450;500;550;600;650;700;750&display=swap");
 
 :root {
-  font-family: Inter, system-ui, sans-serif;
+  font-family: Poppins, system-ui, sans-serif;
+  font-size: 16px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -53,6 +54,14 @@ input {
   gap: 7px;
   align-items: center;
   padding-top: 20px;
+}
+.navigation-rail .navigation-menu {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.navigation-rail .shell-profile-controls {
+  flex: 0 0 auto;
 }
 .navigation-rail .mantine-NavLink-root {
   flex: 0 0 auto;
@@ -726,10 +735,10 @@ input {
     height: 30px;
   }
   .app-header .mantine-Text-root {
-    font-size: 12px;
+    font-size: 14px;
   }
   .app-header .mantine-Text-root[data-size="xs"] {
-    font-size: 10px;
+    font-size: 12px;
   }
 }
 @media (max-width: 36em) {

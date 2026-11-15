@@ -14,16 +14,16 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       theme={{
         primaryColor: "blue",
         defaultRadius: "md",
-        fontFamily: "Inter, system-ui, sans-serif",
+        fontFamily: "Poppins, system-ui, sans-serif",
         fontSizes: {
-          xs: "0.6875rem",
-          sm: "0.75rem",
-          md: "0.8125rem",
-          lg: "0.875rem",
-          xl: "1rem",
+          xs: "0.75rem",
+          sm: "0.875rem",
+          md: "1rem",
+          lg: "1.125rem",
+          xl: "1.25rem",
         },
         headings: {
-          fontFamily: "Inter, system-ui, sans-serif",
+          fontFamily: "Poppins, system-ui, sans-serif",
           fontWeight: "600",
           sizes: {
             h1: { fontSize: "1.625rem", lineHeight: "1.25" },

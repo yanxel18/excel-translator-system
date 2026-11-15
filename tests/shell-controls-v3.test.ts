@@ -121,7 +121,7 @@ test("bottom-left account menu preserves profile, admin, sign-out, and theme con
   await openWorkspace(page);
 
   const account = page.getByRole("button", { name: "Account", exact: true });
-  await expect(page.getByText("AL", { exact: true })).toBeVisible();
+  await expect(account.locator(".shell-gid-identicon svg")).toBeVisible();
 
   const themeToggle = page.getByRole("button", {
     name: "Toggle color theme",
@@ -173,7 +173,7 @@ test("bottom-right language menu opens upward, persists each locale, and dismiss
 
   const languageButton = page.locator(".shell-language-button");
   const account = page.getByRole("button", { name: "Account", exact: true });
-  await expect(page.getByText("HY", { exact: true })).toBeVisible();
+  await expect(account.locator(".shell-gid-identicon svg")).toBeVisible();
   await account.click();
   const accountMenu = page.getByRole("menu");
   await expect(accountMenu).toBeVisible();
@@ -219,8 +219,15 @@ test("bottom-right language menu opens upward, persists each locale, and dismiss
     "翻译系统 Taiyo Yuden Co. Ltd © 2026",
   );
 
+  const navigationToggle = page.locator(".mantine-Burger-root");
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 800 });
+    if (
+      width < 768 &&
+      (await navigationToggle.getAttribute("aria-expanded")) === "false"
+    ) {
+      await navigationToggle.click();
+    }
     const languageBox = await languageButton.boundingBox();
     expect(languageBox).not.toBeNull();
     expect(languageBox!.x).toBeGreaterThanOrEqual(0);

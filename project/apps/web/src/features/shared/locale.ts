@@ -9,6 +9,7 @@ export const LOCALE_OPTIONS = [
 const messages: Record<Locale, Record<string, string>> = {
   en: {},
   ja: {
+    "Clear search": "検索をクリア",
     Authentication: "認証",
     "Authentication mode": "認証モード",
     "LOCAL — Password only": "LOCAL — パスワードのみ",
@@ -285,6 +286,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "Preview version": "プレビューの種類",
   },
   zh: {
+    "Clear search": "清除搜索",
     Authentication: "身份验证",
     "Authentication mode": "身份验证模式",
     "LOCAL — Password only": "LOCAL — 仅密码",

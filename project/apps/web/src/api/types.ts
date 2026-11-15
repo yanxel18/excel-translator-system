@@ -71,6 +71,7 @@ export interface WorkbookPreview {
 
 export interface UserProfile {
   id: string;
+  gid?: string | null;
   username: string;
   email: string | null;
   fullName: string | null;

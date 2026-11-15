@@ -3,7 +3,7 @@ import { AppShell, Box } from "@mantine/core";
 import type { View } from "./types";
 import AppHeader from "./AppHeader";
 import AppNavigation from "./AppNavigation";
-import { AccountControls, LanguageControl } from "./ShellControls";
+import { AccountControls } from "./ShellControls";
 import ApiService from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import type { UserProfile } from "../../api";
@@ -68,7 +68,7 @@ export default function AppFrame({
       data-mobile-navigation={mobileOpen ? "open" : "closed"}
       header={{ height: 68 }}
       navbar={{
-        width: 80,
+        width: 232,
         breakpoint: "sm",
         collapsed: { mobile: !mobileOpen },
       }}
@@ -115,7 +115,6 @@ export default function AppFrame({
           {t("Translation System Taiyo Yuden Co. Ltd")} ©{" "}
           {year ?? (yearUnavailable ? t("Year unavailable") : "…")}
         </footer>
-        <LanguageControl />
       </AppShell.Main>
     </AppShell>
   );
