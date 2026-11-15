@@ -19,8 +19,9 @@ export async function mountProductSurfacesGraphql(
   const resolver = app.get(ProductSurfacesResolver);
   const authentication = app.get(AuthenticationService);
 
-  // Nest detects registered parsers by name, so a scoped parser disables its global JSON parser.
-  app.use(json());
+  const graphqlJson = json();
+  // Keep Nest's automatic REST parser enabled in apps that use its defaults.
+  app.use(graphqlPath, (req, res, next) => graphqlJson(req, res, next));
   app.use(graphqlPath, async (req, res, next) => {
     const token = (req.headers.authorization as string | undefined)?.match(
       /^Bearer\s+(.+)$/i,

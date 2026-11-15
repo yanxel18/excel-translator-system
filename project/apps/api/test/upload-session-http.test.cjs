@@ -175,13 +175,16 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
   const { JwtService } = require("@nestjs/jwt");
   const { AppModule } = require("../dist/app.module");
+  const { mountProductSurfacesGraphql } = require("../dist/modules/product-surfaces/graphql-http");
   const { PrismaService } = require("../dist/modules/persistence/prisma.service");
   const { UploadAdmissionService } = require("../dist/modules/file-upload/upload-admission.service");
   const { UploadSessionService } = require("../dist/modules/file-upload/upload-session.service");
   const startApp = async () => {
     const instance = await NestFactory.create(AppModule, { logger: false, bodyParser: false });
+    instance.enableCors({ origin: ["http://localhost:5173"], credentials: true });
     installRequestBodyParsers(instance);
     instance.setGlobalPrefix("api");
+    await mountProductSurfacesGraphql(instance);
     app = instance;
     await instance.listen(0, "127.0.0.1");
     return {
@@ -1066,10 +1069,11 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     const token = tokenFor(await addUser("chunk-json-parser"));
     const malformed = await fetch(`${runtime.baseUrl}/api/upload-sessions`, {
       method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json", origin: "http://localhost:5173" },
       body: '{"clientUploadId":',
     });
     assert.equal(malformed.status, 400);
+    assert.equal(malformed.headers.get("access-control-allow-origin"), "http://localhost:5173");
     const oversized = await fetch(`${runtime.baseUrl}/api/upload-sessions`, {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
@@ -1077,6 +1081,21 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     });
     assert.equal(oversized.status, 413);
     assert.equal(await budget(), budgetBefore);
+  });
+
+  await t.test("production GraphQL parser leaves chunk bodies for authenticated admission", async () => {
+    const owner = await addUser("parser-chunk-owner");
+    const token = tokenFor(owner);
+    const created = await create(runtime.baseUrl, token, intent());
+    assert.equal(created.response.status, 201);
+    const response = await fetch(chunkPath(runtime.baseUrl, created.body.id, 0), {
+      method: "PUT",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: "{",
+    });
+    assert.equal(response.status, 415);
+    assert.equal((await response.json()).code, "UPLOAD_CHUNK_CONTENT_TYPE");
+    assert.equal((await request(sessionPath(runtime.baseUrl, created.body.id), "DELETE", token)).status, 200);
   });
 
   await t.test("failed progress commit leaves an unacknowledged tail that is reconciled before retry", async () => {

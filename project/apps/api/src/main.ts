@@ -11,12 +11,12 @@ async function bootstrap() {
   if (!process.env.DATABASE_URL)
     throw new Error("DATABASE_URL must be configured.");
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  installRequestBodyParsers(app);
   app.enableShutdownHooks();
   app.enableCors({
     origin: process.env.WEB_ORIGIN?.split(",") || ["http://localhost:5173"],
     credentials: true,
   });
+  installRequestBodyParsers(app);
   const basePath = normalizeBasePath(process.env.BASE_PATH);
   app.setGlobalPrefix(basePath.replace(/^\//, ""));
   app

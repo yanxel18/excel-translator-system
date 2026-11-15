@@ -244,7 +244,12 @@ web nginx chunk location, `upload-session-http.test.cjs` and existing
     preserves an acknowledged prefix and reconciles only its unacknowledged tail.
   - Add a deterministic PostgreSQL expiry-between-check-and-update test.
   - Scope the GraphQL JSON parser so it cannot undo the chunk parser bypass;
-    preserve CORS ordering and test production-equivalent bootstrap.
+    preserve CORS ordering and test production-equivalent bootstrap. The
+    parser is now scoped, CORS runs before body parsing, and the HTTP fixture
+    mounts GraphQL like production. A malformed JSON chunk returns 415 instead
+    of being consumed by the global parser; malformed metadata retains CORS
+    headers. GraphQL/REST and upload tests passed. Full task-5 review and
+    production-image verification remain pending.
   - Match nginx trailing-slash handling to Nest, verify early proxy responses,
     and type the parser middleware explicitly.
   - Rerun the final code on host/Node 22 with storage, legacy, GraphQL/REST and

@@ -1,4 +1,5 @@
 import type { INestApplication } from "@nestjs/common";
+import type { NextFunction, Request, Response } from "express";
 import express = require("express");
 
 const jsonParser = express.json();
@@ -10,7 +11,7 @@ const rawChunkRoute = /(?:^|\/)upload-sessions\/[^/]+\/chunks\/[^/]+\/?$/;
  * requests untouched until their guard and admission check have run.
  */
 export function installRequestBodyParsers(app: INestApplication): void {
-  app.use((request, response, next) => {
+  app.use((request: Request, response: Response, next: NextFunction) => {
     if (request.method === "PUT" && rawChunkRoute.test(request.path)) {
       next();
       return;
