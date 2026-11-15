@@ -14,6 +14,41 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-chunk-safety-v6",
+    title: "Strengthen resumable upload chunk handling",
+    details:
+      "Upload chunks now use bounded memory instead of an extra temporary disk copy, accept correctly sized streamed requests, and preserve acknowledged data after interrupted writes. The web proxy returns busy responses without waiting for the entire chunk. Automatic browser resume, job completion and 200 MB uploads are not enabled yet.",
+    publishedAt: "2026-11-15T22:49:00.000Z",
+  },
+  {
+    id: "changelog-20261116-upload-parser-review-v6",
+    title: "Improve upload request handling",
+    details:
+      "The upload draft now keeps raw chunk requests separate from GraphQL JSON parsing, while preserving cross-origin error responses and existing GraphQL and REST behavior. The remaining chunk safety checks are still in review; automatic browser resume and 200 MB uploads are not enabled.",
+    publishedAt: "2026-11-15T22:35:00.000Z",
+  },
+  {
+    id: "changelog-20261116-upload-chunk-review-pause-v6",
+    title: "Save chunk uploads as a review draft",
+    details:
+      "Chunk upload development is saved for further review. Storage accounting, abort and storage error handling, parser behavior, and crash and expiry checks still need correction or verification. Existing 50 MB uploads remain available; automatic browser resume and 200 MB support are not enabled.",
+    publishedAt: "2026-11-15T15:14:12.563Z",
+  },
+  {
+    id: "changelog-20261115-upload-chunk-receive-v6",
+    title: "Receive verified upload chunks safely",
+    details:
+      "Authenticated upload sessions now accept ordered raw 1 MiB chunks with an exact shorter final chunk, verify SHA-256, and acknowledge only after synchronized private spool bytes and PostgreSQL progress are committed. Matching retries reconcile acknowledged bytes, while process restart recovery preserves committed data and discards only confirmed unacknowledged tails. Existing administrator choices and the 50 MB ceiling are preserved. Browser retention, automatic resume and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T14:11:00.000Z",
+  },
+  {
+    id: "changelog-20261115-upload-session-lifecycle-v6",
+    title: "Manage resumable upload sessions safely",
+    details:
+      "Authenticated upload-session creation, status and cancellation now expose only owned upload metadata. A fixed 24-hour recovery deadline is cleaned in bounded startup and periodic batches; storage removal or ownership failures retain the reservation. Cancellation is repeatable and completed job receipts remain intact. Existing 50 MB administrator limits and legacy uploads are preserved; chunk transfer, automatic browser resume and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T13:28:42.000Z",
+  },
+  {
     id: "changelog-20261115-upload-session-storage-v6",
     title: "Persist safe upload recovery reservations",
     details:

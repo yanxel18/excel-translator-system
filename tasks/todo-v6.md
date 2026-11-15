@@ -172,31 +172,73 @@ Dependencies: `session-storage`.
 Core files: new session controller, session service, upload module,
 and `project/apps/api/test/upload-session-http.test.cjs`.
 
-- [ ] Add create/status/cancel routes with existing authentication and typed
+- [x] Add create/status/cancel routes with existing authentication and typed
   metadata/progress responses; never expose storage paths or other owners.
-- [ ] Repeated cancellation is safe; expiry and cleanup do not delete a
+- [x] Repeated cancellation is safe; expiry and cleanup do not delete a
   completed job or race a live upload operation.
-- [ ] Check reduced administrator limits and recover cleanup state at startup;
+- [x] Check reduced administrator limits and recover cleanup state at startup;
   storage failures remain distinct from retryable busy responses.
+- [x] Audit owner deletion blocked by retained reservations. The database
+  blocks deletion while reservations remain, but the existing admin controllers
+  have no account-deletion route; HTTP conflict mapping is not applicable until
+  such a route exists. Do not add a destructive endpoint for this task; any
+  future route must return the repository's explicit conflict response.
 - Verify: API build; `node --test project\apps\api\test\upload-session-http.test.cjs`;
   real authenticated HTTP requests, lowered settings and expiry/cleanup.
+  Verified: 10 real JWT/HTTP/disposable-PostgreSQL lifecycle checks passed,
+  including owner isolation, allowlisted metadata, repeated completed-session
+  cancellation with retained temporary reservation, retry headers, lowered
+  limits/replay, cancel/create races, restart expiry, bounded sweeps and
+  symlink/foreign-marker refusal with reservation retention. Twenty older
+  failed cleanup candidates no longer starve a later healthy expired session;
+  each sweep remains bounded to 20. Uppercase UUID storage preparation uses the
+  persisted canonical ID so cancellation removes bytes before releasing budget.
+  The regressions failed before these fixes and pass afterward. The 6 guarded
+  storage PostgreSQL checks and 12 disk/admission regressions passed; API
+  build/type-check, web type-check and Prisma validation passed. Removing the
+  owner filter makes the cross-owner HTTP assertion fail (200 instead of 404).
+  Local Compose health, public system info, unauthenticated route guards,
+  applied migration, matching database/built-in history, empty live sessions
+  and zero reserved bytes were verified. Private Tailscale Serve remains
+  tailnet-only at the existing URL/proxy. The owner-delete applicability audit
+  is complete: the guarded PostgreSQL test confirms an owner with a retained
+  reservation cannot be deleted, and the existing admin controllers have no
+  account-deletion route. HTTP conflict mapping is not applicable until a route
+  is introduced; that future route must surface the database block explicitly.
 
 #### 5. `chunk-receive`: Acknowledge durable verified chunks
 
 Dependencies: `session-lifecycle`.
-Core files: session controller/service, upload admission helper,
-`upload-sessions.postgres.test.cjs` and existing `upload-proxy.test.cjs`.
+Core files: session controller/service, targeted request-body parser helper,
+web nginx chunk location, `upload-session-http.test.cjs` and existing
+`upload-proxy.test.cjs`.
 
-- [ ] Accept sequential raw chunks with exact expected length/hash; safe
+- [x] Accept sequential raw chunks with exact expected length/hash; safe
   replay never appends twice and skipped/altered chunks fail explicitly.
-- [ ] Acknowledge only after file sync and progress commit; reconcile
+- [x] Acknowledge only after file sync and progress commit; reconcile
   unacknowledged tails after actual interruption without losing committed bytes.
-- [ ] Reject excess work before reading bodies, release the active slot between
+- [x] Reject excess work before reading bodies, release the active slot between
   chunks, and retain unrelated nginx/body-limit protections.
-- Verify: API build; `node --test project\apps\api\test\upload-sessions.postgres.test.cjs`
-  against the guarded disposable database; and
-  `$env:UPLOAD_PROXY_DOCKER_TEST="1"; node --test project\apps\api\test\upload-proxy.test.cjs`;
-  real 1 MiB chunks, shorter final chunks, one-extra-byte rejection and lost acks.
+- Verify: API build; real authenticated HTTP/process tests and guarded
+  PostgreSQL storage regressions; enabled Docker nginx test; Node 22 Linux
+  image; Compose migration/runtime/history checks.
+  Verified after the paused draft was resumed: 23 authenticated HTTP,
+  PostgreSQL and owned-process checks passed on both the host and Node 22 Linux.
+  These cover headerless exact/short/oversized chunks, bounded reception without
+  duplicate disk bytes, sync failures and handle closure, a real synced-tail
+  crash following an acknowledged prefix, and a lock-controlled expiry between
+  the transaction check and update. Six guarded PostgreSQL storage checks and
+  30 legacy upload, settings, workbook and GraphQL checks passed in Node 22;
+  the 30 legacy regressions also passed on the host. The enabled real-nginx
+  test verified exact and oversized streamed requests and early busy responses
+  with and without a trailing slash. API/web builds and type-checks passed;
+  the local stack and matching changelog migration were refreshed. The private
+  Tailscale sidecar was reattached after the web container was recreated, and
+  the existing tailnet-only preview returned HTTP 200. This is not a
+  power-loss guarantee: filesystem synchronization and PostgreSQL are separate.
+  Task 6, browser recovery and 200 MB processing remain pending. The published
+  draft contains task 4 because #67 did not propagate through the already
+  merged integration parent; preserve that stacked history.
 
 #### 6. `session-completion`: Finalize exactly one existing-shape job
 

@@ -11,6 +11,7 @@ interpretation when adding the 200 MB ceiling.
 |---|---|
 | Workspace file selection | Uses `maxUploadSizeMb` from system info; defaults to 50. Checks extension and file bytes, not multipart bytes. |
 | Web nginx `/api/upload` | 51 MiB request-body ceiling, allowing a 50 MiB file plus multipart headers. Other API routes retain nginx's default 1 MiB body ceiling. |
+| Web nginx chunk PUT | Dedicated `/api/upload-sessions/:id/chunks/:index` location accepts at most one raw 1 MiB chunk and disables proxy request buffering. |
 | Tailscale Serve | Proxies the same web nginx at port 80; does not bypass the upload location or require Funnel. |
 | Nest upload controller/module | Authentication precedes admission and parsing. One file is streamed to private disk at the persisted 1-50 MiB receive ceiling; admission includes receive/validation/job creation/cleanup. |
 | Upload service | Rechecks the persisted limit, validates extension/size, opens the disk archive and verifies CRC32/ZIP defenses once, returning worksheet metadata rather than a receive buffer. |
@@ -73,7 +74,9 @@ and defaults were approved by the user on 2026-11-15. The
 [delivery plan](../../tasks/plan-v6.md#resumable-upload-delivery-plan) and task
 list are approved. The protocol adds durable upload-session progress, bounded
 chunk replay and browser-storage failure handling to the strategy below.
-Neither resumable uploads nor the 200 MB ceiling is enabled yet.
+The API now implements durable session progress and raw chunk reception.
+Browser file retention/automatic resume and the 200 MB ceiling are not enabled
+yet.
 
 ### Completed admission prerequisite
 
@@ -193,14 +196,143 @@ terminal cleanup accounting and replay from a fresh Node process. Raising the
 database capacity CHECK makes the direct-writer regression fail. Legacy HTTP/disk
 and workbook regressions remain intact.
 
-This is an internal storage foundation only. Authenticated lifecycle routes,
-periodic expiry/cleanup, chunk writes, job completion and browser recovery remain
-later tasks. Before exposing routes, map capacity conflicts to retry headers and
-handle account deletion blocked by unresolved upload reservations explicitly.
-Neither the legacy multipart route nor the 50 MiB ceiling changes.
+### Completed authenticated session lifecycle prerequisite
+
+The API now exposes authenticated `POST /upload-sessions`,
+`GET /upload-sessions/:id` and `DELETE /upload-sessions/:id`. Every lookup is
+scoped to the verified JWT owner; a foreign owner receives the same 404 as an
+unknown ID. Responses are built from an explicit metadata allowlist: they omit
+owner IDs, reservation counters, Prisma timestamps and all filesystem paths.
+The stable job identifier is exposed as `jobId` only for completed receipts.
+Busy and global-capacity 409 responses include `Retry-After: 1`; storage
+failures remain 503, not retryable busy responses.
+
+Cancellation acquires the existing upload admission slot, is idempotent and
+never changes or removes a completed job/receipt. An unfinished session becomes
+`CANCELLED` (or `EXPIRED` at its fixed deadline) before temporary cleanup; its
+reservation is released only after the session's ID-keyed directory is absent
+or a marker-verified private directory has been safely removed. Unsafe paths,
+symlinks, foreign markers, special files, excessive nesting and excessive entry
+counts stop cleanup, log a visible failure and retain reservation accounting.
+Startup and 60-second cleanup sweeps process at most 20 sessions per pass and
+use the shared admission slot. A process-local cursor over immutable
+`(expiresAt, id)` keys advances even when cleanup fails and wraps to the first
+page at the end, so persistent failures cannot monopolize every batch or starve
+later expired sessions. Each pass still selects at most 20 candidates.
+Nonexpired reservations are never evicted to free capacity. Completed rows and
+their stable job IDs remain as logical receipts.
+
+The owner marker is a private internal storage contract for the chunk writer:
+`ensureSessionStorage` looks up the validated requested UUID, then uses
+the persisted canonical `session.id` for its directory and marker. This keeps
+uppercase UUID inputs aligned with cancellation/sweeper paths. It does not
+expose a path to the API.
+Status rechecks the current 1-50 MiB administrator limit for active sessions
+and returns `UPLOAD_LIMIT_CHANGED`/413 with corrective guidance. The same
+service check is used by chunk reception and is available to future completion.
+Existing
+settings, default ceiling, legacy multipart path and job/translation behavior
+remain unchanged.
+
+Real authenticated HTTP and disposable PostgreSQL tests verify status/create/
+cancel ownership, response allowlisting, repeat cancellation, completed-job
+preservation, capacity and busy retry headers, lowered limits, cancellation/
+creation races, startup-after-restart expiry, bounded cleanup, symlink/foreign
+path refusal and reservation retention after cleanup failure. A real filesystem
+case with 20 older failing directories proves a later healthy expired session
+is cleaned on a subsequent bounded pass while failed reservations and foreign
+data remain; the uppercase-UUID case proves cancellation removes the canonical
+directory before releasing its reservation. Both regressions failed before the
+fixes. Task 5 chunk reception is complete; task 6 exactly-once completion,
+browser recovery and the separate 200 MiB safety certification remain pending.
+The owner-deletion applicability
+audit is complete: PostgreSQL blocks cascading deletion while reserved bytes
+exist, and neither existing admin controller has an account-deletion route, so
+HTTP conflict mapping is not applicable yet. If a route is introduced, it must
+surface that block explicitly. No new destructive account-delete endpoint was
+added.
+
+Source: [upload-session service](../apps/api/src/modules/file-upload/upload-session.service.ts),
+[lifecycle controller](../apps/api/src/modules/file-upload/upload-session.controller.ts),
+and [disposable HTTP/PostgreSQL lifecycle tests](../apps/api/test/upload-session-http.test.cjs).
 
 Source: [PostgreSQL 16 row locking](https://www.postgresql.org/docs/16/explicit-locking.html#LOCKING-ROWS).
 Existing Prisma 7 transaction patterns and generated types are retained.
+
+### Raw chunk reception (Task 5)
+
+The earlier draft was paused on 2026-11-16 at 00:14 JST. The subsequent review
+addresses its storage accounting, error handling, parser and proxy issues. This
+slice does not implement session completion or browser recovery; the full task
+status and verification are in [the tracker](../../tasks/todo-v6.md).
+
+The authenticated `PUT /upload-sessions/:id/chunks/:index` route accepts only
+raw `application/octet-stream`. The chunk index is a canonical non-negative
+decimal integer; only the next unacknowledged chunk or a matching acknowledged
+replay is accepted. Expected byte length comes from immutable session metadata:
+1,048,576 bytes except for the exact shorter final chunk. The streamed bytes
+are SHA-256 checked against the ordered creation manifest. Type, length, order,
+hash, ownership, expiry and current administrator-limit failures have explicit
+machine-readable responses. The final accepted chunk leaves the session in
+`RECEIVING`; this task does not validate/finalize a workbook, create a job, or
+queue a notification.
+
+Nest's default JSON parser would otherwise consume a request before guards run.
+Bootstrap disables only Nest's automatic parser installation and installs
+targeted JSON/urlencoded middleware that bypasses parsing for the raw chunk
+route; all other requests retain their existing JSON/urlencoded parsers and
+limits. This intentionally does not enable Nest `rawBody`, which buffers the
+entire request. The controller's JWT guard runs before the service acquires the
+shared legacy/session admission slot or reads the body. `UPLOAD_BUSY` retains
+409 and `Retry-After: 1`. The chunk-specific nginx location caps the raw body
+at 1 MiB, accepts the optional trailing slash and uses HTTP/1.1 with request
+buffering disabled, so even transfer-encoded requests can receive an early
+auth/admission response.
+
+Reception holds one expected incoming chunk in memory and writes no duplicate
+temporary chunk file. Prefix and replay verification may use another bounded
+chunk-sized buffer. It does not buffer the workbook, encode chunk data as
+JSON/base64, follow client filenames, or retry the legacy multipart endpoint.
+Stale chunk files from the earlier draft are removed safely. Before append/replay it
+reloads persisted progress. The assembled spool's committed prefix is checked
+for exact length and each stored hash; a missing, short or corrupt committed
+prefix is an explicit storage/integrity failure. A tail beyond the fresh
+database offset is truncated only after that offset is confirmed from
+PostgreSQL. Matching replay also checks the incoming digest and compares its
+actual bytes with the acknowledged spool range, so it cannot append twice.
+
+The chunk is acknowledged only after appended spool bytes are synced and a
+short PostgreSQL transaction commits progress.
+The transaction rechecks status, expiry, progress and current settings while
+conditionally advancing the offset. No transaction or settings lock spans
+slow client I/O. If a progress commit fails or its outcome is uncertain, the
+spool tail is retained until a later fresh read determines whether PostgreSQL
+committed it; a committed prefix is never truncated using stale process state.
+The admission lease remains held until request reception, writing and commit
+settle, including disconnects. Directory sync is attempted where the
+platform supports it. Linux uses 0700 directories/0600 files; Windows relies
+on the local account's filesystem ACLs. These process-crash tests do not promise
+host power-loss durability or an atomic transaction spanning filesystem and
+PostgreSQL.
+
+Authenticated HTTP tests on the host and Node 22 Linux use disposable PostgreSQL
+and terminate owned API workers during reception, after a synced second chunk
+but before its progress commit, and after commit before response. They verify
+the committed prefix and safe retry. A PostgreSQL row lock deterministically
+crosses expiry between the transaction's check and update. Injected sync
+failure verifies explicit storage errors and handle closure. Tests also cover
+exact, short and oversized transfer-encoded chunks, the absence of duplicate
+chunk files, and real-nginx early responses and size boundaries with and
+without a trailing slash. These tests do not establish host power-loss
+durability.
+
+Sources: [Nest raw-body FAQ](https://docs.nestjs.com/faq/raw-body),
+[Nest middleware](https://docs.nestjs.com/middleware),
+[Node streams](https://nodejs.org/api/stream.html), [Node filesystem](https://nodejs.org/api/fs.html),
+[request body parser helper](../apps/api/src/common/request-body-parsers.ts),
+[chunk endpoint](../apps/api/src/modules/file-upload/upload-session.controller.ts),
+[chunk storage](../apps/api/src/modules/file-upload/upload-session.service.ts),
+and [nginx chunk location](../apps/web/nginx.conf).
 
 ### Remaining safety gates
 
