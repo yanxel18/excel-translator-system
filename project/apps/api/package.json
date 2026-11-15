@@ -13,6 +13,7 @@
     "test:translation-concurrency": "node --test test/translation-concurrency.test.cjs",
     "test:translation-concurrency:postgres": "npm run build && node --test test/translation-concurrency.postgres.test.cjs",
     "test:notifications": "npx tsc --incremental false && node --test test/notifications.test.cjs",
+    "test:application-settings": "npm run build && node --test test/application-settings.test.cjs",
     "schema:generate": "npx tsc --incremental false && node generate-schema.cjs",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",

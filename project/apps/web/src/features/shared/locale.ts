@@ -10,6 +10,28 @@ const messages: Record<Locale, Record<string, string>> = {
   en: {},
   ja: {
     "Clear search": "検索をクリア",
+    "System Settings": "システム設定",
+    "Files & processing": "ファイルと処理",
+    "Manage people, bases, file limits, and sign-in preferences.":
+      "ユーザー、拠点、ファイル上限、サインイン設定を管理します。",
+    "Configure the upload size and the number of translations that can run at once.":
+      "アップロードサイズと同時に実行できる翻訳数を設定します。",
+    "Maximum workbook size (MB)": "最大ワークブックサイズ（MB）",
+    "Concurrent translations": "同時翻訳数",
+    "Keep uploads between 1 and 50 MB.": "アップロード上限は1～50 MBです。",
+    "Choose between 1 and 5 concurrent translations.":
+      "同時翻訳数は1～5件から選択できます。",
+    "Changes apply to new job admissions and don't interrupt running translations.":
+      "変更は新しいジョブに適用され、実行中の翻訳は中断されません。",
+    "Save file settings": "ファイル設定を保存",
+    "File settings saved.": "ファイル設定を保存しました。",
+    "Could not load file settings.": "ファイル設定を読み込めませんでした。",
+    "Could not save file settings.": "ファイル設定を保存できませんでした。",
+    "Workbook exceeds the configured upload limit.":
+      "ワークブックのサイズが設定されたアップロード上限を超えています。",
+    "Could not load upload settings.":
+      "アップロード設定を読み込めませんでした。",
+    "Upload limit": "アップロード上限",
     Authentication: "認証",
     "Authentication mode": "認証モード",
     "LOCAL — Password only": "LOCAL — パスワードのみ",
@@ -286,6 +308,27 @@ const messages: Record<Locale, Record<string, string>> = {
     "Preview version": "プレビューの種類",
   },
   zh: {
+    "System Settings": "系统设置",
+    "Files & processing": "文件与处理",
+    "Manage people, bases, file limits, and sign-in preferences.":
+      "管理用户、据点、文件限制和登录设置。",
+    "Configure the upload size and the number of translations that can run at once.":
+      "配置上传大小和可同时运行的翻译数量。",
+    "Maximum workbook size (MB)": "工作簿最大大小（MB）",
+    "Concurrent translations": "并发翻译数",
+    "Keep uploads between 1 and 50 MB.": "上传限制为1至50 MB。",
+    "Choose between 1 and 5 concurrent translations.":
+      "可设置1至5个并发翻译。",
+    "Changes apply to new job admissions and don't interrupt running translations.":
+      "更改仅适用于新任务，不会中断正在运行的翻译。",
+    "Save file settings": "保存文件设置",
+    "File settings saved.": "文件设置已保存。",
+    "Could not load file settings.": "无法加载文件设置。",
+    "Could not save file settings.": "无法保存文件设置。",
+    "Workbook exceeds the configured upload limit.":
+      "工作簿超过了配置的上传限制。",
+    "Could not load upload settings.": "无法加载上传设置。",
+    "Upload limit": "上传限制",
     "Clear search": "清除搜索",
     Authentication: "身份验证",
     "Authentication mode": "身份验证模式",

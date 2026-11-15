@@ -20,6 +20,15 @@ export const SystemInfoApi = {
     ) {
       throw new Error("System info response is invalid.");
     }
-    return { year: response.year };
+    const maxUploadSizeMb =
+      "maxUploadSizeMb" in response ? response.maxUploadSizeMb : 50;
+    if (
+      typeof maxUploadSizeMb !== "number" ||
+      !Number.isInteger(maxUploadSizeMb) ||
+      maxUploadSizeMb < 1 ||
+      maxUploadSizeMb > 50
+    )
+      throw new Error("System upload limit is invalid.");
+    return { year: response.year, maxUploadSizeMb };
   },
 };

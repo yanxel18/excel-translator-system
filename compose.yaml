@@ -9,7 +9,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -48,7 +48,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,23 +68,39 @@ services:
     build:
       context: ./project/apps/web
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/excel-convert}
-        VITE_PREVIEW_URL: ${VITE_PREVIEW_URL:-http://localhost:8081/}
+        VITE_API_URL: /api
+        VITE_PREVIEW_URL: /preview/
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/excel-convert/}
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-5173}:80"
+      - "127.0.0.1:${WEB_PORT:-5173}:80"
     depends_on:
       translator-api:
         condition: service_healthy
 
+  tailscale:
+    profiles: ["tailscale"]
+    image: tailscale/tailscale:stable
+    restart: unless-stopped
+    network_mode: "service:translator-web"
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_AUTH_ONCE: "true"
+      TS_HOSTNAME: ${TS_HOSTNAME:-excel-translator-preview}
+      TS_STATE_DIR: /var/lib/tailscale
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    depends_on:
+      translator-web:
+        condition: service_started
+
   ibis-preview:
-    profiles: ["preview"]
+    profiles: ["preview", "tailscale"]
     build:
       context: ./deployment/ibis-preview
     restart: unless-stopped
     ports:
-      - "${PREVIEW_PORT:-8081}:80"
+      - "127.0.0.1:${PREVIEW_PORT:-8081}:80"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 15s
@@ -94,3 +110,4 @@ services:
 volumes:
   postgres-data:
   api-data:
+  tailscale-state:

@@ -111,4 +111,5 @@ export interface ChangelogPage {
 
 export interface SystemInfo {
   year: number;
+  maxUploadSizeMb: number;
 }

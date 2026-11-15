@@ -15,6 +15,10 @@ const user = {
 
 async function setup(page: Page, rejectUpdate = false) {
   let enabled = true;
+  let applicationSettings = {
+    maxUploadSizeMb: 50,
+    maxConcurrentTranslations: 5,
+  };
   await page.addInitScript(() => {
     localStorage.setItem("excel-translator-token", "settings-test-session");
     localStorage.setItem("excel-translator-locale", "en");
@@ -23,6 +27,12 @@ async function setup(page: Page, rejectUpdate = false) {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace("/excel-convert", "");
     if (!["fetch", "xhr"].includes(request.resourceType())) return route.continue();
+    if (path === "/admin/application-settings") {
+      if (request.method() === "PATCH")
+        applicationSettings = request.postDataJSON();
+      await route.fulfill({ json: applicationSettings });
+      return;
+    }
     if (path === `/admin/users/${userId}` && request.method() === "PATCH") {
       expect(request.postDataJSON()).toEqual({ enabled: !enabled });
       if (rejectUpdate) {
@@ -45,6 +55,8 @@ async function setup(page: Page, rejectUpdate = false) {
             ? { ...user, enabled, hasLocalPassword: true, identityProviders: ["LOCAL"], sessionVersion: 0 }
             : path === "/admin/bases"
               ? { data: [base], total: 1, page: 1, pageSize: 10 }
+              : path === "/system/info"
+                ? { year: 2026, maxUploadSizeMb: applicationSettings.maxUploadSizeMb }
               : path === "/auth/oidc/settings"
                 ? { mode: "LOCAL", enabled: false, keycloakUrl: "", realm: "", clientId: "", issuerUrl: "", requiredGroup: "" }
                 : path === "/notifications/unread-count"
@@ -58,7 +70,7 @@ test("settings navigation aligns icon and label to the left", async ({ page }) =
   await setup(page);
   await page.goto("/excel-convert/settings/users");
   const nav = page.locator(".system-settings-nav");
-  await expect(nav.getByRole("button")).toHaveCount(3);
+  await expect(nav.getByRole("button")).toHaveCount(4);
   for (const button of await nav.getByRole("button").all()) {
     const bounds = await button.boundingBox();
     const icon = await button.locator("svg").first().boundingBox();
@@ -73,6 +85,28 @@ test("settings navigation aligns icon and label to the left", async ({ page }) =
     });
     expect(textStart).toBeLessThanOrEqual(1);
   }
+});
+
+test("admins can update upload size and translation concurrency", async ({ page }) => {
+  await setup(page);
+  await page.goto("/excel-convert/settings/files");
+
+  const uploadLimit = page.getByRole("textbox", {
+    name: "Maximum workbook size (MB)",
+  });
+  const concurrency = page.getByRole("textbox", {
+    name: "Concurrent translations",
+  });
+  await expect(uploadLimit).toHaveValue("50");
+  await expect(concurrency).toHaveValue("5");
+  await uploadLimit.fill("20");
+  await concurrency.fill("2");
+  await page.getByRole("button", { name: "Save file settings" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "File settings saved." }),
+  ).toBeVisible();
+  await expect(uploadLimit).toHaveValue("20");
+  await expect(concurrency).toHaveValue("2");
 });
 
 test("user access switch persists and survives reload", async ({ page }) => {

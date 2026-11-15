@@ -2,12 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ApiService, { type Job } from "../../api";
 import { SessionExpiredError, trackedFetch } from "../../api/client";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const DEFAULT_MAX_UPLOAD_SIZE_MB = 50;
 
-export function validateWorkbook(file: File): string | null {
+export function validateWorkbook(
+  file: File,
+  maxUploadSizeMb = DEFAULT_MAX_UPLOAD_SIZE_MB,
+): string | null {
   if (!file.name.toLowerCase().endsWith(".xlsx"))
     return "Select an .xlsx workbook.";
-  if (file.size > MAX_FILE_SIZE) return "Files must be 50 MB or smaller.";
+  if (file.size > maxUploadSizeMb * 1024 * 1024)
+    return "Workbook exceeds the configured upload limit.";
   return null;
 }
 
@@ -20,8 +24,33 @@ export function useWorkspaceController(
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [maxUploadSizeMb, setMaxUploadSizeMb] = useState(
+    DEFAULT_MAX_UPLOAD_SIZE_MB,
+  );
   const fileInput = useRef<HTMLInputElement>(null);
   const hasLoaded = useRef(false);
+  const translateRef = useRef(translate);
+  translateRef.current = translate;
+
+  useEffect(() => {
+    if (!token) {
+      setMaxUploadSizeMb(DEFAULT_MAX_UPLOAD_SIZE_MB);
+      return;
+    }
+    let active = true;
+    setMaxUploadSizeMb(DEFAULT_MAX_UPLOAD_SIZE_MB);
+    void ApiService.getSystemInfo()
+      .then((info) => {
+        if (active) setMaxUploadSizeMb(info.maxUploadSizeMb);
+      })
+      .catch(() => {
+        if (active)
+          setError(translateRef.current("Could not load upload settings."));
+      });
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   const refresh = useCallback(
     async (silent = false) => {
@@ -77,7 +106,7 @@ export function useWorkspaceController(
       if (fileInput.current) fileInput.current.value = "";
       return;
     }
-    const validationError = validateWorkbook(nextFile);
+    const validationError = validateWorkbook(nextFile, maxUploadSizeMb);
     if (validationError) {
       setError(translate(validationError));
       return;
@@ -131,6 +160,7 @@ export function useWorkspaceController(
     busy,
     error,
     file,
+    maxUploadSizeMb,
     fileInput,
     refresh,
     run,
