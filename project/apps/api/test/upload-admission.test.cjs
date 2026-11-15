@@ -1,10 +1,12 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
 const http = require("node:http");
+const { mkdtemp, readFile, rm } = require("node:fs/promises");
+const { join } = require("node:path");
+const { tmpdir } = require("node:os");
 const { Test } = require("@nestjs/testing");
 const { BadRequestException, ServiceUnavailableException, UnauthorizedException } = require("@nestjs/common");
 const { MulterModule } = require("@nestjs/platform-express");
-const { memoryStorage } = require("multer");
 const { FileUploadModule } = require("../dist/modules/file-upload/file-upload.module");
 const { FileUploadController } = require("../dist/modules/file-upload/file-upload.controller");
 const { FileUploadService } = require("../dist/modules/file-upload/file-upload.service");
@@ -18,14 +20,29 @@ function deferred() {
 }
 
 async function harness(t, uploadFile, createJob) {
+  const directory = await mkdtemp(join(tmpdir(), "v6-admission-test-"));
+  const previous = process.env.DATA_DIR;
+  process.env.DATA_DIR = directory;
+  const uploads = new FileUploadService({}, {
+    getSettings: async () => ({ maxUploadSizeMb: 50 }),
+  });
+  if (previous === undefined) delete process.env.DATA_DIR;
+  else process.env.DATA_DIR = previous;
+  uploads.uploadFile = async (file) => {
+    await uploadFile(file);
+    return { path: file.path, fileSize: file.size, availableSheets: ["First"] };
+  };
   const module = await Test.createTestingModule({
-    imports: [MulterModule.register({ storage: memoryStorage() })],
+    imports: [MulterModule.register({})],
     controllers: [FileUploadController],
     providers: [
       ...Reflect.getMetadata("providers", FileUploadModule),
-      { provide: DatabaseJobManagementService, useValue: { createJob } },
+      { provide: DatabaseJobManagementService, useValue: {
+        createJob: async (fileName, ownerId, file) =>
+          createJob(fileName, ownerId, await readFile(file.path)),
+      } },
     ],
-  }).overrideProvider(FileUploadService).useValue({ uploadFile })
+  }).overrideProvider(FileUploadService).useValue(uploads)
     .overrideGuard(JwtAuthGuard).useValue({
       canActivate(context) {
         const req = context.switchToHttp().getRequest();
@@ -44,6 +61,7 @@ async function harness(t, uploadFile, createJob) {
   t.after(async () => {
     app.getHttpServer().closeAllConnections();
     await app.close();
+    await rm(directory, { recursive: true });
   });
   return { url: `${await app.getUrl()}/upload`, module, server: app.getHttpServer() };
 }

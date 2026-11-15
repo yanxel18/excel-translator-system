@@ -288,12 +288,13 @@ The separate 200 MiB processing/preview gates remain open.
 ### Architecture grounded in existing code
 
 - `FileUploadController` authenticates before the admitted Multer parser.
-  Shared admission now protects reception, validation and job creation, but
-  memory storage still retains the whole upload. Next switch legacy reception
-  to private disk storage. Keep the current response shape and configured limits.
-- `DatabaseJobManagementService.createJob` currently chooses a fresh ID, writes
-  source bytes, discovers sheets and creates a job/queued notification.
-  Reuse its filename, sheet and job-shape logic for disk inputs. For resumable
+  Shared admission protects reception, validation, job creation and cleanup.
+  Legacy reception now uses private disk storage with the configured receive
+  ceiling. The current response shape and 50 MiB ceiling remain.
+- `DatabaseJobManagementService.createJob` chooses a fresh ID and creates a
+  job/queued notification. It now accepts validated disk inputs as well as
+  legacy buffers: disk files are promoted without a receive buffer, and the
+  existing filename, sheet and job-shape logic is retained. For resumable
   completion, reserve a stable job ID before moving bytes and commit the job,
   notification and completed session receipt in one database transaction.
   Restart reconciliation must recognize both pre-move and post-move states.

@@ -26,11 +26,11 @@ export class FileUploadController {
     @UploadedFile() file: Express.Multer.File,
     @Req() req: Request,
   ) {
-    await this.uploads.uploadFile(file);
+    const workbook = await this.uploads.uploadFile(file);
     return this.jobs.createJob(
       file.originalname,
       String((req as any).user?.userId ?? "local-user"),
-      file.buffer,
+      workbook,
     );
   }
 }
