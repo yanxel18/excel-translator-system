@@ -16,13 +16,14 @@ import {
 } from "@mantine/core";
 import {
   ArrowDown, ArrowUp, ArrowUpDown, Building2, Check, ChevronRight,
-  CircleAlert, Eye, Hash, LockKeyhole, Mail, Pencil, Plus, Save,
+  CalendarClock, CircleAlert, Eye, Hash, LockKeyhole, Mail, Pencil, Plus, Save,
   Search, Settings, ShieldCheck, SlidersHorizontal, Trash2, UserRound, Users,
 } from "lucide-react";
 import type { View } from "../app-shell/types";
 import { useLocale } from "../shared/LocaleProvider";
 import AdminKeycloakSettings from "../profile/AdminKeycloakSettings";
 import ApplicationSettingsPanel from "./ApplicationSettingsPanel";
+import MaintenanceSettingsPanel from "./MaintenanceSettingsPanel";
 import { management, type Base, type User } from "./api";
 import UserDetailPage from "./UserDetailPage";
 import {
@@ -37,7 +38,8 @@ type Section =
   | "settings/users"
   | "settings/bases"
   | "settings/files"
-  | "settings/authentication";
+  | "settings/authentication"
+  | "settings/maintenance";
 type Props = {
   token: string;
   section: string;
@@ -46,7 +48,7 @@ type Props = {
 };
 const labels = {
   ja: {
-    "Manage people, bases, file limits, and sign-in preferences.": "ユーザー、拠点、ファイル上限、サインイン設定を管理します。",
+    "Manage people, bases, file limits, sign-in preferences, and maintenance notices.": "ユーザー、拠点、ファイル上限、サインイン設定、メンテナンス通知を管理します。",
     "Manage user accounts and application access.": "ユーザーアカウントとアプリへのアクセスを管理します。",
     "Organize the bases assigned to your users.": "ユーザーが所属する拠点を管理します。",
     "User access updated.": "ユーザーのアクセス設定を更新しました。",
@@ -64,6 +66,8 @@ const labels = {
     Bases: "拠点",
     Authentication: "認証",
     "Files & processing": "ファイルと処理",
+    "Maintenance notices": "メンテナンス通知",
+    "Configure the maintenance notice shown to signed-in users.": "サインイン中のユーザーに表示するメンテナンス通知を設定します。",
     Search: "検索",
     "Search users or bases": "ユーザーまたは拠点を検索",
     "Search bases": "拠点を検索",
@@ -95,7 +99,7 @@ const labels = {
       "ユーザーが所属する拠点は削除できません。",
   },
   zh: {
-    "Manage people, bases, file limits, and sign-in preferences.": "管理用户、据点、文件限制和登录设置。",
+    "Manage people, bases, file limits, sign-in preferences, and maintenance notices.": "管理用户、据点、文件限制、登录设置和维护通知。",
     "Manage user accounts and application access.": "管理用户账户和应用访问权限。",
     "Organize the bases assigned to your users.": "管理分配给用户的据点。",
     "User access updated.": "已更新用户访问权限。",
@@ -113,6 +117,8 @@ const labels = {
     Bases: "据点",
     Authentication: "身份验证",
     "Files & processing": "文件与处理",
+    "Maintenance notices": "维护通知",
+    "Configure the maintenance notice shown to signed-in users.": "配置向已登录用户显示的维护通知。",
     Search: "搜索",
     "Search users or bases": "搜索用户或据点",
     "Search bases": "搜索据点",
@@ -500,7 +506,7 @@ export default function SystemSettings({
             {t("System Settings")}
           </Text>
           <Text size="sm" c="dimmed" mt={4}>
-            {t("Manage people, bases, file limits, and sign-in preferences.")}
+            {t("Manage people, bases, file limits, sign-in preferences, and maintenance notices.")}
           </Text>
         </div>
       </Group>
@@ -519,6 +525,11 @@ export default function SystemSettings({
                 id: "settings/files",
                 label: "Files & processing",
                 Icon: SlidersHorizontal,
+              },
+              {
+                id: "settings/maintenance",
+                label: "Maintenance notices",
+                Icon: CalendarClock,
               },
             ] as const
           ).map(({ id, label, Icon }) => (
@@ -539,6 +550,8 @@ export default function SystemSettings({
         <Stack className="system-settings-content" gap="md">
           {selected === "settings/authentication" ? (
             <AdminKeycloakSettings token={token} />
+          ) : selected === "settings/maintenance" ? (
+            <MaintenanceSettingsPanel token={token} />
           ) : selected === "settings/files" ? (
             <ApplicationSettingsPanel token={token} />
           ) : (

@@ -28,7 +28,7 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 
 - [x] Define maintenance scheduling, permissions, time zones and lifecycle;
   add a persisted schedule and administrator management API with tests.
-- [ ] Add settings controls and an accessible, localized in-content notice;
+- [x] Add settings controls and an accessible, localized in-content notice;
   verify scheduled, active, expired, disabled and invalid states.
 
 ## Upload limits

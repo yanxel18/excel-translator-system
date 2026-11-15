@@ -70,7 +70,7 @@ test("settings navigation aligns icon and label to the left", async ({ page }) =
   await setup(page);
   await page.goto("/excel-convert/settings/users");
   const nav = page.locator(".system-settings-nav");
-  await expect(nav.getByRole("button")).toHaveCount(4);
+  await expect(nav.getByRole("button")).toHaveCount(5);
   for (const button of await nav.getByRole("button").all()) {
     const bounds = await button.boundingBox();
     const icon = await button.locator("svg").first().boundingBox();

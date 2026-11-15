@@ -20,6 +20,14 @@ export type ApplicationSettings = {
   maxUploadSizeMb: number;
   maxConcurrentTranslations: number;
 };
+export type MaintenanceSchedule = {
+  enabled: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+};
+export type MaintenanceNotice =
+  | { active: false }
+  | { active: true; startsAt: string; endsAt: string };
 type Page<T> = { data: T[]; total: number; page: number; pageSize: number };
 const write = (method: string, body?: object): RequestInit => ({
   method,
@@ -27,6 +35,22 @@ const write = (method: string, body?: object): RequestInit => ({
   ...(body ? { body: JSON.stringify(body) } : {}),
 });
 export const management = {
+  maintenanceSchedule: (token: string, signal?: AbortSignal) =>
+    request<MaintenanceSchedule>(
+      "/admin/maintenance-schedule",
+      { signal },
+      token,
+    ),
+  updateMaintenanceSchedule: (
+    token: string,
+    value: MaintenanceSchedule,
+    signal?: AbortSignal,
+  ) =>
+    request<MaintenanceSchedule>(
+      "/admin/maintenance-schedule",
+      { ...write("PUT", value), signal },
+      token,
+    ),
   applicationSettings: (token: string) =>
     request<ApplicationSettings>("/admin/application-settings", {}, token),
   updateApplicationSettings: (
@@ -96,3 +120,14 @@ export const management = {
     },
   ) => request<User>("/admin/users", write("POST", value), token),
 };
+
+export const getMaintenanceNotice = (
+  token: string,
+  signal?: AbortSignal,
+) =>
+  request<MaintenanceNotice>(
+    "/maintenance-notice",
+    { signal },
+    token,
+    { silent: true },
+  );

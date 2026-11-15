@@ -13,6 +13,7 @@ const views: View[] = [
   "settings/bases",
   "settings/files",
   "settings/authentication",
+  "settings/maintenance",
 ];
 const base = import.meta.env.BASE_URL;
 const returnRouteKey = "excel-translator-return-route";
