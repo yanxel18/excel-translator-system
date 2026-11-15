@@ -107,6 +107,13 @@ model ApplicationSettings {
   updatedAt                 DateTime @updatedAt
 }
 
+model MaintenanceSchedule {
+  id        String    @id @default("default")
+  enabled   Boolean   @default(false)
+  startsAt  DateTime? @db.Timestamptz(3)
+  endsAt    DateTime? @db.Timestamptz(3)
+}
+
 model ManagementAudit {
   id         String   @id @default(uuid())
   actorId    String?
