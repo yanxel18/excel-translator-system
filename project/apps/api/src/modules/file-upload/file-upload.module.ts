@@ -8,6 +8,7 @@ import { AuthenticationModule } from "../authentication/authentication.module";
 import { ApplicationSettingsModule } from "../application-settings/application-settings.module";
 import { UploadAdmissionService } from "./upload-admission.service";
 import { UploadAdmissionInterceptor } from "./upload-admission.interceptor";
+import { UploadSessionService } from "./upload-session.service";
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { UploadAdmissionInterceptor } from "./upload-admission.interceptor";
     FileUploadService,
     UploadAdmissionService,
     UploadAdmissionInterceptor,
+    UploadSessionService,
   ],
-  exports: [FileUploadService, UploadAdmissionService],
+  exports: [FileUploadService, UploadAdmissionService, UploadSessionService],
 })
 export class FileUploadModule {}

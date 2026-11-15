@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-upload-session-storage-v6",
+    title: "Persist safe upload recovery reservations",
+    details:
+      "The upload recovery foundation now saves immutable file hashes, progress, a fixed 24-hour deadline and a stable completion identifier. Repeated requests reuse the same intent; concurrent requests cannot create multiple unfinished sessions per account or exceed the shared 1 GB temporary reservation budget. Existing accounts, administrator limits and legacy uploads are preserved. Chunk transfer, automatic browser recovery and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T12:55:00.000Z",
+  },
+  {
     id: "changelog-20261115-disk-upload-v6",
     title: "Receive workbooks safely on private disk storage",
     details:

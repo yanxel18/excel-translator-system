@@ -157,6 +157,51 @@ and [Nest lifecycle hooks](https://docs.nestjs.com/fundamentals/lifecycle-events
 No dependency or lockfile change is required. Automatic resume and the
 200 MiB processing/preview certification remain pending.
 
+### Completed upload-session storage prerequisite
+
+The additive `UploadSession` schema and internal service now persist owner/client
+intent IDs, ordered SHA-256 hashes, declared bytes, acknowledged progress,
+status, an immutable 24-hour deadline and a stable completion UUID. File bytes,
+storage paths and credentials are not stored in session records. The service
+validates metadata before reserving space; JSON filenames are not decoded as
+multipart Latin-1 or used as paths. A matching replay returns the same record,
+including terminal receipts. Changed metadata conflicts; expired replay reports
+410 without creating another deadline or freeing uncleaned storage.
+
+A partial unique index allows only one receiving/finalizing or still-reserved
+session per account. A trigger atomically adjusts the singleton reservation row,
+whose CHECK enforces exactly 1 GiB (1,073,741,824 bytes). Direct session writers
+also pass these guards; direct budget changes/deletion are rejected. The service
+locks this row in a short transaction before checking/replaying/creating intents.
+No transaction remains open while receiving a workbook. The reserve excludes
+completed job files and is not a memory or total host-disk budget.
+
+Terminal status alone does not release capacity: retain `reservedBytes` until
+temporary-byte cleanup is confirmed. Deleting a reserved session (including
+through owner deletion) is blocked rather than orphaning its files. Progress
+cannot regress, metadata and terminal receipts cannot change, and no job foreign
+key can erase the completion identifier when a completed job is deleted.
+Creation timestamps come from PostgreSQL at millisecond precision; both deadline
+fields are set together rather than mixing Prisma's client timestamp with a
+database default. The rollback refuses any retained intents and preserves history.
+
+The guarded PostgreSQL test upgrades a populated prior schema and rehearses
+rollback without changing existing users, jobs or administrator choices. Real
+transactions prove simultaneous same/distinct-intent behavior across two clients,
+exact global capacity/+1 rejection, immutable metadata, reservation rollback,
+terminal cleanup accounting and replay from a fresh Node process. Raising the
+database capacity CHECK makes the direct-writer regression fail. Legacy HTTP/disk
+and workbook regressions remain intact.
+
+This is an internal storage foundation only. Authenticated lifecycle routes,
+periodic expiry/cleanup, chunk writes, job completion and browser recovery remain
+later tasks. Before exposing routes, map capacity conflicts to retry headers and
+handle account deletion blocked by unresolved upload reservations explicitly.
+Neither the legacy multipart route nor the 50 MiB ceiling changes.
+
+Source: [PostgreSQL 16 row locking](https://www.postgresql.org/docs/16/explicit-locking.html#LOCKING-ROWS).
+Existing Prisma 7 transaction patterns and generated types are retained.
+
 ### Remaining safety gates
 
 Keep the current ceiling until the remaining safeguards and tests pass:
