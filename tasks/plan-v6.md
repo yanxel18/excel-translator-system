@@ -34,7 +34,10 @@ and built-in changelog.
   Keep passwords hashed and enforce uniqueness and validation server-side.
 - A base is represented to users by one acronym, such as JTY or MSTY. Its
   acronym is the intended database primary key. Protect user relationships and
-  explicitly handle acronym edits and duplicate values.
+  update assigned users atomically when an acronym is edited. Reject duplicate
+  values.
+- Reject OIDC sign-in when the provider supplies a full name longer than 50
+  Unicode code points; ask the user to correct the provider name.
 - Rename the Workspace navigation action to Translate File. Move System
   Settings and Changelog from the avatar menu to the sidebar, preserving
   authorization, responsive behavior and translations.

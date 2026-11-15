@@ -9,7 +9,8 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 - [x] Let administrators create and edit users with a login username and a
   separate full name, while retaining compatibility with older account data.
 - [ ] Define and test the username/GID, full-name, base-acronym and API contracts.
-  Verify uniqueness, Unicode names and length boundaries.
+  Verify uniqueness, Unicode names and length boundaries
+  ([contract](identity-contract-v6.md)).
 - [ ] Migrate account and base storage safely, including dependent foreign keys;
   verify the migration using a disposable database and test existing identities.
 - [ ] Update user creation, editing, sign-in and profile flows to the new

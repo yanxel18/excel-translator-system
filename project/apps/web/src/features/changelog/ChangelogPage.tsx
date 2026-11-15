@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-identity-base-contract-v6",
+    title: "Clarify account identity and base rules",
+    details:
+      "Documented and tested existing username, legacy GID, administrator and profile name rules. Existing account identities, OIDC links, and UUID-based base assignments remain unchanged while the acronym-key storage migration is planned.",
+    publishedAt: "2026-11-15T08:46:00.000Z",
+  },
+  {
     id: "changelog-20261115-maintenance-notice-ui",
     title: "Configure and view maintenance notices",
     details:
