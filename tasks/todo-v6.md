@@ -269,15 +269,18 @@ Dependencies: `session-storage` (approved metadata contract).
 Core files: new workspace IndexedDB retention helper and
 `tests/upload-retention.test.ts`.
 
-- [ ] Save File/Blob and owner/intent/hash/expiry metadata transactionally
+- [x] Save File/Blob and owner/intent/hash/expiry metadata transactionally
   before transfer, with one unfinished retained file per account.
-- [ ] Request persistence where supported; quota, unavailable storage and
+- [x] Request persistence where supported; quota, unavailable storage and
   expired/evicted data report explicit errors rather than a transport fallback.
-- [ ] Verify same-profile/origin restart and cleanup without reselection;
+- [x] Verify same-profile/origin restart and cleanup without reselection;
   store no credentials and read/hash one bounded chunk at a time.
-- Verify: web type-check/build;
-  `npx playwright test tests/upload-retention.test.ts` in real browser storage,
-  including closing/reopening the same persistent browser profile.
+- Verified: web type-check/build and
+  `npx playwright test upload-retention.test.ts --workers=1 --retries=0`
+  using real browser storage, including closing/reopening the same persistent
+  browser profile, competing tabs, storage failures and expiry cleanup. The
+  helper stores server reconciliation metadata with the earlier fixed deadline;
+  transport, scheduled cleanup and automatic recovery remain later tasks.
 
 #### 8. `resumable-client`: Transfer saved files with reconciliation
 
