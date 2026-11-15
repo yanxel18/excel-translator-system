@@ -19,6 +19,57 @@ import { PrismaService } from "../persistence/prisma.service";
 export class BaseService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async listV2(raw: unknown) {
+    const input = strictObject(raw, ["q", "sort", "direction", "page", "pageSize"]);
+    const q = input.q === undefined || input.q === ""
+      ? ""
+      : requiredText(input.q, "Search", 100);
+    choice(input.sort ?? "acronym", ["acronym"] as const, "sort");
+    const direction = choice(input.direction ?? "asc", ["asc", "desc"] as const, "direction");
+    const page = pageNumber(input.page, 1, 1000000);
+    const size = pageSize(input.pageSize);
+    const where = q ? { code: { contains: q, mode: "insensitive" as const } } : {};
+    const [data, total] = await Promise.all([
+      this.prisma.base.findMany({
+        where,
+        select: { code: true },
+        orderBy: { code: direction },
+        skip: (page - 1) * size,
+        take: size,
+      }),
+      this.prisma.base.count({ where }),
+    ]);
+    return { data: data.map(({ code }) => ({ acronym: code })), total, page, pageSize: size };
+  }
+
+  async getV2(value: unknown) {
+    const base = await this.prisma.base.findUnique({
+      where: { code: this.code(value) },
+      select: { code: true },
+    });
+    if (!base) throw new NotFoundException("Base not found.");
+    return { acronym: base.code };
+  }
+
+  async createV2(raw: unknown, actorId: string) {
+    const input = strictObject(raw, ["acronym"]);
+    const code = this.code(input.acronym);
+    const base = await this.create({ code, name: code }, actorId);
+    return { acronym: base.code };
+  }
+
+  async updateV2(acronym: unknown, raw: unknown, actorId: string) {
+    const input = strictObject(raw, ["acronym"]);
+    const code = this.code(input.acronym);
+    const base = await this.updateWhere({ code: this.code(acronym) }, { code }, actorId);
+    return { acronym: base.code };
+  }
+
+  async removeV2(acronym: unknown, actorId: string) {
+    const base = await this.removeWhere({ code: this.code(acronym) }, actorId);
+    return { acronym: base.code };
+  }
+
   async list(raw: unknown) {
     const input = strictObject(raw, [
       "q",
@@ -96,17 +147,24 @@ export class BaseService {
         ? { name: requiredText(input.name, "Name", 100) }
         : {}),
     };
-    const baseId = uuid(id);
+    return this.updateWhere({ id: uuid(id) }, data, actorId);
+  }
+
+  private async updateWhere(
+    where: { id: string } | { code: string },
+    data: { code?: string; name?: string },
+    actorId: string,
+  ) {
     try {
       return await this.prisma.$transaction(async (client) => {
         const tx = client as any;
-        const base = await tx.base.update({ where: { id: baseId }, data });
+        const base = await tx.base.update({ where, data });
         await recordManagementAudit(
           tx,
           actorId,
           "BASE_UPDATED",
           "BASE",
-          baseId,
+          base.id,
           Object.keys(data),
         );
         return base;
@@ -117,17 +175,20 @@ export class BaseService {
   }
 
   async remove(id: unknown, actorId: string) {
-    const baseId = uuid(id);
+    return this.removeWhere({ id: uuid(id) }, actorId);
+  }
+
+  private async removeWhere(where: { id: string } | { code: string }, actorId: string) {
     try {
       return await this.prisma.$transaction(async (client) => {
         const tx = client as any;
-        const base = await tx.base.delete({ where: { id: baseId } });
+        const base = await tx.base.delete({ where });
         await recordManagementAudit(
           tx,
           actorId,
           "BASE_DELETED",
           "BASE",
-          baseId,
+          base.id,
           [],
         );
         return base;
