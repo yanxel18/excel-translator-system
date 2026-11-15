@@ -193,11 +193,64 @@ terminal cleanup accounting and replay from a fresh Node process. Raising the
 database capacity CHECK makes the direct-writer regression fail. Legacy HTTP/disk
 and workbook regressions remain intact.
 
-This is an internal storage foundation only. Authenticated lifecycle routes,
-periodic expiry/cleanup, chunk writes, job completion and browser recovery remain
-later tasks. Before exposing routes, map capacity conflicts to retry headers and
-handle account deletion blocked by unresolved upload reservations explicitly.
-Neither the legacy multipart route nor the 50 MiB ceiling changes.
+### Completed authenticated session lifecycle prerequisite
+
+The API now exposes authenticated `POST /upload-sessions`,
+`GET /upload-sessions/:id` and `DELETE /upload-sessions/:id`. Every lookup is
+scoped to the verified JWT owner; a foreign owner receives the same 404 as an
+unknown ID. Responses are built from an explicit metadata allowlist: they omit
+owner IDs, reservation counters, Prisma timestamps and all filesystem paths.
+The stable job identifier is exposed as `jobId` only for completed receipts.
+Busy and global-capacity 409 responses include `Retry-After: 1`; storage
+failures remain 503, not retryable busy responses.
+
+Cancellation acquires the existing upload admission slot, is idempotent and
+never changes or removes a completed job/receipt. An unfinished session becomes
+`CANCELLED` (or `EXPIRED` at its fixed deadline) before temporary cleanup; its
+reservation is released only after the session's ID-keyed directory is absent
+or a marker-verified private directory has been safely removed. Unsafe paths,
+symlinks, foreign markers, special files, excessive nesting and excessive entry
+counts stop cleanup, log a visible failure and retain reservation accounting.
+Startup and 60-second cleanup sweeps process at most 20 sessions per pass and
+use the shared admission slot. A process-local cursor over immutable
+`(expiresAt, id)` keys advances even when cleanup fails and wraps to the first
+page at the end, so persistent failures cannot monopolize every batch or starve
+later expired sessions. Each pass still selects at most 20 candidates.
+Nonexpired reservations are never evicted to free capacity. Completed rows and
+their stable job IDs remain as logical receipts.
+
+The owner marker is a private internal storage contract for the later chunk
+writer: `ensureSessionStorage` looks up the validated requested UUID, then uses
+the persisted canonical `session.id` for its directory and marker. This keeps
+uppercase UUID inputs aligned with cancellation/sweeper paths. It does not
+expose a path to the API.
+Status rechecks the current 1-50 MiB administrator limit for active sessions
+and returns `UPLOAD_LIMIT_CHANGED`/413 with corrective guidance. The same
+service check is available to the later chunk/completion methods. Existing
+settings, default ceiling, legacy multipart path and job/translation behavior
+remain unchanged.
+
+Real authenticated HTTP and disposable PostgreSQL tests verify status/create/
+cancel ownership, response allowlisting, repeat cancellation, completed-job
+preservation, capacity and busy retry headers, lowered limits, cancellation/
+creation races, startup-after-restart expiry, bounded cleanup, symlink/foreign
+path refusal and reservation retention after cleanup failure. A real filesystem
+case with 20 older failing directories proves a later healthy expired session
+is cleaned on a subsequent bounded pass while failed reservations and foreign
+data remain; the uppercase-UUID case proves cancellation removes the canonical
+directory before releasing its reservation. Both regressions failed before the
+fixes. Task 5 chunk
+reception, task 6 exactly-once completion, browser recovery and the separate
+200 MiB safety certification remain pending. The owner-deletion applicability
+audit is complete: PostgreSQL blocks cascading deletion while reserved bytes
+exist, and neither existing admin controller has an account-deletion route, so
+HTTP conflict mapping is not applicable yet. If a route is introduced, it must
+surface that block explicitly. No new destructive account-delete endpoint was
+added.
+
+Source: [upload-session service](../apps/api/src/modules/file-upload/upload-session.service.ts),
+[lifecycle controller](../apps/api/src/modules/file-upload/upload-session.controller.ts),
+and [disposable HTTP/PostgreSQL lifecycle tests](../apps/api/test/upload-session-http.test.cjs).
 
 Source: [PostgreSQL 16 row locking](https://www.postgresql.org/docs/16/explicit-locking.html#LOCKING-ROWS).
 Existing Prisma 7 transaction patterns and generated types are retained.

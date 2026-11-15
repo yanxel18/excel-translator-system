@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-upload-session-lifecycle-v6",
+    title: "Manage resumable upload sessions safely",
+    details:
+      "Authenticated upload-session creation, status and cancellation now expose only owned upload metadata. A fixed 24-hour recovery deadline is cleaned in bounded startup and periodic batches; storage removal or ownership failures retain the reservation. Cancellation is repeatable and completed job receipts remain intact. Existing 50 MB administrator limits and legacy uploads are preserved; chunk transfer, automatic browser resume and the 200 MB ceiling are not enabled yet.",
+    publishedAt: "2026-11-15T13:28:42.000Z",
+  },
+  {
     id: "changelog-20261115-upload-session-storage-v6",
     title: "Persist safe upload recovery reservations",
     details:
