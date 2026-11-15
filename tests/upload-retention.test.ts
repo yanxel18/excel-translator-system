@@ -217,6 +217,7 @@ test("persists server reconciliation metadata without extending expiry or changi
     await updateRetainedUpload("owner", id, {
       serverSessionId: sessionId, confirmedBytes: 1024 * 1024, expiresAt: earlier, paused: true,
     });
+
     await updateRetainedUpload("owner", id, { expiresAt: selectedAt + 120_000 });
     const code = async (operation: () => Promise<unknown>) => {
       try { await operation(); return "unexpected-success"; }
@@ -243,4 +244,135 @@ test("persists server reconciliation metadata without extending expiry or changi
   });
   expect(result.sessionId).toBeTruthy();
   expect(result.expiresAt).toBe(result.earlier);
+});
+
+test("upload-session API sends binary chunks and preserves retry errors", async ({ context }) => {
+  const page = await openHarness(context);
+  const id = randomUUID();
+  const intentId = randomUUID();
+  const calls: { method: string; path: string; contentType: string; body: number[] }[] = [];
+  let busy = false;
+  await page.route("**/excel-convert/upload-sessions/**", async (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: {
+        "access-control-allow-origin": "*", "access-control-allow-methods": "GET,PUT,OPTIONS",
+        "access-control-allow-headers": "authorization,content-type",
+      } });
+      return;
+    }
+    calls.push({
+      method: request.method(), path: new URL(request.url()).pathname,
+      contentType: request.headers()["content-type"] ?? "",
+      body: [...(request.postDataBuffer() ?? Buffer.alloc(0))],
+    });
+    const headers = { "access-control-allow-origin": "*", "access-control-expose-headers": "retry-after" };
+    if (busy) {
+      await route.fulfill({ status: 409, headers: { ...headers, "retry-after": "5" },
+        json: { code: "UPLOAD_BUSY", message: "Try again" } });
+      return;
+    }
+    await route.fulfill({ headers, json: {
+      id, clientUploadId: intentId, fileName: "test.xlsx", fileSize: 3, chunkHashes: ["a".repeat(64)],
+      chunkSize: 1048576, status: "RECEIVING", bytesReceived: 3, nextChunkIndex: 1,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const first = await page.evaluate(async ({ id }) => {
+    const { uploadSessionApi } = await import(/* @vite-ignore */ "/src/api/upload-sessions.ts");
+    const result = await uploadSessionApi.putChunk(id, 0, new Blob([new Uint8Array([1, 2, 3])]), "test-token");
+    return result.bytesReceived;
+  }, { id });
+  expect(first).toBe(3);
+  expect(calls).toEqual([{ method: "PUT", path: `/excel-convert/upload-sessions/${id}/chunks/0`,
+    contentType: "application/octet-stream", body: [1, 2, 3] }]);
+  busy = true;
+  const result = await page.evaluate(async ({ id }) => {
+    const { uploadSessionApi } = await import(/* @vite-ignore */ "/src/api/upload-sessions.ts");
+    try { await uploadSessionApi.status(id, "test-token"); return null; }
+    catch (error) {
+      const e = error as { status: number; code: string; retryAfterMs: number };
+      return { status: e.status, code: e.code, retryAfterMs: e.retryAfterMs };
+    }
+  }, { id });
+  expect(result).toEqual({ status: 409, code: "UPLOAD_BUSY", retryAfterMs: 5000 });
+});
+
+test("upload-session API rejects malformed and mismatched responses and preserves session expiry", async ({ context }) => {
+  const page = await openHarness(context);
+  const id = randomUUID();
+  const otherId = randomUUID();
+  let mode = "malformed";
+  await page.route("**/excel-convert/upload-sessions/**", async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: {
+        "access-control-allow-origin": "*", "access-control-allow-methods": "GET,OPTIONS",
+        "access-control-allow-headers": "authorization",
+      } });
+      return;
+    }
+    const headers = { "access-control-allow-origin": "*" };
+    if (mode === "auth") {
+      await route.fulfill({ status: 401, headers, json: { message: "Unauthorized" } });
+    } else {
+      await route.fulfill({ headers, json: mode === "malformed" ? { id } : {
+        id: otherId, clientUploadId: randomUUID(), fileName: "test.xlsx", fileSize: 1,
+        chunkHashes: ["a".repeat(64)], chunkSize: 1048576, status: "RECEIVING",
+        bytesReceived: 0, nextChunkIndex: 0, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+      } });
+    }
+  });
+  const attempt = () => page.evaluate(async ({ id }) => {
+    const { uploadSessionApi } = await import(/* @vite-ignore */ "/src/api/upload-sessions.ts");
+    try { await uploadSessionApi.status(id, "synthetic-token"); return "unexpected-success"; }
+    catch (error) { return (error as Error).name; }
+  }, { id });
+  expect(await attempt()).toBe("Error");
+  mode = "mismatch";
+  expect(await attempt()).toBe("Error");
+  mode = "auth";
+  expect(await attempt()).toBe("SessionExpiredError");
+});
+
+test("upload-session API creates, cancels and completes through their respective endpoints", async ({ context }) => {
+  const page = await openHarness(context);
+  const id = randomUUID();
+  const intentId = randomUUID();
+  const jobId = randomUUID();
+  const methods: string[] = [];
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST,DELETE,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers });
+      return;
+    }
+    methods.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    if (request.url().endsWith("/completion")) {
+      await route.fulfill({ headers, json: { id: jobId } });
+      return;
+    }
+    await route.fulfill({ headers, json: {
+      id, clientUploadId: intentId, fileName: "test.xlsx", fileSize: 1,
+      chunkHashes: ["a".repeat(64)], chunkSize: 1048576,
+      status: request.method() === "DELETE" ? "CANCELLED" : "RECEIVING",
+      bytesReceived: 0, nextChunkIndex: 0, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const result = await page.evaluate(async ({ id, intentId }) => {
+    const { uploadSessionApi } = await import(/* @vite-ignore */ "/src/api/upload-sessions.ts");
+    const created = await uploadSessionApi.create({
+      clientUploadId: intentId, fileName: "test.xlsx", fileSize: 1, chunkHashes: ["a".repeat(64)],
+    }, "synthetic-token");
+    const completed = await uploadSessionApi.complete(id, "synthetic-token");
+    const cancelled = await uploadSessionApi.cancel(id, "synthetic-token");
+    return { created: created.id, completed: completed.id, cancelled: cancelled.status };
+  }, { id, intentId });
+  expect(result).toEqual({ created: id, completed: jobId, cancelled: "CANCELLED" });
+  expect(methods).toEqual([
+    "POST /excel-convert/upload-sessions",
+    `POST /excel-convert/upload-sessions/${id}/completion`,
+    `DELETE /excel-convert/upload-sessions/${id}`,
+  ]);
 });

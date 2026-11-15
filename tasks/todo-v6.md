@@ -288,6 +288,11 @@ Dependencies: `session-completion`, `browser-retention`.
 Core files: new upload-session API client and workspace transfer helper,
 existing API client, and `tests/resumable-upload-client.test.ts`.
 
+- Partial: an authenticated API transport handles session endpoints, raw
+  chunks, validated response metadata, busy codes and retry headers while
+  preserving tracked requests and session-expiry handling. Browser tests use
+  intercepted responses; no real-server transfer has been verified yet.
+  The transport is not wired into the existing upload UI.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
