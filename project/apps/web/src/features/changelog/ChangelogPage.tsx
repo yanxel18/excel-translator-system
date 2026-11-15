@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-base-acronym-api-v6",
+    title: "Manage factory bases by acronym through the API",
+    details:
+      "Administrators can use the versioned base API to list, create, rename and delete bases by factory acronym. Existing UUID-based integrations and user assignments continue to work.",
+    publishedAt: "2026-11-15T10:29:00.000Z",
+  },
+  {
     id: "changelog-20261115-base-acronym-ui-v6",
     title: "Simplify factory base management",
     details:

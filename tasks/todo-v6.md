@@ -29,6 +29,8 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 - [x] Simplify base creation, editing and assignment to one acronym field.
   Verify duplicates, edits, assigned users and deletion restrictions. Preserve
   legacy names and UUID-based API compatibility.
+- [x] Provide a versioned acronym-only base API with administrator authorization,
+  duplicate and deletion protection, atomic acronym edits, and compatibility tests.
 
 ## Navigation
 

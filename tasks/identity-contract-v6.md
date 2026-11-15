@@ -2,7 +2,7 @@
 
 **Status:** Implemented validation contract and regression coverage for existing
 APIs, plus the focused full-name storage/OIDC limit. This document does not
-claim the broader account/base storage migration or acronym-based API has shipped.
+claim the broader account migration or acronym-based user API has shipped.
 The focused [base primary-key migration](../project/docs/v6-base-primary-key-migration.md)
 now makes `Base.code` primary and retains unique immutable UUID `Base.id`.
 
@@ -24,6 +24,27 @@ The administrator interface shows one base acronym. For compatibility with
 the current API, creating a base sends the acronym as both `code` and `name`;
 editing sends only `code`, preserving any legacy name. Assignment requests
 continue to use the stable UUID and display the current acronym.
+
+### Versioned base API
+
+Administrators can use `/v2/bases` without UUIDs or legacy names:
+
+| Method | Path | Input | Response |
+|---|---|---|---|
+| GET | `/v2/bases` | Optional `q`, `sort=acronym`, `direction`, `page`, `pageSize` | `{ data: [{ acronym }], total, page, pageSize }` |
+| GET | `/v2/bases/:acronym` | Acronym in the path | `{ acronym }` |
+| POST | `/v2/bases` | `{ acronym }` | `{ acronym }` |
+| PATCH | `/v2/bases/:acronym` | `{ acronym }` | `{ acronym }` |
+| DELETE | `/v2/bases/:acronym` | None | `{ acronym }` |
+
+Inputs are trimmed, uppercased, and validated under the existing acronym
+rules. Search matches acronyms, not legacy names. Duplicate acronyms return
+409; invalid input returns 400, an unknown acronym returns 404, and deleting
+an assigned base returns 409. Requests require an administrator bearer token.
+Updates and deletions address the current acronym atomically; an old acronym
+after a rename cannot change the renamed base. Renaming preserves UUID-based
+assignments and historical base names. Creation fills the existing required
+legacy name with the acronym. Existing `/admin/bases` routes stay unchanged.
 
 ### Input normalization, lengths, and uniqueness
 
@@ -165,14 +186,12 @@ this task) is:
   retain stable user `id` and return `username`, nullable legacy-compatible
   `fullName`, `email`, `baseAcronym`, and `enabled`. The current unversioned
   endpoint retains its existing fields during migration.
-- Expose one base `acronym` and use `Base.acronym` as the primary key in the
-  target storage contract; do not expose separate `code` and `name` fields on
-  the v2 base contract. The v2 assignment field is `baseAcronym`. The current
+- Expose one base `acronym` on the v2 base contract; `Base.code` is the actual
+  primary key. The planned v2 assignment field is `baseAcronym`. The current
   UUID and unversioned `baseId` API remain available during migration.
-- Use `/v2/bases` with `{ acronym }` for create and acronym-only base
-  representations. Duplicate acronyms return HTTP 409; invalid syntax/length
-  returns HTTP 400; deletion of an assigned base remains restricted. Acronym
-  edits must update all dependent assignments atomically.
+- `/v2/bases` now provides `{ acronym }` create and acronym-only
+  representations. Acronym edits preserve dependent assignments through the
+  stable UUID relationship.
 - Keep current exact-case, trim-on-admin-write username rules unless the
   collision inventory and a confirmed product decision authorize a different
   comparison rule. The current UI also uses UTF-16 code units for username and
@@ -219,6 +238,6 @@ Decisions retained across the focused slice and the remaining V6 work:
 4. Enforce the 50-code-point full-name limit for OIDC claims. The user chose
    to reject sign-in when a provider name exceeds the limit, rather than
    truncate it or silently omit it. Implemented in this focused slice, along
-   with the reversible storage CHECK. The narrow base-primary-key compatibility
-   slice is implemented and verified; broader account storage and acronym-only
-   API/UI work remain pending.
+   with the reversible storage CHECK. The narrow base-primary-key, base API,
+   and base UI slices are implemented; broader account storage and the
+   acronym-based user API remain pending.

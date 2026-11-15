@@ -10,6 +10,7 @@ const { Test } = require("@nestjs/testing");
 const { PrismaService } = require("../dist/modules/persistence/prisma.service");
 const { BaseService } = require("../dist/modules/base-management/base.service");
 const { BaseController } = require("../dist/modules/base-management/base.controller");
+const { BaseV2Controller } = require("../dist/modules/base-management/base-v2.controller");
 const { AdminUsersService } = require("../dist/modules/admin-users/admin-users.service");
 const { AdminUsersController } = require("../dist/modules/admin-users/admin-users.controller");
 const { JwtAuthGuard } = require("../dist/modules/authentication/jwt-auth.guard");
@@ -238,7 +239,7 @@ test("populated prior-schema upgrade, key reversal, identities and concurrent wr
     // Real HTTP boundary with the actual auth guards, services and PostgreSQL.
     const users = new AdminUsersService(prisma);
     const moduleRef = await Test.createTestingModule({
-      controllers: [BaseController, AdminUsersController],
+      controllers: [BaseController, BaseV2Controller, AdminUsersController],
       providers: [
         JwtAuthGuard, AdminAuthGuard,
         { provide: BaseService, useValue: bases },
@@ -258,6 +259,35 @@ test("populated prior-schema upgrade, key reversal, identities and concurrent wr
     });
     assert.equal((await request("/admin/bases", "GET", undefined, normalToken)).status, 403);
     assert.equal((await request("/admin/bases", "GET", undefined, "")).status, 401);
+    assert.equal((await request("/v2/bases", "GET", undefined, normalToken)).status, 403);
+    assert.equal((await request("/v2/bases", "GET", undefined, "")).status, 401);
+    const v2Created = await request("/v2/bases", "POST", { acronym: "v6api" });
+    assert.equal(v2Created.status, 201);
+    assert.deepEqual(await v2Created.json(), { acronym: "V6API" });
+    assert.equal((await request("/v2/bases", "POST", { acronym: "V6API" })).status, 409);
+    assert.equal((await request("/v2/bases", "POST", { acronym: "not valid" })).status, 400);
+    assert.equal((await request("/v2/bases", "POST", { acronym: "X", name: "extra" })).status, 400);
+    const listed = await request("/v2/bases?q=V6API");
+    assert.equal(listed.status, 200);
+    assert.deepEqual((await listed.json()).data, [{ acronym: "V6API" }]);
+    assert.deepEqual(await (await request("/v2/bases/v6api")).json(), { acronym: "V6API" });
+    assert.equal((await request("/v2/bases?sort=name")).status, 400);
+    assert.equal((await request("/v2/bases/V6API", "PATCH", {})).status, 400);
+    assert.equal((await request("/v2/bases/V6API", "PATCH", { acronym: "JTY" })).status, 409);
+    const v2Renamed = await request("/v2/bases/V6API", "PATCH", { acronym: "v6updated" });
+    assert.equal(v2Renamed.status, 200);
+    assert.deepEqual(await v2Renamed.json(), { acronym: "V6UPDATED" });
+    assert.equal((await request("/v2/bases/V6API", "DELETE")).status, 404);
+    assert.equal((await request("/v2/bases/V6API", "PATCH", { acronym: "V6STALE" })).status, 404);
+    assert.equal((await request("/v2/bases/V6UPDATED", "DELETE")).status, 200);
+    const editedAssigned = await request(`/v2/bases/${base.code}`, "PATCH", { acronym: "v6assigned" });
+    assert.equal(editedAssigned.status, 200);
+    assert.deepEqual(await editedAssigned.json(), { acronym: "V6ASSIGNED" });
+    assert.equal((await request("/v2/bases/V6ASSIGNED", "DELETE")).status, 409);
+    const assigned = await (await request(`/admin/users/${userId}`)).json();
+    assert.equal(assigned.baseId, base.id);
+    assert.equal(assigned.base.code, "V6ASSIGNED");
+    assert.equal(assigned.base.name, base.name);
     const apiRename = await request(`/admin/bases/${base.id}`, "PATCH", { code: "v6http" });
     assert.equal(apiRename.status, 200);
     assert.equal((await apiRename.json()).id, base.id);
