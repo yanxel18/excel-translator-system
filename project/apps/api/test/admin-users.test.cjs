@@ -57,6 +57,68 @@ test("registers a local account transactionally without exposing a password", as
   );
 });
 
+test("registers a GID-style username and a separate Unicode full name", async () => {
+  const { service, saved } = fixture();
+  const fullName = "𠮷".repeat(50);
+  const response = await service.create({
+    username: "jt0191340",
+    fullName,
+    email: valid.email,
+    baseId,
+    password: valid.password,
+  }, "admin-id");
+  assert.equal(response.username, "jt0191340");
+  assert.equal(response.fullName, fullName);
+  assert.equal(saved().identities.create.subject, "jt0191340");
+  await assert.rejects(service.create({
+    username: "jt0191341",
+    fullName: "山".repeat(51),
+    email: valid.email,
+    baseId,
+    password: valid.password,
+  }, "admin-id"), BadRequestException);
+  for (const invalid of [
+    { username: "jt0191341", fullName: "" },
+    { username: "\njt0191341", fullName: "山田" },
+  ]) {
+    await assert.rejects(service.create({
+      ...invalid,
+      email: valid.email,
+      baseId,
+      password: valid.password,
+    }, "admin-id"), BadRequestException);
+  }
+});
+
+test("a newly created username can sign in using its local password", async () => {
+  const { service, saved } = fixture();
+  await service.create({
+    username: "jt0191340",
+    fullName: "山田 太郎",
+    email: valid.email,
+    baseId,
+    password: valid.password,
+  }, "admin-id");
+  const previous = process.env.LOCAL_AUTH_ENABLED;
+  process.env.LOCAL_AUTH_ENABLED = "true";
+  try {
+    const auth = new AuthenticationService(
+      {},
+      { user: { findUnique: async ({ where }) =>
+        where.username === saved().username
+          ? { id: "created", enabled: true, ...saved() }
+          : null } },
+      { getSettings: async () => ({ mode: "LOCAL" }) },
+    );
+    const result = await auth.validateUser("jt0191340", valid.password);
+    assert.equal(result.username, "jt0191340");
+    assert.equal(result.userId, "created");
+  } finally {
+    if (previous === undefined) delete process.env.LOCAL_AUTH_ENABLED;
+    else process.env.LOCAL_AUTH_ENABLED = previous;
+  }
+});
+
 test("rejects malformed registration and privileged fields", async () => {
   const { service } = fixture();
   for (const input of [
@@ -132,6 +194,7 @@ test("validates list query and forwards combined filters and stable ordering", a
   assert.deepEqual(query.where.OR, [
     { gid: { contains: "山田", mode: "insensitive" } },
     { username: { contains: "山田", mode: "insensitive" } },
+    { fullName: { contains: "山田", mode: "insensitive" } },
     { email: { contains: "山田", mode: "insensitive" } },
     { baseId: { in: [baseId] } },
   ]);
@@ -139,6 +202,7 @@ test("validates list query and forwards combined filters and stable ordering", a
   assert.deepEqual(query.where.OR, [
     { gid: { contains: "disabled", mode: "insensitive" } },
     { username: { contains: "disabled", mode: "insensitive" } },
+    { fullName: { contains: "disabled", mode: "insensitive" } },
     { email: { contains: "disabled", mode: "insensitive" } },
     { enabled: false },
   ]);

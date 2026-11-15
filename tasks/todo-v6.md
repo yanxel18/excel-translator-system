@@ -5,8 +5,9 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 ## Identity and bases
 
 - [x] Limit profile full-name edits to 50 Unicode code points, with localized
-  validation and REST, GraphQL and browser boundary tests. Database and
-  administrator account-creation enforcement remain separate tasks.
+  validation and REST, GraphQL and browser boundary tests.
+- [x] Let administrators create and edit users with a login username and a
+  separate full name, while retaining compatibility with older account data.
 - [ ] Define and test the username/GID, full-name, base-acronym and API contracts.
   Verify uniqueness, Unicode names and length boundaries.
 - [ ] Migrate account and base storage safely, including dependent foreign keys;

@@ -5,6 +5,7 @@ export type User = {
   id: string;
   gid: string | null;
   username: string;
+  fullName: string | null;
   email: string | null;
   baseId: string | null;
   enabled: boolean;
@@ -64,7 +65,7 @@ export const management = {
     id: string,
     value: Partial<Pick<
       UserDetail,
-      "gid" | "username" | "email" | "baseId" | "enabled"
+      "gid" | "username" | "fullName" | "email" | "baseId" | "enabled"
     >>,
   ) =>
     request<UserDetail>(
@@ -87,8 +88,8 @@ export const management = {
   createUser: (
     token: string,
     value: {
-      gid: string;
       username: string;
+      fullName: string;
       email: string;
       baseId: string;
       password: string;

@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-account-full-names",
+    title: "Simplify user account details",
+    details:
+      "Administrators can use a login username and a separate full name when creating and editing users.",
+    publishedAt: "2026-11-15T08:02:38.000Z",
+  },
+  {
     id: "changelog-20261115-profile-name-limit",
     title: "Keep profile names within 50 characters",
     details:

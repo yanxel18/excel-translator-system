@@ -77,6 +77,7 @@ const labels = {
     Code: "コード",
     Name: "名前",
     Username: "ユーザー名",
+    "Full name": "氏名",
     Email: "メールアドレス",
     Base: "拠点",
     Enabled: "有効",
@@ -125,6 +126,7 @@ const labels = {
     Code: "代码",
     Name: "名称",
     Username: "用户名",
+    "Full name": "姓名",
     Email: "电子邮件",
     Base: "据点",
     Enabled: "启用",
@@ -144,13 +146,14 @@ const labels = {
 const validationLabels: Record<"ja" | "zh", Record<string, string>> = {
   ja: {
     "GID cannot contain control characters.": "GIDに制御文字は使用できません。",
+    "Username cannot contain control characters.": "ユーザー名に制御文字は使用できません。",
     "Password must contain 12 to 128 characters.":
       "パスワードは12～128文字で入力してください。",
     "Use ASCII letters, digits, underscore or hyphen.":
       "半角英数字、アンダースコア、ハイフンを使用してください。",
     "Enter a valid email address.": "有効なメールアドレスを入力してください。",
     ...Object.fromEntries(
-      [32, 64, 100, 254].map((max) => [
+      [32, 50, 64, 100, 254].map((max) => [
         `Enter 1 to ${max} characters.`,
         `1～${max}文字で入力してください。`,
       ]),
@@ -158,13 +161,14 @@ const validationLabels: Record<"ja" | "zh", Record<string, string>> = {
   },
   zh: {
     "GID cannot contain control characters.": "GID不能包含控制字符。",
+    "Username cannot contain control characters.": "用户名不能包含控制字符。",
     "Password must contain 12 to 128 characters.":
       "密码长度必须为12至128个字符。",
     "Use ASCII letters, digits, underscore or hyphen.":
       "请使用ASCII字母、数字、下划线或连字符。",
     "Enter a valid email address.": "请输入有效的电子邮件地址。",
     ...Object.fromEntries(
-      [32, 64, 100, 254].map((max) => [
+      [32, 50, 64, 100, 254].map((max) => [
         `Enter 1 to ${max} characters.`,
         `请输入1至${max}个字符。`,
       ]),
@@ -201,7 +205,7 @@ export default function SystemSettings({
   const allowedSort =
     selected === "settings/bases"
       ? ["code", "name"]
-      : ["gid", "username", "email", "base", "enabled"];
+      : ["username", "fullName", "email", "base", "enabled"];
   const sort = allowedSort.includes(params.get("sort") || "")
     ? params.get("sort")!
     : selected === "settings/bases"
@@ -235,15 +239,15 @@ export default function SystemSettings({
   >(null);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [gid, setGid] = useState("");
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [userBase, setUserBase] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const fieldValues = { gid, username, email, code, name, password };
+  const fieldValues = { gid: "", username, fullName, email, code, name, password };
   const fieldError = (field: ManagementField) => {
     const message = submitted
       ? validateManagementField(field, fieldValues[field])
@@ -355,8 +359,8 @@ export default function SystemSettings({
     setDialog("base");
   };
   const openUser = () => {
-    setGid("");
     setUsername("");
+    setFullName("");
     setEmail("");
     setUserBase("");
     setPassword("");
@@ -369,7 +373,7 @@ export default function SystemSettings({
       dialog === "base"
         ? ["code", "name"]
         : dialog === "user"
-          ? ["gid", "username", "email", "password"]
+          ? ["username", "fullName", "email", "password"]
           : [];
     if (
       fields.some((field) => validateManagementField(field, fieldValues[field]))
@@ -389,8 +393,8 @@ export default function SystemSettings({
         await management.deleteBase(token, editing.id);
       if (dialog === "user")
         await management.createUser(token, {
-          gid: gid.trim(),
           username: username.trim(),
+          fullName: fullName.trim(),
           email: email.trim(),
           baseId: userBase,
           password,
@@ -641,8 +645,8 @@ export default function SystemSettings({
                     <Table.Tr>
                       {selected === "settings/users" ? (
                         <>
-                          {column("gid", "GID")}
                           {column("username", "Username")}
+                          {column("fullName", "Full name")}
                           {column("email", "Email")}
                           {column("base", "Base")}
                           {column("enabled", "Enabled")}
@@ -664,13 +668,13 @@ export default function SystemSettings({
                             const u = row as User;
                             return (
                               <Table.Tr key={u.id}>
-                                <Table.Td><Text size="sm" c="dimmed" ff="monospace">{u.gid || "—"}</Text></Table.Td>
                                 <Table.Td>
                                   <Group gap="xs" wrap="nowrap">
                                     <span className="settings-record-icon"><UserRound size={16} aria-hidden="true" /></span>
                                     <Text size="sm" fw={600}>{u.username}</Text>
                                   </Group>
                                 </Table.Td>
+                                <Table.Td>{u.fullName || "—"}</Table.Td>
                                 <Table.Td>{u.email || "—"}</Table.Td>
                                 <Table.Td>
                                   {u.base
@@ -856,15 +860,6 @@ export default function SystemSettings({
             {dialog === "user" && (
               <>
                 <TextInput
-                  leftSection={<Hash size={16} aria-hidden="true" />}
-                  required
-                  label="GID"
-                  error={fieldError("gid")}
-                  maxLength={fieldLimits.gid}
-                  value={gid}
-                  onChange={(e) => setGid(e.currentTarget.value)}
-                />
-                <TextInput
                   leftSection={<UserRound size={16} aria-hidden="true" />}
                   required
                   label={t("Username")}
@@ -872,6 +867,14 @@ export default function SystemSettings({
                   maxLength={fieldLimits.username}
                   value={username}
                   onChange={(e) => setUsername(e.currentTarget.value)}
+                />
+                <TextInput
+                  leftSection={<UserRound size={16} aria-hidden="true" />}
+                  required
+                  label={t("Full name")}
+                  error={fieldError("fullName")}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.currentTarget.value)}
                 />
                 <TextInput
                   leftSection={<Mail size={16} aria-hidden="true" />}

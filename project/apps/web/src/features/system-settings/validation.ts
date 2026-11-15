@@ -2,6 +2,7 @@
 export const fieldLimits = {
   gid: 64,
   username: 100,
+  fullName: 50,
   email: 254,
   code: 32,
   name: 100,
@@ -23,8 +24,11 @@ export function validateManagementField(
   }
   if (field === "gid" && /[\u0000-\u001f\u007f-\u009f]/.test(value))
     return "GID cannot contain control characters.";
+  if (field === "username" && /[\u0000-\u001f\u007f-\u009f]/.test(value))
+    return "Username cannot contain control characters.";
   const text = value.trim();
-  if (!text || text.length > fieldLimits[field])
+  const length = field === "fullName" ? Array.from(text).length : text.length;
+  if (!text || length > fieldLimits[field])
     return `Enter 1 to ${fieldLimits[field]} characters.`;
   if (field === "code" && !/^[A-Za-z0-9_-]+$/.test(text))
     return "Use ASCII letters, digits, underscore or hyphen.";

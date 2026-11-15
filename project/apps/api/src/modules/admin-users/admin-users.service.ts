@@ -8,6 +8,7 @@ import { AuthenticationMode } from "../../generated/prisma/client";
 import { recordManagementAudit } from "../../common/management-audit";
 import {
   choice,
+  nullableText,
   pageNumber,
   pageSize,
   requiredEmail,
@@ -23,6 +24,7 @@ const userSelect = {
   id: true,
   gid: true,
   username: true,
+  fullName: true,
   email: true,
   baseId: true,
   enabled: true,
@@ -34,7 +36,7 @@ const userDetailSelect = {
   sessionVersion: true,
   identities: { select: { provider: true, providerUsername: true } },
 };
-const sortFields = ["gid", "username", "email", "base", "enabled"] as const;
+const sortFields = ["gid", "username", "fullName", "email", "base", "enabled"] as const;
 const configuredAdminNames = () =>
   (process.env.ADMIN_USERNAMES || "")
     .split(",")
@@ -51,6 +53,7 @@ export class AdminUsersService {
     const input = strictObject(value, [
       "gid",
       "username",
+      "fullName",
       "email",
       "baseId",
       "password",
@@ -60,8 +63,13 @@ export class AdminUsersService {
       /[\u0000-\u001f\u007f-\u009f]/.test(input.gid)
     )
       throw new BadRequestException("GID cannot contain control characters.");
-    const gid = requiredText(input.gid, "GID", 64);
+    const gid = input.gid === undefined ? null : requiredText(input.gid, "GID", 64);
+    if (typeof input.username === "string" && /[\u0000-\u001f\u007f-\u009f]/.test(input.username))
+      throw new BadRequestException("Username cannot contain control characters.");
     const username = requiredText(input.username, "Username", 100);
+    const fullName = nullableText(input.fullName, "Full name", 50);
+    if (!gid && !fullName)
+      throw new BadRequestException("Full name is required.");
     const email = requiredEmail(input.email);
     const baseId = uuid(input.baseId);
     const password = input.password;
@@ -95,7 +103,7 @@ export class AdminUsersService {
             await tx.user.findFirst({
               where: {
                 OR: [
-                  { gid: { equals: gid, mode: "insensitive" } },
+                  ...(gid ? [{ gid: { equals: gid, mode: "insensitive" } }] : []),
                   { username },
                   { email: { equals: email, mode: "insensitive" } },
                 ],
@@ -111,6 +119,7 @@ export class AdminUsersService {
             data: {
               gid,
               username,
+              fullName,
               email,
               baseId,
               passwordHash,
@@ -124,12 +133,13 @@ export class AdminUsersService {
             "USER_CREATED",
             "USER",
             user.id,
-            ["gid", "username", "email", "baseId", "localCredential"],
+            [...(gid ? ["gid"] : []), "username", ...(fullName ? ["fullName"] : []), "email", "baseId", "localCredential"],
           );
           return {
             id: user.id,
             gid: user.gid,
             username: user.username,
+            fullName: user.fullName,
             email: user.email,
             baseId: user.baseId,
             enabled: user.enabled,
@@ -195,6 +205,7 @@ export class AdminUsersService {
     const input = strictObject(value, [
       "gid",
       "username",
+      "fullName",
       "email",
       "baseId",
       "enabled",
@@ -213,9 +224,13 @@ export class AdminUsersService {
     }
     let updatedUsername: string | undefined;
     if ("username" in input) {
+      if (typeof input.username === "string" && /[\u0000-\u001f\u007f-\u009f]/.test(input.username))
+        throw new BadRequestException("Username cannot contain control characters.");
       updatedUsername = requiredText(input.username, "Username", 100);
       data.username = updatedUsername;
     }
+    if ("fullName" in input)
+      data.fullName = nullableText(input.fullName, "Full name", 50);
     if ("email" in input)
       data.email = input.email === null ? null : requiredEmail(input.email);
     if ("baseId" in input)
@@ -390,11 +405,20 @@ export class AdminUsersService {
             if (!base)
               throw new BadRequestException("Choose an existing Base.");
           }
+          const usernameChanged =
+            updatedUsername !== undefined && updatedUsername !== current.username;
+          if (usernameChanged) data.sessionVersion = { increment: 1 };
           const updated = await tx.user.update({
             where: { id: userId },
             data,
             select: userDetailSelect,
           });
+          if (usernameChanged) {
+            await tx.userIdentity.updateMany({
+              where: { userId, provider: "LOCAL" },
+              data: { subject: updatedUsername },
+            });
+          }
           await recordManagementAudit(
             tx,
             actorId,
@@ -543,6 +567,7 @@ export class AdminUsersService {
       where.OR = [
         { gid: { contains: q, mode: "insensitive" } },
         { username: { contains: q, mode: "insensitive" } },
+        { fullName: { contains: q, mode: "insensitive" } },
         { email: { contains: q, mode: "insensitive" } },
         ...(matchingBases.length
           ? [{ baseId: { in: matchingBases.map((base) => base.id) } }]
