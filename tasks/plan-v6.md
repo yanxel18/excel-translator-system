@@ -140,7 +140,7 @@ authenticated owner on every operation; IDs are not authorization.
 | `POST /upload-sessions` | Accept a stable `clientUploadId`, `fileName`, `fileSize`, and ordered SHA-256 chunk hashes. Atomically create/replay the same owner's intent; different metadata with the same ID is a conflict. |
 | `GET /upload-sessions/:id` | Return immutable file/chunk metadata, status, acknowledged bytes, next chunk index, chunk size, expiry and completed job ID, never filesystem paths or another owner's session. |
 | `PUT /upload-sessions/:id/chunks/:index` | Receive one raw binary chunk. Validate its expected index, exact length and recorded hash. A matching acknowledged retry is safe; mismatched data is rejected. |
-| `POST /upload-sessions/:id/completion` | Validate the complete workbook and create exactly one existing-shape job/queued notification. Repeat or uncertain-outcome retries return the same completed job; in-flight duplicates get a busy response. |
+| `POST /upload-sessions/:id/completion` | Validate the complete workbook and create exactly one existing-shape job/queued notification. Repeat or uncertain-outcome retries return the same completed job; in-flight duplicates get a busy response. If the completed job has been deleted, return `410 UPLOAD_COMPLETED_JOB_DELETED` without recreating it. Invalid workbooks return `422 UPLOAD_INVALID_WORKBOOK`. |
 | `DELETE /upload-sessions/:id` | Cancel an unfinished session and delete its owned temporary data. Repeated cancellation is safe; never delete a completed job through this endpoint. |
 
 Propose fixed 1 MiB chunks (1,048,576 bytes), except the shorter final chunk.
@@ -323,8 +323,11 @@ The separate 200 MiB processing/preview gates remain open.
   administrator limit is rechecked on status and exposed as a reusable service
   check for chunk/finalization work. Task 5 now uses bounded in-memory chunks,
   synced spool writes and persisted progress, with crash, expiry and proxy
-  verification recorded in [the tracker](todo-v6.md). Completion remains
-  unimplemented.
+  verification recorded in [the tracker](todo-v6.md). Completion keeps the
+  owned spool until the stable job source is linked, then commits the job,
+  notification and receipt together. A restart can retry the same link; failed
+  or expired sessions remove an uncommitted link only after verifying ownership.
+  The reservation is retained if cleanup fails.
   The owner-deletion applicability audit confirms PostgreSQL blocks
   cascading deletion while a session retains a reservation, but neither
   existing admin controller has an account-deletion route; HTTP conflict

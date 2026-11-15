@@ -170,6 +170,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     "utf8",
   );
   for (const value of Object.values(history)) assert.ok(builtInHistory.includes(value), value);
+  const completionHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-upload-session-completion-v6"],
+  )).rows[0];
+  assert.ok(completionHistory, "The completion changelog migration was applied.");
+  for (const value of Object.values(completionHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -258,7 +266,34 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const hold=process.env.V6_TEST_HOLD_SESSION;
         if(hold){
           const sessions=app.get(UploadSessionService);
-          if(process.env.V6_TEST_HOLD_STAGE==='before-commit'){
+          const stage=process.env.V6_TEST_HOLD_STAGE;
+          if(stage==='completion-before-promotion'||stage==='completion-after-promotion'){
+            const original=sessions.promoteSessionSpool.bind(sessions);
+            sessions.promoteSessionSpool=async(...args)=>{
+              if(stage==='completion-after-promotion') await original(...args);
+              process.send({type:stage});
+              await new Promise(resolve=>process.once('message',resolve));
+              if(stage==='completion-before-promotion') await original(...args);
+            };
+          } else if(stage==='completion-before-commit'){
+            const original=sessions.jobs.createSessionJob.bind(sessions.jobs);
+            sessions.jobs.createSessionJob=async(...args)=>{
+              const result=await original(...args);
+              process.send({type:stage});
+              await new Promise(resolve=>process.once('message',resolve));
+              return result;
+            };
+          } else if(stage==='completion-after-commit'){
+            const original=sessions.prisma.$transaction.bind(sessions.prisma);
+            sessions.prisma.$transaction=async(...args)=>{
+              const result=await original(...args);
+              if(result && Array.isArray(result.availableSheets)){
+                process.send({type:stage});
+                await new Promise(resolve=>process.once('message',resolve));
+              }
+              return result;
+            };
+          } else if(stage==='before-commit'){
             const original=sessions.commitChunkProgress.bind(sessions);
             sessions.commitChunkProgress=async(...args)=>{
               if(String(args[1].id).toLowerCase()===hold){
@@ -727,6 +762,201 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
 
     assert.equal((await request(sessionPath(runtime.baseUrl, created.body.id), "DELETE", tokenFor(owner))).status, 200);
     assert.equal(await budget(), budgetBefore);
+  });
+
+  await t.test("completed upload creates one existing-shape job and replays without recreating deleted jobs", async () => {
+    const XLSX = require("xlsx");
+    const owner = await addUser("completion-owner");
+    const other = await addUser("completion-other");
+    const token = tokenFor(owner);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["hello"]]), "Sheet1");
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "complete.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    const url = `${sessionPath(runtime.baseUrl, created.body.id.toUpperCase())}/completion`;
+    const complete = (auth) => request(url, "POST", auth);
+    const incomplete = await complete(token);
+    assert.equal(incomplete.status, 409);
+    assert.equal((await incomplete.json()).code, "UPLOAD_INCOMPLETE");
+    const chunk = await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes);
+    assert.equal(chunk.response.status, 200, JSON.stringify(chunk.body));
+    assert.equal((await complete(tokenFor(other))).status, 404);
+    assert.equal((await complete()).status, 401);
+
+    const release = runtime.admission.acquire();
+    try {
+      const busy = await complete(token);
+      assert.equal(busy.status, 409);
+      assert.equal(busy.headers.get("retry-after"), "1");
+      assert.equal((await busy.json()).code, "UPLOAD_BUSY");
+    } finally {
+      release();
+    }
+
+    const completed = await complete(token);
+    const job = await completed.json();
+    assert.equal(completed.status, 201, JSON.stringify(job));
+    assert.equal(job.fileName, "complete.xlsx");
+    assert.deepEqual(job.selectedSheets, ["Sheet1"]);
+    assert.deepEqual(job.availableSheets, ["Sheet1"]);
+    const saved = await runtime.prisma.translationJob.findUniqueOrThrow({ where: { id: job.id } });
+    assert.equal(saved.ownerId, owner.id);
+    assert.deepEqual(await fs.readFile(saved.sourcePath), bytes);
+    assert.equal(await runtime.prisma.notification.count({ where: { jobId: job.id } }), 1);
+    const replay = await complete(token);
+    const replayed = await replay.json();
+    assert.equal(replay.status, 201, JSON.stringify(replayed));
+    assert.equal(replayed.id, job.id);
+    assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: owner.id } }), 1);
+    assert.equal(await runtime.prisma.notification.count({ where: { jobId: job.id } }), 1);
+    const receipt = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: created.body.id } });
+    assert.equal(receipt.status, "COMPLETED");
+    assert.equal(receipt.completionJobId, job.id);
+    assert.equal(receipt.reservedBytes, 0);
+
+    await runtime.prisma.translationJob.delete({ where: { id: job.id } });
+    const deletedReplay = await complete(token);
+    assert.equal(deletedReplay.status, 410);
+    assert.equal((await deletedReplay.json()).code, "UPLOAD_COMPLETED_JOB_DELETED");
+    assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: owner.id } }), 0);
+    await fs.unlink(saved.sourcePath);
+  });
+
+  await t.test("invalid workbook completion releases temporary storage without creating a job", async () => {
+    const budgetBefore = await budget();
+    const owner = await addUser("invalid-completion");
+    const token = tokenFor(owner);
+    const bytes = Buffer.from("not an xlsx");
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "invalid.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    assert.equal((await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes)).response.status, 200);
+    const result = await request(`${sessionPath(runtime.baseUrl, created.body.id)}/completion`, "POST", token);
+    assert.equal(result.status, 422);
+    assert.equal((await result.json()).code, "UPLOAD_INVALID_WORKBOOK");
+    const session = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: created.body.id } });
+    assert.equal(session.status, "FAILED");
+    assert.equal(session.reservedBytes, 0);
+    assert.equal(await budget(), budgetBefore);
+    assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: owner.id } }), 0);
+    await assert.rejects(fs.stat(path.join(storageDir, session.id)), { code: "ENOENT" });
+  });
+
+  await t.test("failed completion transaction is retryable and cancellation removes only its own promotion", async () => {
+    const XLSX = require("xlsx");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["hello"]]), "Sheet1");
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const owner = await addUser("completion-rollback");
+    const token = tokenFor(owner);
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "rollback.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    assert.equal((await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes)).response.status, 200);
+    await client.query(`
+      CREATE FUNCTION fail_test_completion() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW."status" = 'COMPLETED' THEN RAISE EXCEPTION 'injected completion failure'; END IF;
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER fail_test_completion BEFORE UPDATE ON "UploadSession"
+      FOR EACH ROW EXECUTE FUNCTION fail_test_completion();
+    `);
+    try {
+      const failed = await request(`${sessionPath(runtime.baseUrl, created.body.id)}/completion`, "POST", token);
+      assert.equal(failed.status, 503);
+      const session = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: created.body.id } });
+      assert.equal(session.status, "FINALIZING");
+      assert.equal(session.reservedBytes, bytes.length);
+      assert.equal(await runtime.prisma.translationJob.count({ where: { id: session.completionJobId } }), 0);
+      assert.deepEqual(await fs.readFile(path.join(process.env.DATA_DIR, `${session.completionJobId}.source.xlsx`)), bytes);
+      const cancelled = await request(sessionPath(runtime.baseUrl, session.id), "DELETE", token);
+      assert.equal(cancelled.status, 200);
+      await assert.rejects(fs.stat(path.join(process.env.DATA_DIR, `${session.completionJobId}.source.xlsx`)), { code: "ENOENT" });
+      assert.equal((await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: session.id } })).reservedBytes, 0);
+    } finally {
+      await client.query('DROP TRIGGER IF EXISTS fail_test_completion ON "UploadSession"');
+      await client.query("DROP FUNCTION IF EXISTS fail_test_completion()");
+    }
+  });
+
+  await t.test("foreign job-path collisions are never deleted or treated as owned uploads", async () => {
+    const XLSX = require("xlsx");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["hello"]]), "Sheet1");
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const owner = await addUser("completion-foreign-source");
+    const token = tokenFor(owner);
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "collision.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    assert.equal((await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes)).response.status, 200);
+    const session = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: created.body.id } });
+    const foreign = path.join(process.env.DATA_DIR, `${session.completionJobId}.source.xlsx`);
+    await fs.writeFile(foreign, "foreign data", { flag: "wx" });
+    try {
+      const completion = await request(`${sessionPath(runtime.baseUrl, session.id)}/completion`, "POST", token);
+      assert.equal(completion.status, 503);
+      const cancellation = await request(sessionPath(runtime.baseUrl, session.id), "DELETE", token);
+      assert.equal(cancellation.status, 503);
+      assert.equal(await fs.readFile(foreign, "utf8"), "foreign data");
+      assert.equal((await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: session.id } })).reservedBytes, bytes.length);
+    } finally {
+      await fs.unlink(foreign);
+    }
+    assert.equal((await request(sessionPath(runtime.baseUrl, session.id), "DELETE", token)).status, 200);
+    assert.equal((await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: session.id } })).reservedBytes, 0);
+  });
+
+  await t.test("completion rechecks an administrator limit lowered during validation", async () => {
+    const XLSX = require("xlsx");
+    const { FileUploadService } = require("../dist/modules/file-upload/file-upload.service");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook,
+      XLSX.utils.aoa_to_sheet(Array.from({ length: 400 }, () => ["x".repeat(4096)])), "Sheet1");
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    assert.ok(bytes.length > MiB && bytes.length < 2 * MiB);
+    const chunks = [bytes.subarray(0, MiB), bytes.subarray(MiB)];
+    const owner = await addUser("completion-limit-change");
+    const token = tokenFor(owner);
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "limit.xlsx", fileSize: bytes.length,
+      chunkHashes: chunks.map(sha256),
+    });
+    assert.equal(created.response.status, 201);
+    for (let index = 0; index < chunks.length; index++)
+      assert.equal((await putChunk(runtime.baseUrl, token, created.body.id, index, chunks[index])).response.status, 200);
+    const files = app.get(FileUploadService);
+    const original = files.validateSessionWorkbook;
+    files.validateSessionWorkbook = async function (...args) {
+      const sheets = await original.apply(this, args);
+      await runtime.prisma.applicationSettings.update({ where: { id: "default" }, data: { maxUploadSizeMb: 1 } });
+      return sheets;
+    };
+    try {
+      const blocked = await request(`${sessionPath(runtime.baseUrl, created.body.id)}/completion`, "POST", token);
+      assert.equal(blocked.status, 413);
+      assert.equal((await blocked.json()).code, "UPLOAD_LIMIT_CHANGED");
+      const session = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: created.body.id } });
+      assert.equal(session.status, "FINALIZING");
+      assert.equal(session.reservedBytes, bytes.length);
+      assert.equal(await runtime.prisma.translationJob.count({ where: { id: session.completionJobId } }), 0);
+    } finally {
+      files.validateSessionWorkbook = original;
+      await runtime.prisma.applicationSettings.update({ where: { id: "default" }, data: { maxUploadSizeMb: 50 } });
+    }
+    const retry = await request(`${sessionPath(runtime.baseUrl, created.body.id)}/completion`, "POST", token);
+    assert.equal(retry.status, 201, JSON.stringify(await retry.json()));
   });
 
   await t.test("chunked transfer encoding enforces exact size without Content-Length", async () => {
@@ -1396,6 +1626,62 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
       sessionPath(runtime.baseUrl, created.body.id), "DELETE", tokenFor(owner),
     )).status, 200);
     assert.equal(await budget(), budgetBefore);
+  });
+
+  await t.test("completion survives actual process death at promotion and transaction boundaries", {
+    timeout: 90000,
+  }, async () => {
+    const XLSX = require("xlsx");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["crash recovery"]]), "Sheet1");
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const stages = [
+      "completion-before-promotion", "completion-after-promotion",
+      "completion-before-commit", "completion-after-commit",
+    ];
+    const cases = [];
+    for (const stage of stages) {
+      const owner = await addUser(stage);
+      const token = tokenFor(owner);
+      const created = await create(runtime.baseUrl, token, {
+        clientUploadId: randomUUID(), fileName: "crash.xlsx", fileSize: bytes.length,
+        chunkHashes: [sha256(bytes)],
+      });
+      assert.equal(created.response.status, 201);
+      assert.equal((await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes)).response.status, 200);
+      const session = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: created.body.id } });
+      cases.push({ stage, token, id: session.id, jobId: session.completionJobId });
+    }
+    await app.close();
+    app = undefined;
+
+    for (const item of cases) {
+      let active = await startOwnedApiWorker(item.id, item.stage);
+      const pending = request(`${sessionPath(active.baseUrl, item.id)}/completion`, "POST", item.token)
+        .then((value) => ({ value }), (error) => ({ error }));
+      await waitForWorkerMessage(active.worker, item.stage);
+      await killOwnedWorker(active.worker);
+      assert.ok((await pending).error, `${item.stage} must lose the response`);
+      const current = (await client.query(
+        'SELECT "status", "reservedBytes" FROM "UploadSession" WHERE "id" = $1', [item.id],
+      )).rows[0];
+      assert.equal(current.status, item.stage === "completion-after-commit" ? "COMPLETED" : "FINALIZING");
+      assert.equal(current.reservedBytes, bytes.length);
+      const count = (await client.query('SELECT count(*)::int AS count FROM "TranslationJob" WHERE id=$1', [item.jobId])).rows[0].count;
+      assert.equal(count, item.stage === "completion-after-commit" ? 1 : 0);
+
+      active = await startOwnedApiWorker();
+      const replay = await request(`${sessionPath(active.baseUrl, item.id)}/completion`, "POST", item.token);
+      const job = await replay.json();
+      assert.equal(replay.status, 201, JSON.stringify(job));
+      assert.equal(job.id, item.jobId);
+      assert.deepEqual(await fs.readFile(path.join(process.env.DATA_DIR, `${item.jobId}.source.xlsx`)), bytes);
+      assert.equal((await client.query('SELECT count(*)::int AS count FROM "TranslationJob" WHERE id=$1', [item.jobId])).rows[0].count, 1);
+      assert.equal((await client.query('SELECT count(*)::int AS count FROM "Notification" WHERE "jobId"=$1', [item.jobId])).rows[0].count, 1);
+      assert.equal((await client.query('SELECT "reservedBytes" FROM "UploadSession" WHERE id=$1', [item.id])).rows[0].reservedBytes, 0);
+      await killOwnedWorker(active.worker);
+    }
+    runtime = await startApp();
   });
 
   await t.test("owned API process crashes before commit and after commit-before-response recover exact spool progress", {
