@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-sidebar-navigation",
+    title: "Simplify workspace navigation",
+    details:
+      "Translate File, Changelog, and administrator System Settings are now easier to find in the sidebar.",
+    publishedAt: "2026-11-15T07:46:53.000Z",
+  },
+  {
     id: "changelog-20261115-preview-cache-recovery",
     title: "Restore workbook preview after a connection fix",
     details:

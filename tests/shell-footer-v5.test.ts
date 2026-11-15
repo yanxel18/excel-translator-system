@@ -348,7 +348,7 @@ test("mobile navigation and account controls remain reachable in both themes", a
   await openWorkspace(page);
   const toggle = page.getByRole("button", { name: "Toggle navigation" });
   await toggle.click();
-  await expect(page.getByRole("button", { name: "Workspace", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Translate File", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Account", exact: true })).toBeVisible();
 
   for (const theme of ["light", "dark"] as const) {
@@ -423,6 +423,6 @@ test("mobile navigation label area remains clickable beyond the icon", async ({
   await expect(history).toBeVisible();
   await expect(history).toHaveAccessibleName("History");
   await expect(history).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("button", { name: "Workspace", exact: true }))
+  await expect(page.getByRole("button", { name: "Translate File", exact: true }))
     .not.toHaveAttribute("aria-current", "page");
 });

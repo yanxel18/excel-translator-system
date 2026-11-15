@@ -40,7 +40,7 @@ test("rail avatar opens account details and actions without a duplicate settings
   await expect(page.getByRole("menu")).toContainText("Alice Example");
   await expect(page.getByRole("menu")).toContainText("alice@example.test");
   await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("menuitem", { name: "System Settings" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "System Settings" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(account).toBeFocused();
 });
@@ -52,7 +52,7 @@ test("mobile rail, theme, profile failure and navigation remain usable", async (
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Workspace", exact: true })
+  await expect(page.getByRole("button", { name: "Translate File", exact: true })
     .locator(".mantine-NavLink-section")).toHaveCSS("border-radius", "0px");
   const account = page.getByRole("button", { name: "Account", exact: true });
   await expect(account).toBeVisible();
@@ -88,7 +88,7 @@ test("single globe changes and persists all three languages", async ({ page }) =
   }
 });
 
-test("system settings account link follows the selected language", async ({
+test("system settings sidebar link follows the selected language", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -103,11 +103,9 @@ test("system settings account link follows the selected language", async ({
   ] as const) {
     await language.click();
     await page.getByRole("menuitem", { name: label }).click();
-    await account.click();
     await expect(
-      page.getByRole("menuitem", { name: translated, exact: true }),
+      page.locator(".navigation-rail").getByRole("button", { name: translated, exact: true }),
     ).toBeVisible();
-    await page.keyboard.press("Escape");
   }
 });
 
