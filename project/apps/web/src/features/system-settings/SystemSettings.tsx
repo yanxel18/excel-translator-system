@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import {
   ArrowDown, ArrowUp, ArrowUpDown, Building2, Check, ChevronRight,
-  CalendarClock, CircleAlert, Eye, Hash, LockKeyhole, Mail, Pencil, Plus, Save,
+  CalendarClock, CircleAlert, Eye, LockKeyhole, Mail, Pencil, Plus, Save,
   Search, Settings, ShieldCheck, SlidersHorizontal, Trash2, UserRound, Users,
 } from "lucide-react";
 import type { View } from "../app-shell/types";
@@ -80,6 +80,7 @@ const labels = {
     Cancel: "キャンセル",
     Code: "コード",
     Name: "名前",
+    "Base name (acronym)": "拠点名（略称）",
     Username: "ユーザー名",
     "Full name": "氏名",
     Email: "メールアドレス",
@@ -131,6 +132,7 @@ const labels = {
     Cancel: "取消",
     Code: "代码",
     Name: "名称",
+    "Base name (acronym)": "据点名称（简称）",
     Username: "用户名",
     "Full name": "姓名",
     Email: "电子邮件",
@@ -244,7 +246,6 @@ export default function SystemSettings({
     "base" | "user" | "delete" | "assign" | null
   >(null);
   const [code, setCode] = useState("");
-  const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -253,7 +254,7 @@ export default function SystemSettings({
   const [saving, setSaving] = useState(false);
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const fieldValues = { gid: "", username, fullName, email, code, name, password };
+  const fieldValues = { gid: "", username, fullName, email, code, name: "", password };
   const fieldError = (field: ManagementField) => {
     const message = submitted
       ? validateManagementField(field, fieldValues[field])
@@ -360,7 +361,6 @@ export default function SystemSettings({
   const openBase = (base?: Base) => {
     setEditing(base || null);
     setCode(base?.code || "");
-    setName(base?.name || "");
     setError("");
     setDialog("base");
   };
@@ -377,7 +377,7 @@ export default function SystemSettings({
     setSubmitted(true);
     const fields: ManagementField[] =
       dialog === "base"
-        ? ["code", "name"]
+        ? ["code"]
         : dialog === "user"
           ? ["username", "fullName", "email", "password"]
           : [];
@@ -392,7 +392,9 @@ export default function SystemSettings({
       if (dialog === "base")
         await management.saveBase(
           token,
-          { code: code.trim(), name: name.trim() },
+          editing
+            ? { code: code.trim() }
+            : { code: code.trim(), name: code.trim().toUpperCase() },
           editing?.id,
         );
       if (dialog === "delete" && editing)
@@ -454,7 +456,7 @@ export default function SystemSettings({
   ];
   const baseOptions = optionBases.map((base) => ({
     value: base.id,
-    label: `${base.code} \u2014 ${base.name}`,
+    label: base.code,
   }));
   for (const id of selectedBaseIds)
     if (!baseOptions.some((option) => option.value === id))
@@ -667,8 +669,7 @@ export default function SystemSettings({
                         </>
                       ) : (
                         <>
-                          {column("code", "Code")}
-                          {column("name", "Name")}
+                          {column("code", "Base")}
                           <Table.Th>{t("Actions")}</Table.Th>
                         </>
                       )}
@@ -690,9 +691,7 @@ export default function SystemSettings({
                                 <Table.Td>{u.fullName || "—"}</Table.Td>
                                 <Table.Td>{u.email || "—"}</Table.Td>
                                 <Table.Td>
-                                  {u.base
-                                    ? `${u.base.code} — ${u.base.name}`
-                                    : "—"}
+                                  {u.base ? u.base.code : "—"}
                                 </Table.Td>
                                 <Table.Td>
                                   <Switch
@@ -745,7 +744,6 @@ export default function SystemSettings({
                                     <Text size="sm" fw={600} ff="monospace">{b.code}</Text>
                                   </Group>
                                 </Table.Td>
-                                <Table.Td>{b.name}</Table.Td>
                                 <Table.Td>
                                   <Group gap="xs">
                                     <Button
@@ -849,26 +847,16 @@ export default function SystemSettings({
               </Alert>
             )}
             {dialog === "base" && (
-              <>
-                <TextInput
-                  leftSection={<Hash size={16} aria-hidden="true" />}
-                  required
-                  label={t("Code")}
-                  error={fieldError("code")}
-                  maxLength={fieldLimits.code}
-                  value={code}
-                  onChange={(e) => setCode(e.currentTarget.value)}
-                />
-                <TextInput
-                  leftSection={<Building2 size={16} aria-hidden="true" />}
-                  required
-                  label={t("Name")}
-                  error={fieldError("name")}
-                  maxLength={fieldLimits.name}
-                  value={name}
-                  onChange={(e) => setName(e.currentTarget.value)}
-                />
-              </>
+              <TextInput
+                leftSection={<Building2 size={16} aria-hidden="true" />}
+                required
+                label={t("Base name (acronym)")}
+                placeholder="JTY"
+                error={fieldError("code")}
+                maxLength={fieldLimits.code}
+                value={code}
+                onChange={(e) => setCode(e.currentTarget.value)}
+              />
             )}
             {dialog === "user" && (
               <>
@@ -939,7 +927,7 @@ export default function SystemSettings({
             )}
             {dialog === "delete" && (
               <Text>
-                {editing?.code} — {editing?.name}.{" "}
+                {editing?.code}.{" "}
                 {t("Assigned bases cannot be deleted.")}
               </Text>
             )}

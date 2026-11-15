@@ -2,7 +2,7 @@
 
 **Status:** Implemented validation contract and regression coverage for existing
 APIs, plus the focused full-name storage/OIDC limit. This document does not
-claim the broader account/base storage migration or acronym-only base UI has shipped.
+claim the broader account/base storage migration or acronym-based API has shipped.
 The focused [base primary-key migration](../project/docs/v6-base-primary-key-migration.md)
 now makes `Base.code` primary and retains unique immutable UUID `Base.id`.
 
@@ -19,6 +19,11 @@ place.
 | `PATCH /admin/users/:id` | Accepts partial updates to `gid`, `username`, `fullName`, `email`, `baseId`, and `enabled`. An explicit username change updates the LOCAL identity subject and revokes existing sessions; an unrelated edit does not rename the login. A supplied GID must be a non-empty string; omit it to leave it unchanged. |
 | Profile REST and GraphQL | Keep the existing `fullName` and `email` fields. `fullName` remains nullable for old rows and clients. |
 | Base management and assignment | Current base records have UUID `id`, acronym-like `code`, and separate required `name`. User assignments reference the UUID through nullable `User.baseId`. |
+
+The administrator interface shows one base acronym. For compatibility with
+the current API, creating a base sends the acronym as both `code` and `name`;
+editing sends only `code`, preserving any legacy name. Assignment requests
+continue to use the stable UUID and display the current acronym.
 
 ### Input normalization, lengths, and uniqueness
 
