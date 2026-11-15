@@ -100,6 +100,13 @@ model OidcSettings {
   updatedAt     DateTime @updatedAt
 }
 
+model ApplicationSettings {
+  id                        String   @id @default("default")
+  maxUploadSizeMb           Int      @default(50)
+  maxConcurrentTranslations Int      @default(5)
+  updatedAt                 DateTime @updatedAt
+}
+
 model ManagementAudit {
   id         String   @id @default(uuid())
   actorId    String?

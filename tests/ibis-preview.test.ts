@@ -6,11 +6,13 @@ test("preview bridge rejects foreign origins and transfers workbook bytes withou
   page,
 }) => {
   const bridge = readFileSync("deployment/ibis-preview/bridge.html");
+  let moduleUrl = "";
   const server = createServer((req, res) => {
     if (req.url?.startsWith("/bridge.html")) {
       res.setHeader("Content-Type", "text/html");
       res.end(bridge);
-    } else if (req.url === "/main.js") {
+    } else if (req.url?.startsWith("/main.js")) {
+      moduleUrl = req.url;
       res.setHeader("Content-Type", "text/javascript");
       res.end(
         `window.result = await (await fetch(new URLSearchParams(location.search).get('open'))).text();`,
@@ -59,6 +61,7 @@ test("preview bridge rejects foreign origins and transfers workbook bytes withou
     await expect
       .poll(() => child.evaluate(() => (window as any).result))
       .toBe("private workbook bytes");
+    expect(moduleUrl).toBe("/main.js?v=2");
     expect(await child.evaluate(() => location.search)).not.toContain("Bearer");
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -407,6 +407,7 @@ export default function ModernApp() {
       ) : view === "workspace" ? (
         <WorkspacePage
           file={workspace.file}
+          maxUploadSizeMb={workspace.maxUploadSizeMb}
           fileInput={workspace.fileInput}
           error={workspace.error}
           busy={workspace.busy}

@@ -15,6 +15,10 @@ export type UserDetail = User & {
   identityProviders: string[];
   hasLocalPassword: boolean;
 };
+export type ApplicationSettings = {
+  maxUploadSizeMb: number;
+  maxConcurrentTranslations: number;
+};
 type Page<T> = { data: T[]; total: number; page: number; pageSize: number };
 const write = (method: string, body?: object): RequestInit => ({
   method,
@@ -22,6 +26,17 @@ const write = (method: string, body?: object): RequestInit => ({
   ...(body ? { body: JSON.stringify(body) } : {}),
 });
 export const management = {
+  applicationSettings: (token: string) =>
+    request<ApplicationSettings>("/admin/application-settings", {}, token),
+  updateApplicationSettings: (
+    token: string,
+    value: Partial<ApplicationSettings>,
+  ) =>
+    request<ApplicationSettings>(
+      "/admin/application-settings",
+      write("PATCH", value),
+      token,
+    ),
   bases: (token: string, query: string) =>
     request<Page<Base>>(`/admin/bases?${query}`, {}, token),
   saveBase: (

@@ -9,4 +9,5 @@ export type View =
   | "settings/users/new"
   | `settings/users/${string}`
   | "settings/bases"
+  | "settings/files"
   | "settings/authentication";

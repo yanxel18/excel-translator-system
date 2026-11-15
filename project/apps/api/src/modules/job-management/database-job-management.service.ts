@@ -22,7 +22,7 @@ import { TextExtractionService } from "../text-extraction/text-extraction.servic
 import { TranslationService } from "../translation/translation.service";
 import { normalizeUploadFilename } from "../../utils/filename";
 import { isSupportedLanguagePair } from "./language-pairs";
-import { getMaxConcurrentTranslations } from "../../config/translation-concurrency";
+import { ApplicationSettingsService } from "../application-settings/application-settings.service";
 
 const ADVISORY_LOCK_NAMESPACE = 1_163_430_226;
 const SINGLETON_LOCK_ID = 1;
@@ -67,9 +67,6 @@ export class DatabaseJobManagementService
   private readonly workers = new Map<string, Promise<void>>();
   private readonly jobOperations = new Map<string, Promise<void>>();
   private readonly inFlightAdmissions = new Set<Promise<void>>();
-  private readonly maxConcurrentTranslations = getMaxConcurrentTranslations(
-    process.env.MAX_CONCURRENT_TRANSLATIONS,
-  );
   private singletonConnection: Client | null = null;
   private shuttingDown = false;
 
@@ -77,6 +74,7 @@ export class DatabaseJobManagementService
     private readonly prisma: PrismaService,
     private readonly extraction: TextExtractionService,
     private readonly translation: TranslationService,
+    private readonly settings: ApplicationSettingsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -475,6 +473,7 @@ export class DatabaseJobManagementService
     ownerId: string,
     status: DatabaseJobStatus,
   ) {
+    const { maxConcurrentTranslations } = await this.settings.getSettings();
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRawUnsafe(
         "SELECT pg_advisory_xact_lock($1, $2)::text",
@@ -489,9 +488,9 @@ export class DatabaseJobManagementService
       const processingCount = await tx.translationJob.count({
         where: { status: DatabaseJobStatus.PROCESSING },
       });
-      if (processingCount >= this.maxConcurrentTranslations)
+      if (processingCount >= maxConcurrentTranslations)
         throw new ConflictException(
-          `Translation capacity reached (${this.maxConcurrentTranslations} concurrent jobs). Wait for a job to finish or cancel before starting or retrying another.`,
+          `Translation capacity reached (${maxConcurrentTranslations} concurrent jobs). Wait for a job to finish or cancel before starting or retrying another.`,
         );
       const claimed = await tx.translationJob.updateManyAndReturn({
         where: { id, ownerId, status },

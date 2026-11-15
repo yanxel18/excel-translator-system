@@ -32,6 +32,7 @@ import WorkbookIcon from "../shared/WorkbookIcon";
 
 interface WorkspacePageProps {
   file: File | null;
+  maxUploadSizeMb: number;
   fileInput: RefObject<HTMLInputElement>;
   error: string;
   busy: boolean;
@@ -56,6 +57,7 @@ function formatFileSize(bytes: number): string {
 
 export default function WorkspacePage({
   file,
+  maxUploadSizeMb,
   fileInput,
   error,
   busy,
@@ -114,7 +116,7 @@ export default function WorkspacePage({
           </Text>
         </Box>
         <Badge variant="light" color="blue" size="lg">
-          XLSX · {t("up to 50 MB")}
+          XLSX · {t("Upload limit")}: {maxUploadSizeMb} MB
         </Badge>
       </Group>
       {error && (

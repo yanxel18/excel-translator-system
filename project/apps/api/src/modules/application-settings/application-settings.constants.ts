@@ -1,0 +1,6 @@
+export const APPLICATION_SETTINGS_ID = "default";
+export const DEFAULT_MAX_UPLOAD_SIZE_MB = 50;
+export const MIN_MAX_UPLOAD_SIZE_MB = 1;
+export const MAX_MAX_UPLOAD_SIZE_MB = 50;
+export const MIN_MAX_CONCURRENT_TRANSLATIONS = 1;
+export const MAX_MAX_CONCURRENT_TRANSLATIONS = 5;

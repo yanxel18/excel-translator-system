@@ -30,7 +30,7 @@ async function openWorkspace(page: Page, profile: object | null = {
 test("rail avatar opens account details and actions without a duplicate settings entry", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openWorkspace(page);
-  const account = page.getByRole("button", { name: "Account", exact: true });
+  const account = page.locator(".shell-account-trigger");
   await expect(account).toBeVisible();
   await expect(page.locator(".navigation-rail").locator(".shell-account-trigger")).toBeVisible();
   await expect(account.locator(".shell-gid-identicon svg")).toBeVisible();
@@ -85,6 +85,29 @@ test("single globe changes and persists all three languages", async ({ page }) =
     await toggle.click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("excel-translator-locale"))).toBe(locale);
     await expect(globe).toBeVisible();
+  }
+});
+
+test("system settings account link follows the selected language", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openWorkspace(page);
+
+  const language = page.locator(".shell-language-button");
+  const account = page.locator(".shell-account-trigger");
+  await expect(account).toBeVisible();
+  for (const [label, translated] of [
+    ["日本語", "システム設定"],
+    ["中文", "系统设置"],
+  ] as const) {
+    await language.click();
+    await page.getByRole("menuitem", { name: label }).click();
+    await account.click();
+    await expect(
+      page.getByRole("menuitem", { name: translated, exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
   }
 });
 

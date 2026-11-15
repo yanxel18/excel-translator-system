@@ -11,6 +11,7 @@ const views: View[] = [
   "settings/users",
   "settings/users/new",
   "settings/bases",
+  "settings/files",
   "settings/authentication",
 ];
 const base = import.meta.env.BASE_URL;

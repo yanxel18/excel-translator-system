@@ -1,4 +1,5 @@
 import { Controller, Get, Header } from "@nestjs/common";
+import { ApplicationSettingsService } from "../application-settings/application-settings.service";
 
 export function getTokyoCalendarYear(date = new Date()): number {
   const year = new Intl.DateTimeFormat("en-US", {
@@ -10,9 +11,15 @@ export function getTokyoCalendarYear(date = new Date()): number {
 
 @Controller("system")
 export class SystemInfoController {
+  constructor(private readonly settings: ApplicationSettingsService) {}
+
   @Get("info")
-  @Header("Cache-Control", "public, max-age=300")
-  info() {
-    return { year: getTokyoCalendarYear() };
+  @Header("Cache-Control", "no-store")
+  async info() {
+    const settings = await this.settings.getSettings();
+    return {
+      year: getTokyoCalendarYear(),
+      maxUploadSizeMb: settings.maxUploadSizeMb,
+    };
   }
 }
