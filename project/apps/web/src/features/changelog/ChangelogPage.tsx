@@ -14,6 +14,41 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-base-acronym-api-v6",
+    title: "Manage factory bases by acronym through the API",
+    details:
+      "Administrators can use the versioned base API to list, create, rename and delete bases by factory acronym. Existing UUID-based integrations and user assignments continue to work.",
+    publishedAt: "2026-11-15T10:29:00.000Z",
+  },
+  {
+    id: "changelog-20261115-base-acronym-ui-v6",
+    title: "Simplify factory base management",
+    details:
+      "Administrators can create and edit bases using a single factory acronym. Base lists and user assignment controls show the acronym, while existing user assignments and older base details remain preserved.",
+    publishedAt: "2026-11-15T09:31:53.629Z",
+  },
+  {
+    id: "changelog-20261115-base-primary-key-v6",
+    title: "Use factory acronyms as base primary keys",
+    details:
+      "Factory acronyms now identify bases in storage. Existing UUID-based API requests and user assignments remain compatible; editing an acronym preserves every assigned user and account identity. Duplicate acronyms and deletion of assigned bases remain blocked.",
+    publishedAt: "2026-11-15T09:30:00.000Z",
+  },
+  {
+    id: "changelog-20261115-full-name-storage-limit-v6",
+    title: "Enforce the 50-character full-name limit",
+    details:
+      "Stored full names are limited to 50 Unicode characters. OIDC sign-in rejects longer provider names and asks you to shorten your provider profile name. Existing accounts and names are never truncated or silently discarded.",
+    publishedAt: "2026-11-15T09:10:00.000Z",
+  },
+  {
+    id: "changelog-20261115-identity-base-contract-v6",
+    title: "Clarify account identity and base rules",
+    details:
+      "Documented and tested existing username, legacy GID, administrator and profile name rules. Existing account identities, OIDC links, and UUID-based base assignments remain unchanged while the acronym-key storage migration is planned.",
+    publishedAt: "2026-11-15T08:46:00.000Z",
+  },
+  {
     id: "changelog-20261115-maintenance-notice-ui",
     title: "Configure and view maintenance notices",
     details:

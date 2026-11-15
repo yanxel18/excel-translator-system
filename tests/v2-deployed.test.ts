@@ -56,20 +56,22 @@ test("deployed settings preserve routes and enforce roles with a real API", asyn
   ).toBeVisible();
   await page.getByRole("button", { name: "Create base" }).click();
   const code = `T${suffix.replace(/-/g, "")}`;
-  await dialog.getByLabel("Code").fill(code);
-  await dialog.getByLabel("Name").fill("Temporary Base");
+  await dialog.getByLabel("Base name (acronym)").fill(code);
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Base saved.")).toBeVisible();
   await page.getByRole("textbox", { name: "Search" }).fill(code);
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText(code, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog.getByLabel("Name").fill("Updated Base");
+  await page.getByRole("row").filter({ has: page.getByRole("cell", { name: code, exact: true }) })
+    .getByRole("button", { name: "Edit", exact: true }).click();
+  await dialog.getByLabel("Base name (acronym)").fill(`${code}A`);
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Updated Base")).toBeVisible();
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText(`${code}A`, { exact: true })).toBeVisible();
+  await page.getByRole("row").filter({ has: page.getByRole("cell", { name: `${code}A`, exact: true }) })
+    .getByRole("button", { name: "Delete", exact: true }).click();
   await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Base deleted.")).toBeVisible();
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
   await page.getByRole("button", { name: "Account" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await page.getByLabel("Username").fill(username);

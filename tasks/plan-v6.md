@@ -26,6 +26,12 @@ and built-in changelog.
 
 ## Decisions and boundaries
 
+The focused base-key migration preserves every record and identity. `Base.code` is the
+primary key, with unique immutable UUID `Base.id` retained for compatibility.
+See [migration scope and evidence](../project/docs/v6-base-primary-key-migration.md).
+The base interface and versioned base API now expose a single acronym. The
+wider account migration and acronym-based user API remain pending.
+
 - The user confirmed the existing database contains test data and may be wiped
   if necessary. Prefer a non-destructive migration; do not delete data or
   volumes merely for convenience.
@@ -34,7 +40,12 @@ and built-in changelog.
   Keep passwords hashed and enforce uniqueness and validation server-side.
 - A base is represented to users by one acronym, such as JTY or MSTY. Its
   acronym is the intended database primary key. Protect user relationships and
-  explicitly handle acronym edits and duplicate values.
+  update assigned users atomically when an acronym is edited. Reject duplicate
+  values.
+- Reject OIDC sign-in when the provider supplies a full name longer than 50
+  Unicode code points; ask the user to correct the provider name. Enforce the
+  same maximum in PostgreSQL without truncation or discarding names. This
+  focused slice adds a reversible CHECK; it is not the broader base-key migration.
 - Rename the Workspace navigation action to Translate File. Move System
   Settings and Changelog from the avatar menu to the sidebar, preserving
   authorization, responsive behavior and translations.
@@ -56,6 +67,8 @@ requests at relevant size limits, admin authorization, multilingual names,
 maintenance schedule boundaries, and desktop/mobile navigation. Run type
 checks and builds; rebuild the local Compose stack when application code
 changes, without deleting named volumes. Verify changelog entries match.
+For the focused full-name storage/OIDC task, validate migration and reversal
+with the opt-in disposable PostgreSQL test before deploying to the local stack.
 
 ## Risks
 

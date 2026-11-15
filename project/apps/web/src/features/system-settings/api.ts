@@ -66,7 +66,7 @@ export const management = {
     request<Page<Base>>(`/admin/bases?${query}`, {}, token),
   saveBase: (
     token: string,
-    value: { code: string; name: string },
+    value: { code: string; name?: string },
     id?: string,
   ) =>
     request<Base>(

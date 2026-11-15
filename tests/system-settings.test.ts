@@ -112,6 +112,8 @@ test("admins can update upload size and translation concurrency", async ({ page 
 test("user access switch persists and survives reload", async ({ page }) => {
   await setup(page);
   await page.goto("/excel-convert/settings/users");
+  await expect(page.getByRole("cell", { name: "TKY", exact: true })).toBeVisible();
+  await expect(page.getByText("Tokyo", { exact: true })).toHaveCount(0);
   const toggle = page.getByRole("switch", { name: "Enabled: alice" });
   await expect(toggle).toBeChecked();
   await toggle.focus();
@@ -140,12 +142,40 @@ test("settings stay within mobile viewport and actions remain available", async 
   await expect(page.getByRole("button", { name: "Create user", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await page.locator(".system-settings-nav").getByRole("button", { name: "Bases", exact: true }).click();
-  await expect(page.getByRole("cell", { name: "Tokyo", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "TKY", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Create base", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.locator(".system-settings-nav").getByRole("button", { name: "Authentication", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Authentication mode", exact: true })).toBeVisible();
+});
+
+test("base conflicts and assigned-base deletion errors remain visible", async ({ page }) => {
+  await setup(page);
+  await page.route("**/admin/bases**", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({ status: 409, json: { message: "Base acronym already exists." } });
+    } else {
+      await route.fallback();
+    }
+  });
+  await page.route(`**/admin/bases/${baseId}`, async (route) => {
+    if (route.request().method() === "DELETE") {
+      await route.fulfill({ status: 409, json: { message: "Base is assigned to users." } });
+    } else {
+      await route.fallback();
+    }
+  });
+  await page.goto("/excel-convert/settings/bases");
+  await page.getByRole("button", { name: "Create base", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Base name (acronym)").fill("TKY");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Base acronym already exists.");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Base is assigned to users.");
 });
 
 test("settings navigation and forms remain usable across themes and screen sizes", async ({ page }, testInfo) => {

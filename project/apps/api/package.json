@@ -15,6 +15,7 @@
     "test:translation-concurrency:postgres": "npm run build && node --test test/translation-concurrency.postgres.test.cjs",
     "test:notifications": "npx tsc --incremental false && node --test test/notifications.test.cjs",
     "test:application-settings": "npm run build && node --test test/application-settings.test.cjs",
+    "test:base-primary-key-v6": "npm run prisma:generate && tsc --incremental false && node --test test/base-primary-key-v6.postgres.test.cjs",
     "schema:generate": "npx tsc --incremental false && node generate-schema.cjs",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",

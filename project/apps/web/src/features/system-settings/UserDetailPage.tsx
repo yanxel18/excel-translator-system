@@ -236,7 +236,7 @@ export default function UserDetailPage({
                 searchable
                 data={bases.map((base) => ({
                   value: base.id,
-                  label: `${base.code} — ${base.name}`,
+                  label: base.code,
                 }))}
                 value={baseId}
                 onChange={setBaseId}

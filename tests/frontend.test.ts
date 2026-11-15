@@ -107,7 +107,7 @@ test("administrator settings preserve list state and support management actions"
   const base = {
     id: "11111111-1111-1111-1111-111111111111",
     code: "JTY",
-    name: "JTY",
+    name: "Legacy factory name",
   };
   const user = {
     id: "22222222-2222-2222-2222-222222222222",
@@ -122,6 +122,7 @@ test("administrator settings preserve list state and support management actions"
   const writes: string[] = [];
   let createdUser: Record<string, string> | undefined;
   let savedBase: Record<string, string> | undefined;
+  let editedBase: Record<string, string> | undefined;
   await page.route(`${apiBaseUrl}/**`, async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(new URL(apiBaseUrl).pathname, "");
@@ -131,6 +132,8 @@ test("administrator settings preserve list state and support management actions"
       createdUser = route.request().postDataJSON();
     if (method === "POST" && path === "/admin/bases")
       savedBase = route.request().postDataJSON();
+    if (method === "PATCH" && path === `/admin/bases/${base.id}`)
+      editedBase = route.request().postDataJSON();
     const body =
       path === "/profile"
         ? { id: "admin", username: "admin", isAdmin: true }
@@ -178,7 +181,7 @@ test("administrator settings preserve list state and support management actions"
   await page.getByRole("button", { name: "Assign base" }).click();
   const assignDialog = page.getByRole("dialog");
   await assignDialog.getByLabel("Base").click();
-  await page.getByRole("option", { name: /JTY/ }).click();
+  await page.getByRole("option", { name: "JTY", exact: true }).click();
   await assignDialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Base reassigned.")).toBeVisible();
   expect(writes).toContain(`PATCH /admin/users/${user.id}/base`);
@@ -219,25 +222,27 @@ test("administrator settings preserve list state and support management actions"
   await page.getByRole("button", { name: "Bases", exact: true }).click();
   await expect(page).toHaveURL(/settings\/bases/);
   await page.getByRole("button", { name: "Create base" }).click();
-  await dialog.getByLabel("Code").fill("NEW");
-  await dialog.getByLabel("Name").fill("　 ");
+  await expect(dialog.getByLabel("Code")).toHaveCount(0);
+  await expect(dialog.getByLabel("Name", { exact: true })).toHaveCount(0);
+  await dialog.getByLabel("Base name (acronym)").fill("NOT VALID");
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog.getByLabel("Name")).toHaveAttribute(
+  await expect(dialog.getByLabel("Base name (acronym)")).toHaveAttribute(
     "aria-invalid",
     "true",
   );
   expect(writes).not.toContain("POST /admin/bases");
-  await dialog.getByLabel("Name").fill(" 東京・上海 ");
+  await dialog.getByLabel("Base name (acronym)").fill(" NEW ");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Base saved.")).toBeVisible();
-  expect(savedBase).toEqual({ code: "NEW", name: "東京・上海" });
+  expect(savedBase).toEqual({ code: "NEW", name: "NEW" });
   expect(writes).toContain("POST /admin/bases");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog.getByLabel("Name").fill("Edited base");
+  await dialog.getByLabel("Base name (acronym)").fill("EDITED");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect
     .poll(() => writes.some((entry) => entry.startsWith("PATCH /admin/bases/")))
     .toBe(true);
+  expect(editedBase).toEqual({ code: "EDITED" });
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("Base deleted.")).toBeVisible();
