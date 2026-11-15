@@ -9,6 +9,7 @@ import { ApplicationSettingsModule } from "../application-settings/application-s
 import { UploadAdmissionService } from "./upload-admission.service";
 import { UploadAdmissionInterceptor } from "./upload-admission.interceptor";
 import { UploadSessionService } from "./upload-session.service";
+import { UploadSessionController } from "./upload-session.controller";
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { UploadSessionService } from "./upload-session.service";
       limits: { fileSize: 50 * 1024 * 1024, files: 1 },
     }),
   ],
-  controllers: [FileUploadController],
+  controllers: [FileUploadController, UploadSessionController],
   providers: [
     FileUploadService,
     UploadAdmissionService,

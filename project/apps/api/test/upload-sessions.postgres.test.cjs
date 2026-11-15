@@ -171,7 +171,13 @@ test("populated upgrade and durable replay-safe upload reservations", { timeout:
     const input = intent(17 * MiB);
     const session = await service.create(id, input);
     await prisma.applicationSettings.update({ where: { id: "default" }, data: { maxUploadSizeMb: 1 } });
-    assert.deepEqual(await service.create(id, input), session, "Replay does not discard saved metadata when settings change.");
+    await assert.rejects(service.create(id, input), (error) =>
+      error.getStatus?.() === 413 && error.getResponse().code === "UPLOAD_LIMIT_CHANGED");
+    assert.deepEqual(
+      await prisma.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+      session,
+      "A lowered limit rejects replay without changing the saved session or reservation.",
+    );
     await assert.rejects(service.create(await owner(), intent(MiB + 1)), (error) => error.getStatus?.() === 413);
     await reset();
     await prisma.applicationSettings.update({ where: { id: "default" }, data: { maxUploadSizeMb: 50 } });
@@ -220,6 +226,9 @@ test("populated upgrade and durable replay-safe upload reservations", { timeout:
       { bytesReceived: 1, nextChunkIndex: 1 }, { reservedBytes: 0 }, { status: "COMPLETED" },
     ]) await assert.rejects(prisma.uploadSession.update({ where: { id: saved.id }, data }));
     await assert.rejects(prisma.uploadSession.delete({ where: { id: saved.id } }));
+    await assert.rejects(prisma.user.delete({ where: { id: saved.ownerId } }));
+    assert.ok(await prisma.user.findUnique({ where: { id: saved.ownerId } }),
+      "Owner deletion cannot cascade through a retained reservation.");
     await assert.rejects(prisma.uploadStorageBudget.update({ where: { id: "default" }, data: { reservedBytes: 0 } }));
     await assert.rejects(prisma.uploadStorageBudget.delete({ where: { id: "default" } }));
     await assert.rejects(prisma.$transaction(async (tx) => {

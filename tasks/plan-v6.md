@@ -312,7 +312,22 @@ The separate 200 MiB processing/preview gates remain open.
   The internal creation service replays identical intents, rejects changed
   metadata/expired recovery, and obtains creation/deadline timestamps from the
   database clock. Terminal status alone never releases uncleaned reservations.
-  Lifecycle routes, cleanup and chunk writes are the next slices.
+  Task 4 adds authenticated create/status/cancel routes with an explicit
+  response allowlist and owner-scoped lookups. A bounded startup/periodic
+  cleanup batch expires stale sessions, uses the existing upload admission slot,
+  and releases a reservation only after owned temporary storage is confirmed
+  removed. The bounded sweeper advances a process-local `(expiresAt, id)` cursor
+  across failed candidates and wraps at the end, preventing a persistent unsafe
+  path from starving later expired sessions while selecting at most 20 per
+  pass. Storage paths derive from the persisted canonical session ID. A lowered
+  administrator limit is rechecked on status and exposed as a reusable service
+  check for chunk/finalization work. This does not implement chunk writes or
+  completion. The owner-deletion applicability audit confirms PostgreSQL blocks
+  cascading deletion while a session retains a reservation, but neither
+  existing admin controller has an account-deletion route; HTTP conflict
+  mapping is not applicable until one exists. Adding a new destructive
+  user-delete API is out of scope; any future delete route must surface the
+  existing database block explicitly.
 - A raw chunk is exactly 1 MiB or shorter. Test it through the existing nginx
   1 MiB general API envelope; multipart headers are not part of this chunk
   protocol. Do not broaden unrelated JSON route limits.
