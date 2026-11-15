@@ -187,6 +187,11 @@ for (const locale of locales) {
 
     await page.setViewportSize({ width: 320, height: 768 });
     await expect.poll(() =>
+      page.locator(".main-content").evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect.poll(() =>
       viewport.evaluate((element) => element.scrollWidth > element.clientWidth),
     ).toBe(true);
     await expect.poll(() =>
