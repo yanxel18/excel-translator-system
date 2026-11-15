@@ -34,7 +34,10 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 - [x] Add versioned account creation, lookup and partial editing using a base
   acronym, preserving UUID assignments and login identities. Verify Unicode
   names, authorization, duplicate rejection and local sign-in on PostgreSQL.
-  Browser adoption and the broader account contract remain pending.
+  The broader account contract remains pending.
+- [x] Connect account creation, editing, access toggles and base assignment to
+  the acronym-based API. Verify exact request fields, legacy and OIDC accounts,
+  Unicode boundaries, saved selections, password controls and responsive UI.
 
 ## Navigation
 
