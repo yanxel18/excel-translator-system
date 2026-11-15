@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261115-upload-proxy-v6",
+    title: "Allow supported workbook uploads through the web proxy",
+    details:
+      "The web proxy now accepts workbook uploads up to the current 50 MB file ceiling instead of rejecting requests above 1 MB. Administrator limits and archive safety checks remain unchanged. The safe 200 MB rollout strategy is documented; that higher ceiling is not enabled yet.",
+    publishedAt: "2026-11-15T11:08:00.000Z",
+  },
+  {
     id: "changelog-20261115-user-acronym-ui-v6",
     title: "Use factory acronyms when managing accounts",
     details:

@@ -55,8 +55,12 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
 
 ## Upload limits
 
-- [ ] Trace upload, proxy, workbook processing and preview limits; document memory
-  implications and determine the safe 200 MB handling strategy.
+- [x] Trace upload, proxy, workbook processing and preview limits; document memory
+  implications and determine the safe 200 MB handling strategy
+  ([safety strategy](../project/docs/v6-upload-safety.md)).
+- [x] Fix web nginx rejecting currently supported uploads above 1 MB. Verify
+  complete 50 MiB multipart forwarding and bounded rejection with real nginx;
+  retain application settings and the current 50 MiB file ceiling.
 - [ ] Support configurable limits from 1 to 200 MB end to end and update
   translations and deployment documentation. Test real boundaries and rejection.
 
