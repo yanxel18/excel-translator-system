@@ -226,6 +226,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(completionCancelHistory, "The completion/cancellation race changelog migration was applied.");
   for (const value of Object.values(completionCancelHistory)) assert.ok(builtInHistory.includes(value), value);
+  const activeCancelHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-active-cancel-v6"],
+  )).rows[0];
+  assert.ok(activeCancelHistory, "The active cancellation changelog migration was applied.");
+  for (const value of Object.values(activeCancelHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -546,6 +554,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const raceOwner = await addUser("browser-completion-cancellation-race");
         await verifyCompletionCancellationRace({
           page, runtime, owner: raceOwner, token: tokenFor(raceOwner), bytes,
+        });
+      });
+      await browserTest.test("cancellation interrupts and reconciles a committed in-flight chunk", async () => {
+        const verifyActiveCancellation = require("./upload-session-browser-active-cancellation.cjs");
+        const activeOwner = await addUser("browser-active-cancellation");
+        await verifyActiveCancellation({
+          page, runtime, owner: activeOwner, token: tokenFor(activeOwner), bytes,
         });
       });
     } finally {
