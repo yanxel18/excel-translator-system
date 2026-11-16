@@ -269,15 +269,18 @@ Dependencies: `session-storage` (approved metadata contract).
 Core files: new workspace IndexedDB retention helper and
 `tests/upload-retention.test.ts`.
 
-- [ ] Save File/Blob and owner/intent/hash/expiry metadata transactionally
+- [x] Save File/Blob and owner/intent/hash/expiry metadata transactionally
   before transfer, with one unfinished retained file per account.
-- [ ] Request persistence where supported; quota, unavailable storage and
+- [x] Request persistence where supported; quota, unavailable storage and
   expired/evicted data report explicit errors rather than a transport fallback.
-- [ ] Verify same-profile/origin restart and cleanup without reselection;
+- [x] Verify same-profile/origin restart and cleanup without reselection;
   store no credentials and read/hash one bounded chunk at a time.
-- Verify: web type-check/build;
-  `npx playwright test tests/upload-retention.test.ts` in real browser storage,
-  including closing/reopening the same persistent browser profile.
+- Verified: web type-check/build and
+  `npx playwright test upload-retention.test.ts --workers=1 --retries=0`
+  using real browser storage, including closing/reopening the same persistent
+  browser profile, competing tabs, storage failures and expiry cleanup. The
+  helper stores server reconciliation metadata with the earlier fixed deadline;
+  transport, scheduled cleanup and automatic recovery remain later tasks.
 
 #### 8. `resumable-client`: Transfer saved files with reconciliation
 
@@ -285,6 +288,11 @@ Dependencies: `session-completion`, `browser-retention`.
 Core files: new upload-session API client and workspace transfer helper,
 existing API client, and `tests/resumable-upload-client.test.ts`.
 
+- Partial: an authenticated API transport handles session endpoints, raw
+  chunks, validated response metadata, busy codes and retry headers while
+  preserving tracked requests and session-expiry handling. Browser tests use
+  intercepted responses; no real-server transfer has been verified yet.
+  The transport is not wired into the existing upload UI.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

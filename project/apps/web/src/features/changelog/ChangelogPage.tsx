@@ -14,6 +14,20 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-session-client-v6",
+    title: "Prepare upload-session requests",
+    details:
+      "The upload recovery foundation now includes authenticated requests for creating, checking and completing upload sessions, sending chunks and cancelling sessions. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-15T23:56:00.000Z",
+  },
+  {
+    id: "changelog-20261116-browser-retention-v6",
+    title: "Prepare browser storage for upload recovery",
+    details:
+      "The upload recovery foundation can now retain a workbook and its progress in browser storage, with account-scoped safeguards and clear storage errors. Automatic browser recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-15T23:30:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-session-completion-v6",
     title: "Complete resumable uploads safely",
     details:
