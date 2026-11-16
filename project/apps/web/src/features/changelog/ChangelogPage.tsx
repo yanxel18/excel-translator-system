@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-transfer-v6",
+    title: "Prepare safer upload transfers",
+    details:
+      "The upload recovery foundation can now send a saved workbook one chunk at a time, checking server progress after interruptions and preventing competing tabs from sending simultaneously. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:31:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-reconciliation-v6",
     title: "Prepare upload recovery checks",
     details:

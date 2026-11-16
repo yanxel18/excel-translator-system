@@ -12,7 +12,9 @@ export type RetentionErrorCode =
   | "UPLOAD_NOT_FOUND"
   | "UPLOAD_STORAGE_QUOTA"
   | "UPLOAD_STORAGE_UNAVAILABLE"
-  | "UPLOAD_STORAGE_INVALID";
+  | "UPLOAD_STORAGE_INVALID"
+  | "UPLOAD_TRANSFER_BUSY"
+  | "UPLOAD_LOCK_UNAVAILABLE";
 
 export class RetentionError extends Error {
   constructor(readonly code: RetentionErrorCode, message: string, options?: { cause?: unknown }) {
