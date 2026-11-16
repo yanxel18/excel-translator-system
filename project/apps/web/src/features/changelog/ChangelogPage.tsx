@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-creation-cross-tab-cancellation-v6",
+    title: "Verify upload setup cancellation across tabs",
+    details:
+      "A browser test now verifies that cancelling upload setup from another tab interrupts the pending request and reconciles the existing session before removing the saved workbook. Automatic upload recovery and 200 MB uploads remain disabled; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T05:39:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-creation-cancellation-v6",
     title: "Verify cancellation during upload setup",
     details:

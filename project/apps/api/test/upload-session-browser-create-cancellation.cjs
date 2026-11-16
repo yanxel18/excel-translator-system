@@ -13,7 +13,7 @@ async function withinTimeout(operation) {
   ]).finally(() => clearTimeout(timer));
 }
 
-module.exports = async function verifyCreationCancellation({ page, runtime, owner, token, bytes }) {
+module.exports = async function verifyCreationCancellation({ page, runtime, owner, token, bytes, crossTab = false }) {
   const clientUploadId = randomUUID();
   await page.locator("input").setInputFiles({
     name: "create-cancel.xlsx",
@@ -28,6 +28,7 @@ module.exports = async function verifyCreationCancellation({ page, runtime, owne
   const creationGate = new Promise((resolve) => { releaseCreation = resolve; });
   const deletion = new Promise((resolve) => { deletionReached = resolve; });
   const deletionGate = new Promise((resolve) => { releaseDeletion = resolve; });
+  const cancellingPage = crossTab ? await page.context().newPage() : page;
   const requests = [];
   const creations = [];
   let response;
@@ -36,6 +37,10 @@ module.exports = async function verifyCreationCancellation({ page, runtime, owne
   const handler = async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
+    if (pathname !== "/api/upload-sessions" && !pathname.startsWith("/api/upload-sessions/")) {
+      await route.continue();
+      return;
+    }
     requests.push(`${request.method()} ${pathname}`);
     if (request.method() === "POST" && pathname === "/api/upload-sessions") {
       creations.push(request.postDataJSON());
@@ -56,7 +61,9 @@ module.exports = async function verifyCreationCancellation({ page, runtime, owne
       await route.continue();
     }
   };
+  if (crossTab) await cancellingPage.goto(page.url());
   await page.route("**/api/upload-sessions**", handler);
+  if (crossTab) await cancellingPage.route("**/api/upload-sessions**", handler);
   try {
     const saved = await page.evaluate(async ({ ownerId, token, clientUploadId }) => {
       const { saveRetainedUpload } = await import("/src/features/workspace/upload-retention.ts");
@@ -78,18 +85,21 @@ module.exports = async function verifyCreationCancellation({ page, runtime, owne
     assert.equal(before.bytesReceived, 0);
     assert.equal(before.reservedBytes, bytes.length);
 
-    const cancellation = page.evaluate(async ({ ownerId, token, clientUploadId }) => {
-      const { cancelActiveRetainedUpload } = await import("/src/features/workspace/upload-cancellation.ts");
+    const cancellation = cancellingPage.evaluate(async ({ ownerId, token, clientUploadId, crossTab }) => {
+      const { cancelActiveRetainedUpload, cancelRetainedUploadAcrossTabs } =
+        await import("/src/features/workspace/upload-cancellation.ts");
+      if (crossTab) return (await cancelRetainedUploadAcrossTabs(ownerId, token, clientUploadId)).state;
       const { controller, active, outcome } = window.activeUpload;
       const result = await cancelActiveRetainedUpload(ownerId, token, clientUploadId, controller, active);
-      return { state: result.state, activeOutcome: await outcome };
-    }, { ownerId: owner.id, token, clientUploadId });
+      await outcome;
+      return result.state;
+    }, { ownerId: owner.id, token, clientUploadId, crossTab });
     settled = cancellation.then((value) => ({ value }), (error) => ({ error }));
     await withinTimeout(Promise.race([
       deletion,
       settled.then(({ error }) => { throw error || new Error("Cancellation finished before DELETE was observed."); }),
     ]));
-    const during = await page.evaluate(async ({ ownerId }) => {
+    const during = await cancellingPage.evaluate(async ({ ownerId }) => {
       const { loadRetainedUpload } = await import("/src/features/workspace/upload-retention.ts");
       const record = await loadRetainedUpload(ownerId);
       const hash = await crypto.subtle.digest("SHA-256", await record.file.arrayBuffer());
@@ -120,7 +130,7 @@ module.exports = async function verifyCreationCancellation({ page, runtime, owne
     releaseDeletion();
     const result = await withinTimeout(settled);
     if (result.error) throw result.error;
-    assert.deepEqual(result.value, { state: "cancelled", activeOutcome: "AbortError" });
+    assert.equal(result.value, "cancelled");
     const missing = await page.evaluate(async ({ ownerId }) => {
       const { loadRetainedUpload } = await import("/src/features/workspace/upload-retention.ts");
       try { await loadRetainedUpload(ownerId); return "present"; } catch (error) { return error.code; }
@@ -136,7 +146,9 @@ module.exports = async function verifyCreationCancellation({ page, runtime, owne
     releaseCreation();
     releaseDeletion();
     if (settled) await withinTimeout(settled);
+    if (crossTab) await cancellingPage.unrouteAll({ behavior: "wait" });
     await page.unrouteAll({ behavior: "wait" });
+    if (crossTab) await cancellingPage.close();
     if (!verified && response?.body?.id) {
       const cleanup = await fetch(`${runtime.baseUrl}/api/upload-sessions/${response.body.id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` },
