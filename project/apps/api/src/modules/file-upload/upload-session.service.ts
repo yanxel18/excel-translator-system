@@ -375,7 +375,9 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       await link(spool, destination);
     } catch (error) {
       if (!this.isCode(error, "EEXIST")) throw error;
-      const [sourceInfo, destinationInfo] = await Promise.all([lstat(spool), lstat(destination)]);
+      const [sourceInfo, destinationInfo] = await Promise.all([
+        lstat(spool, { bigint: true }), lstat(destination, { bigint: true }),
+      ]);
       if (!sourceInfo.isFile() || sourceInfo.isSymbolicLink() ||
           !destinationInfo.isFile() || destinationInfo.isSymbolicLink() ||
           sourceInfo.dev !== destinationInfo.dev || sourceInfo.ino !== destinationInfo.ino)
@@ -398,7 +400,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     const destination = this.jobs.sourcePath(session.completionJobId);
     let destinationInfo;
     try {
-      destinationInfo = await lstat(destination);
+      destinationInfo = await lstat(destination, { bigint: true });
     } catch (error) {
       if (this.isCode(error, "ENOENT")) return;
       throw error;
@@ -406,7 +408,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
     if (await this.prisma.translationJob.findUnique({ where: { id: session.completionJobId } }))
       throw new Error("Refusing to remove a source belonging to an existing job.");
     const directory = await this.ensureSessionStorage(session.id);
-    const sourceInfo = await lstat(join(directory, ASSEMBLED_FILE));
+    const sourceInfo = await lstat(join(directory, ASSEMBLED_FILE), { bigint: true });
     if (!sourceInfo.isFile() || sourceInfo.isSymbolicLink() ||
         !destinationInfo.isFile() || destinationInfo.isSymbolicLink() ||
         sourceInfo.dev !== destinationInfo.dev || sourceInfo.ino !== destinationInfo.ino)
