@@ -325,6 +325,10 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   storage snapshots and allows a
   known session to be cancelled after an upload-limit change. Automatic retries,
   in-flight interruption and real-server browser verification remain open.
+- Partial: completion retries use the approved backoff and reconcile each
+  uncertain attempt, stopping for pause, replacement, expiry or permanent
+  errors. Cancellation retries, coordinated in-flight pause/cancel and
+  real-server browser verification remain open; the UI is not connected.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
