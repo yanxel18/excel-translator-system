@@ -12,11 +12,12 @@ export async function reconcileRetainedUpload(
   token: string,
   signal?: AbortSignal,
   expectedClientUploadId?: string,
+  allowPaused = false,
 ): Promise<{ record: RetainedUpload; session: UploadSession | null }> {
   const record = await loadRetainedUpload(ownerId);
   if (expectedClientUploadId && record.clientUploadId !== expectedClientUploadId)
     throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed.");
-  if (record.paused) return { record, session: null };
+  if (record.paused && !allowPaused) return { record, session: null };
 
   const input = {
     clientUploadId: record.clientUploadId,
@@ -35,7 +36,7 @@ export async function reconcileRetainedUpload(
     confirmedBytes: session.bytesReceived,
     expiresAt: Date.parse(session.expiresAt),
   }, record);
-  return { record: updated, session: updated.paused ? null : session };
+  return { record: updated, session: updated.paused && !allowPaused ? null : session };
 }
 
 export function assertMatchingUploadSession(record: RetainedUpload, session: UploadSession): void {

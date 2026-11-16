@@ -54,6 +54,19 @@ export interface RetainedUploadUpdate {
   paused?: boolean;
 }
 
+function matchesSnapshot(current: RetainedUpload, expected: RetainedUpload): boolean {
+  return current.ownerId === expected.ownerId &&
+    current.clientUploadId === expected.clientUploadId &&
+    current.fileName === expected.fileName &&
+    current.fileSize === expected.fileSize &&
+    current.selectedAt === expected.selectedAt &&
+    current.serverSessionId === expected.serverSessionId &&
+    current.confirmedBytes === expected.confirmedBytes &&
+    current.expiresAt === expected.expiresAt &&
+    current.chunkHashes.length === expected.chunkHashes.length &&
+    current.chunkHashes.every((hash, index) => hash === expected.chunkHashes[index]);
+}
+
 function failure(error: unknown): RetentionError {
   if (error instanceof RetentionError) return error;
   if (error instanceof DOMException && error.name === "QuotaExceededError")
@@ -304,18 +317,7 @@ export async function updateRetainedUpload(
         if (!isRetainedUpload(current)) return abort(corrupt());
         if (current.clientUploadId !== clientUploadId.toLowerCase())
           return abort(new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed."));
-        if (expected && (
-          current.ownerId !== expected.ownerId ||
-          current.clientUploadId !== expected.clientUploadId ||
-          current.fileName !== expected.fileName ||
-          current.fileSize !== expected.fileSize ||
-          current.selectedAt !== expected.selectedAt ||
-          current.serverSessionId !== expected.serverSessionId ||
-          current.confirmedBytes !== expected.confirmedBytes ||
-          current.expiresAt !== expected.expiresAt ||
-          current.chunkHashes.length !== expected.chunkHashes.length ||
-          current.chunkHashes.some((hash, index) => hash !== expected.chunkHashes[index])
-        ))
+        if (expected && !matchesSnapshot(current, expected))
           return abort(new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload changed during reconciliation."));
         const sessionId = update.serverSessionId?.toLowerCase() ?? current.serverSessionId;
         if (current.serverSessionId && sessionId !== current.serverSessionId)
@@ -349,7 +351,11 @@ export async function updateRetainedUpload(
   return updated;
 }
 
-export async function removeRetainedUpload(ownerId: string, clientUploadId: string): Promise<void> {
+export async function removeRetainedUpload(
+  ownerId: string,
+  clientUploadId: string,
+  expected?: RetainedUpload,
+): Promise<void> {
   if (!validOwner(ownerId) || typeof clientUploadId !== "string" || !UUID.test(clientUploadId)) throw invalid();
   await transaction<void>("readwrite", (store, result, abort) => {
     const request = store.get(ownerId);
@@ -360,6 +366,8 @@ export async function removeRetainedUpload(ownerId: string, clientUploadId: stri
         if (!isRetainedUpload(current)) return abort(corrupt());
         if (current.clientUploadId !== clientUploadId.toLowerCase())
           return abort(new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed."));
+        if (expected && !matchesSnapshot(current, expected))
+          return abort(new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload changed during cancellation."));
         store.delete(ownerId);
         result(undefined);
       } catch (error) {
