@@ -516,3 +516,148 @@ test("a delayed reconciliation cannot overwrite newer progress from another tab"
   }, { modulePath });
   expect(bytes).toBe(5);
 });
+
+test("a lost chunk acknowledgement is reconciled before the next chunk", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  const chunks: number[] = [];
+  let bytes = 0;
+  let metadata: Record<string, unknown> = {};
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") {
+      chunks.push(Number(request.url().split("/").pop()));
+      bytes += request.postDataBuffer()!.length;
+      if (chunks.length === 1) return route.abort("connectionreset");
+    }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING", bytesReceived: bytes,
+      nextChunkIndex: Math.ceil(bytes / 1048576), expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const result = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File([new Uint8Array(1048576 + 5)], "test.xlsx"), selectedAt: Date.now() });
+    let failed = false;
+    try { await transferRetainedChunk("owner", "synthetic-token"); } catch { failed = true; }
+    const before = (await loadRetainedUpload("owner")).confirmedBytes;
+    const after = await transferRetainedChunk("owner", "synthetic-token");
+    return { failed, before, confirmed: after.record.confirmedBytes, status: after.session?.status };
+  }, { modulePath, intentId });
+  expect(result).toEqual({ failed: true, before: 0, confirmed: 1048581, status: "RECEIVING" });
+  expect(chunks).toEqual([0, 1]);
+});
+
+test("competing tabs cannot send chunks for the same retained upload", async ({ context }) => {
+  const first = await openHarness(context);
+  const second = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let received = () => {};
+  const requestStarted = new Promise<void>((resolve) => { received = resolve; });
+  let puts = 0;
+  await context.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") { puts++; received(); await gate; }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
+      bytesReceived: request.method() === "PUT" ? 5 : 0, nextChunkIndex: request.method() === "PUT" ? 1 : 0,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  await first.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+  }, { modulePath, intentId });
+  const pending = first.evaluate(async () => {
+    const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+    return (await transferRetainedChunk("owner", "synthetic-token")).record.confirmedBytes;
+  });
+  try {
+    await requestStarted;
+    const error = await second.evaluate(async () => {
+      const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+      try { await transferRetainedChunk("owner", "synthetic-token"); return "unexpected-success"; }
+      catch (reason) { return (reason as { code: string }).code; }
+    });
+    expect(error).toBe("UPLOAD_TRANSFER_BUSY");
+  } finally { release(); }
+  expect(await pending).toBe(5);
+  expect(puts).toBe(1);
+});
+
+test("chunk transfer rejects wrong acknowledgements and does not send paused or finished uploads", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let status = "RECEIVING";
+  let requests = 0;
+  let puts = 0;
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    requests++;
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") puts++;
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status, bytesReceived: 0, nextChunkIndex: 0,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const paused = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    await updateRetainedUpload("owner", intentId, { paused: true });
+    return (await transferRetainedChunk("owner", "synthetic-token")).session;
+  }, { modulePath, intentId });
+  expect(paused).toBeNull();
+  expect(requests).toBe(0);
+  const invalid = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { updateRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+    await updateRetainedUpload("owner", intentId, { paused: false });
+    let code = "";
+    try { await transferRetainedChunk("owner", "synthetic-token"); }
+    catch (error) { code = (error as { code: string }).code; }
+    return { code, confirmed: (await loadRetainedUpload("owner")).confirmedBytes };
+  }, { modulePath, intentId });
+  expect(invalid).toEqual({ code: "UPLOAD_INTENT_CONFLICT", confirmed: 0 });
+  status = "CANCELLED";
+  const terminal = await page.evaluate(async () => {
+    const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+    return (await transferRetainedChunk("owner", "synthetic-token")).session?.status;
+  });
+  expect(terminal).toBe("CANCELLED");
+  expect(puts).toBe(1);
+});
+
+test("chunk transfer fails closed when browser coordination is unavailable", async ({ context }) => {
+  const page = await openHarness(context);
+  const code = await page.evaluate(async () => {
+    Object.defineProperty(navigator, "locks", { value: undefined });
+    const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+    try { await transferRetainedChunk("owner", "synthetic-token"); return "unexpected-success"; }
+    catch (error) { return (error as { code: string }).code; }
+  });
+  expect(code).toBe("UPLOAD_LOCK_UNAVAILABLE");
+});

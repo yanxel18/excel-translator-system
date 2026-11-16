@@ -25,14 +25,7 @@ export async function reconcileRetainedUpload(
     ? await uploadSessionApi.status(record.serverSessionId, token, signal)
     : await uploadSessionApi.create(input, token, signal);
 
-  if (session.clientUploadId.toLowerCase() !== record.clientUploadId ||
-      session.fileName !== record.fileName ||
-      session.fileSize !== record.fileSize ||
-      session.chunkSize !== record.chunkSize ||
-      session.chunkHashes.length !== record.chunkHashes.length ||
-      session.chunkHashes.some((hash, index) => hash !== record.chunkHashes[index])) {
-    throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The server upload does not match the saved file.");
-  }
+  assertMatchingUploadSession(record, session);
 
   const updated = await updateRetainedUpload(ownerId, record.clientUploadId, {
     serverSessionId: session.id,
@@ -40,4 +33,16 @@ export async function reconcileRetainedUpload(
     expiresAt: Date.parse(session.expiresAt),
   }, record);
   return { record: updated, session: updated.paused ? null : session };
+}
+
+export function assertMatchingUploadSession(record: RetainedUpload, session: UploadSession): void {
+  if ((record.serverSessionId && session.id.toLowerCase() !== record.serverSessionId) ||
+      session.clientUploadId.toLowerCase() !== record.clientUploadId ||
+      session.fileName !== record.fileName ||
+      session.fileSize !== record.fileSize ||
+      session.chunkSize !== record.chunkSize ||
+      session.chunkHashes.length !== record.chunkHashes.length ||
+      session.chunkHashes.some((hash, index) => hash !== record.chunkHashes[index])) {
+    throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The server upload does not match the saved file.");
+  }
 }

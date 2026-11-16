@@ -298,7 +298,12 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   server-confirmed progress without extending the local deadline. A guarded
   browser-storage update rejects a stale response if another tab changed the
   saved session or progress; manual pause prevents new reconciliation requests.
-  This is not a transfer loop or cross-tab transfer lock.
+  The reconciliation helper alone is not a transfer loop or cross-tab lock.
+- Partial: a one-chunk transfer primitive reconciles before each write, uses
+  a fail-closed browser lock against concurrent transfers, checks acknowledged
+  progress, and bounds requests. Tests simulate lost acknowledgements and
+  competing tabs; retry scheduling, pause/cancel coordination, completion and
+  real-server verification are still outstanding. It is not wired into the UI.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
