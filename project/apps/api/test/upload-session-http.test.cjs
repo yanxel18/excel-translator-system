@@ -194,6 +194,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(restartHistory, "The browser restart changelog migration was applied.");
   for (const value of Object.values(restartHistory)) assert.ok(builtInHistory.includes(value), value);
+  const apiRestartHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-api-restart-recovery-v6"],
+  )).rows[0];
+  assert.ok(apiRestartHistory, "The API restart changelog migration was applied.");
+  for (const value of Object.values(apiRestartHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -273,8 +281,8 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
       reject(new Error(`Owned API worker exited before ${type} (code ${code}, signal ${signal}).`));
     });
   });
-  const startOwnedApiWorker = async (holdSessionId, holdStage = "after-commit") => {
-    const port = await unusedLoopbackPort();
+  const startOwnedApiWorker = async (holdSessionId, holdStage = "after-commit", options = {}) => {
+    const port = options.port || await unusedLoopbackPort();
     const source = `
       const {NestFactory}=require('@nestjs/core');
       const {AppModule}=require('./dist/app.module');
@@ -282,6 +290,8 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
       const {installRequestBodyParsers}=require('./dist/common/request-body-parsers');
       (async()=>{
         const app=await NestFactory.create(AppModule,{logger:false,bodyParser:false});
+        if(process.env.V6_BROWSER_TEST_ORIGIN)
+          app.enableCors({origin:[process.env.V6_BROWSER_TEST_ORIGIN],credentials:true});
         app.setGlobalPrefix('api');
         installRequestBodyParsers(app);
         const hold=process.env.V6_TEST_HOLD_SESSION;
@@ -345,11 +355,12 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         ...process.env,
         DATABASE_URL: url,
         V6_UPLOAD_TEST_DATABASE_URL: url,
-        JWT_SECRET: previousEnv.JWT_SECRET || process.env.JWT_SECRET,
+        JWT_SECRET: options.testSecret || previousEnv.JWT_SECRET || process.env.JWT_SECRET,
         DATA_DIR: process.env.DATA_DIR,
         BASE_PATH: "api",
         PORT: String(port),
-        ...(holdSessionId ? { V6_TEST_HOLD_SESSION: holdSessionId.toLowerCase() } : {}),
+        V6_BROWSER_TEST_ORIGIN: options.browserOrigin || "",
+        V6_TEST_HOLD_SESSION: holdSessionId ? holdSessionId.toLowerCase() : "",
         V6_TEST_HOLD_STAGE: holdStage,
       },
       stdio: ["ignore", "ignore", "pipe", "ipc"],
@@ -511,10 +522,47 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     browserOrigin = `http://127.0.0.1:${port}`;
     try {
       await verifyBrowserRestart({
-        runtime, owner, token: tokenFor(owner), port, profile: path.join(scratch, "browser-restart-profile"),
+        runtime, database: client, owner, token: tokenFor(owner), port,
+        profile: path.join(scratch, "browser-restart-profile"),
       });
     } finally {
       browserOrigin = undefined;
+    }
+  });
+
+  if (process.env.V6_REAL_BROWSER_TEST === "1") await t.test("browser recovery survives an owned API process restart", async () => {
+    const verifyBrowserRestart = require("./upload-session-browser-restart.cjs");
+    const owner = await addUser("browser-api-restart");
+    const token = tokenFor(owner);
+    const webPort = await unusedLoopbackPort();
+    const apiPort = await unusedLoopbackPort();
+    browserOrigin = `http://127.0.0.1:${webPort}`;
+    const options = { port: apiPort, browserOrigin, testSecret: process.env.JWT_SECRET };
+    await app.close();
+    app = undefined;
+    let active;
+    try {
+      active = await startOwnedApiWorker(undefined, "after-commit", options);
+      await verifyBrowserRestart({
+        runtime: { baseUrl: active.baseUrl }, database: client, owner, token, port: webPort,
+        profile: path.join(scratch, "browser-api-restart-profile"),
+        restartApi: async () => {
+          const previousPid = active.worker.pid;
+          const previousBaseUrl = active.baseUrl;
+          await killOwnedWorker(active.worker);
+          await assert.rejects(fetch(`${active.baseUrl}/api/upload-sessions/${randomUUID()}`));
+          active = await startOwnedApiWorker(undefined, "after-commit", options);
+          assert.notEqual(active.worker.pid, previousPid);
+          assert.equal(active.baseUrl, previousBaseUrl);
+        },
+      });
+    } finally {
+      try {
+        if (active && ownedWorkers.has(active.worker)) await killOwnedWorker(active.worker);
+      } finally {
+        browserOrigin = undefined;
+        runtime = await startApp();
+      }
     }
   });
 

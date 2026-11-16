@@ -364,7 +364,12 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   response, closes Chromium, reopens the same persistent profile, and manually
   invokes the recovery helpers without selecting the workbook again. It checks
   server reconciliation before later chunks, exact job bytes and one job and
-  notification. This does not verify automatic UI recovery or an API restart.
+  notification.
+- Partial: another opt-in scenario performs the same lost-response and browser
+  restart flow while terminating and restarting an owned API process on the
+  same endpoint. It verifies reconciliation and a single intact job against
+  disposable PostgreSQL. Recovery is invoked manually; automatic UI recovery,
+  cancellation and the complete runtime checkpoint remain unverified.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

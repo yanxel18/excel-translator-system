@@ -17,7 +17,7 @@ async function withinTimeout(operation) {
   ]).finally(() => clearTimeout(timer));
 }
 
-module.exports = async function verifyBrowserRestart({ runtime, owner, token, port, profile }) {
+module.exports = async function verifyBrowserRestart({ runtime, database, owner, token, port, profile, restartApi }) {
   const origin = `http://127.0.0.1:${port}`;
   const webRoot = path.resolve(__dirname, "../../web");
   const workbook = XLSX.utils.book_new();
@@ -85,11 +85,15 @@ module.exports = async function verifyBrowserRestart({ runtime, owner, token, po
     assert.equal(before.errorName, "UploadNetworkError");
     assert.equal(before.confirmedBytes, 0);
     assert.equal(before.fileSize, bytes.length);
-    const committed = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: before.sessionId } });
+    const committed = (await database.query(
+      'SELECT "bytesReceived", "status" FROM "UploadSession" WHERE "id" = $1', [before.sessionId],
+    )).rows[0];
+    assert.ok(committed);
     assert.equal(committed.bytesReceived, 1024 * 1024);
     assert.equal(committed.status, "RECEIVING");
     await context.close();
     context = undefined;
+    if (restartApi) await restartApi();
 
     context = await chromium.launchPersistentContext(profile, { headless: true });
     const reopened = await context.newPage();
@@ -124,12 +128,22 @@ module.exports = async function verifyBrowserRestart({ runtime, owner, token, po
     const statusIndex = requests.findIndex((item) => item.startsWith("GET ") && item.endsWith(before.sessionId));
     const nextChunk = requests.findIndex((item) => item.startsWith("PUT ") && item.endsWith("/chunks/1"));
     assert.ok(statusIndex >= 0 && nextChunk > statusIndex);
-    const receipt = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: before.sessionId } });
+    const receipt = (await database.query(
+      'SELECT "status", "completionJobId" FROM "UploadSession" WHERE "id" = $1', [before.sessionId],
+    )).rows[0];
+    assert.ok(receipt);
     assert.equal(receipt.status, "COMPLETED");
     assert.equal(receipt.completionJobId, after.jobId);
-    assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: owner.id } }), 1);
-    assert.equal(await runtime.prisma.notification.count({ where: { jobId: after.jobId } }), 1);
-    const job = await runtime.prisma.translationJob.findUniqueOrThrow({ where: { id: after.jobId } });
+    const job = (await database.query(
+      'SELECT "sourcePath" FROM "TranslationJob" WHERE "id" = $1 AND "ownerId" = $2', [after.jobId, owner.id],
+    )).rows[0];
+    assert.ok(job);
+    assert.equal((await database.query(
+      'SELECT count(*)::int AS count FROM "TranslationJob" WHERE "ownerId" = $1', [owner.id],
+    )).rows[0].count, 1);
+    assert.equal((await database.query(
+      'SELECT count(*)::int AS count FROM "Notification" WHERE "jobId" = $1', [after.jobId],
+    )).rows[0].count, 1);
     assert.deepEqual(await fs.readFile(job.sourcePath), bytes);
   } finally {
     try {
