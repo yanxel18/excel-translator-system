@@ -113,11 +113,6 @@
   flex: 1 1 220px;
 }
 
-.settings-filter {
-  flex: 1 1 150px;
-  min-width: 0;
-}
-
 .settings-table-scroll {
   overflow: auto;
   max-height: 60vh;

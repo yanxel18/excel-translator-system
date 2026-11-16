@@ -55,7 +55,7 @@ async function openWorkspace(page: Page, mode: "list" | "empty" | "error" | "loa
         id: `job-${index}`, fileName: ["Production planning.xlsx", "Supplier terminology.xlsx", "Monthly report.xlsx", "Quality workbook.xlsx"][index],
         fileSize: 1024 * 120, status, progress: status === "PROCESSING" ? 64 : 0,
         sourceLanguage: "JAPANESE", targetLanguage: "ENGLISH", selectedSheets: ["Summary"], availableSheets: ["Summary"],
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        textCount: 5, createdAt: "2026-03-04T06:07:08.000Z", updatedAt: "2026-03-04T06:07:08.000Z",
       }))
       : path === "/auth/oidc/config" ? { mode: "LOCAL", enabled: false, url: "", realm: "", clientId: "" }
       : [];
@@ -187,6 +187,26 @@ for (const locale of ["ja", "zh"]) {
   });
 }
 
+for (const [locale, heading, description, added, items] of [
+  ["ja", "進行中", "開始待ちまたは処理中の翻訳。", "追加", "テキスト項目"],
+  ["zh", "进行中", "等待开始或正在处理的翻译。", "添加时间", "个文本项"],
+]) {
+  test(`ongoing jobs and dates use the selected language (${locale})`, async ({ page }) => {
+    await openWorkspace(page, "list", locale, true);
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await expect(page.getByText(description, { exact: true })).toBeVisible();
+    const formatted = await page.evaluate(
+      (language) => new Date("2026-03-04T06:07:08.000Z").toLocaleString(language),
+      locale,
+    );
+    const ongoing = page.locator(".job-card").filter({ hasText: "Production planning.xlsx" });
+    await expect(ongoing).toContainText(`${added} ${formatted}`);
+    await expect(ongoing).toContainText(`5 ${items}`);
+    const recent = page.locator(".recent-jobs-table tr").filter({ hasText: "Monthly report.xlsx" });
+    await expect(recent).toContainText(`${added} ${formatted}`);
+  });
+}
+
 test("long notification page keeps footer spacing and complete messages at 320px", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 900 });
   await openWorkspace(page);
@@ -218,13 +238,11 @@ test("long notification page keeps footer spacing and complete messages at 320px
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });
 
-test("search, unread filtering, mark-all and keyboard selection preserve notification actions", async ({ page }) => {
+test("unread filtering, mark-all and keyboard selection preserve notification actions", async ({ page }) => {
   await openWorkspace(page);
   await page.getByRole("button", { name: "Open notifications" }).click();
   const preview = page.locator(".notification-popover");
-  await preview.getByRole("textbox", { name: "Search notifications" }).fill("missing");
-  await expect(preview).toContainText("No matching notifications.");
-  await preview.getByRole("textbox", { name: "Search notifications" }).fill("");
+  await expect(preview.getByRole("textbox", { name: "Search notifications" })).toHaveCount(0);
   await preview.getByText("Unread 1", { exact: true }).click();
   await expect(preview.locator(".notification-card")).toHaveCount(1);
   await preview.getByRole("button", { name: "Mark all as read" }).click();

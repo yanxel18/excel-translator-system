@@ -88,6 +88,37 @@ test("settings navigation aligns icon and label to the left", async ({ page }) =
   }
 });
 
+test("user search ignores removed filters and can be cleared with the keyboard", async ({ page }) => {
+  await setup(page);
+  const requests: URL[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/excel-convert/admin/users") requests.push(url);
+  });
+  await page.goto(`/excel-convert/settings/users?baseId=${baseId}&enabled=false&page=2`);
+  const filters = page.locator(".settings-filters");
+  await expect(filters.getByLabel("Base", { exact: true })).toHaveCount(0);
+  await expect(filters.getByLabel("Enabled", { exact: true })).toHaveCount(0);
+  await expect.poll(() => requests.length).toBeGreaterThan(0);
+  expect(requests[0].searchParams.has("baseId")).toBe(false);
+  expect(requests[0].searchParams.has("enabled")).toBe(false);
+  const search = filters.getByRole("textbox");
+  await search.fill("alice");
+  await filters.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(/q=alice/);
+  const clear = filters.getByRole("button", { name: "Clear search" });
+  await clear.focus();
+  await page.keyboard.press("Enter");
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
+  await expect(clear).toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).searchParams.has("q")).toBe(false);
+  await expect.poll(() => requests.at(-1)?.searchParams.has("q")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("page")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("baseId")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("enabled")).toBe(false);
+});
+
 test("admins can update upload size and translation concurrency", async ({ page }) => {
   await setup(page);
   await page.goto("/excel-convert/settings/files");
