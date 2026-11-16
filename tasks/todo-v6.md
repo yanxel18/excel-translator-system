@@ -293,6 +293,12 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   preserving tracked requests and session-expiry handling. Browser tests use
   intercepted responses; no real-server transfer has been verified yet.
   The transport is not wired into the existing upload UI.
+- Partial: a reconciliation helper reuses the saved intent after an uncertain
+  session-creation response, checks server file hashes and metadata, and saves
+  server-confirmed progress without extending the local deadline. A guarded
+  browser-storage update rejects a stale response if another tab changed the
+  saved session or progress; manual pause prevents new reconciliation requests.
+  This is not a transfer loop or cross-tab transfer lock.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
