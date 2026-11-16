@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-cancellation-retry-v6",
+    title: "Verify upload cancellation retry",
+    details:
+      "A browser test now verifies that cancellation can retry a lost server response while keeping the saved workbook until the server confirms cancellation. Automatic upload recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T03:03:00.000Z",
+  },
+  {
     id: "changelog-20261116-cancellation-recovery-v6",
     title: "Verify safer upload cancellation",
     details:

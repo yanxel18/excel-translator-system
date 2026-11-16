@@ -332,9 +332,9 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   errors.
 - Partial: cancellation retries reconcile uncertain responses, work for paused
   uploads and preserve completed-job receipts. They stop on abort, replacement,
-  expiry and permanent errors. The isolated real-server lost-response case uses
-  a separate subsequent retry; automatic retry behavior remains unverified
-  against the real server, and the UI is not connected.
+  expiry and permanent errors. The isolated real-server lost-response case
+  also verifies that the retry loop reconciles automatically; the UI is not
+  connected.
 - Partial: a same-tab pause helper commits the pause before aborting its active
   request and rejects a replaced intent without interrupting it. On resume,
   transfer reconciliation handles a chunk that may have reached the server.
@@ -378,6 +378,10 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   confirms server reconciliation precedes local cleanup. Completed-job races,
   cross-tab cancellation and UI integration remain unverified against the
   real server.
+- Partial: a second real-server cancellation scenario drops a successful
+  response during the retry loop, checks the exact saved workbook while retry
+  reconciliation is blocked, then confirms reconciliation precedes cleanup.
+  This does not enable automatic UI recovery or cover other cancellation races.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
