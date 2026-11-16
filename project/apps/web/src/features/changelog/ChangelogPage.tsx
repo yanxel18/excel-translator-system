@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-cancellation-retry-v6",
+    title: "Prepare safer upload cancellation retries",
+    details:
+      "The upload recovery foundation can now retry interrupted cancellations after checking server status, keeping saved workbooks until cleanup is confirmed and preserving completed jobs. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T01:39:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-completion-retry-v6",
     title: "Prepare safer upload completion retries",
     details:
