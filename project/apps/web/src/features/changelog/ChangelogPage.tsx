@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-creation-cancellation-v6",
+    title: "Verify cancellation during upload setup",
+    details:
+      "A browser test now verifies that cancelling while upload setup is still responding reconciles the existing session before removing the saved workbook. Automatic upload recovery and 200 MB uploads remain disabled; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T05:06:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-creation-recovery-v6",
     title: "Verify recovery after upload setup interruption",
     details:

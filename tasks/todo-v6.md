@@ -410,6 +410,10 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   response, confirms the exact saved workbook while the retry is held, and
   verifies the same intent creates one session and one intact completed job.
   Recovery is invoked through the helper, not the application UI.
+- Partial: a real-server browser test cancels in the same tab after session
+  creation commits but before its response arrives. It verifies the paused
+  workbook and original intent are reconciled before the server cancellation
+  and browser cleanup. Other creation races and UI integration remain open.
 - Partial: upload promotion and cleanup compare exact filesystem identities,
   including inode values beyond JavaScript's safe integer range; foreign
   files remain untouched in the collision regression.
