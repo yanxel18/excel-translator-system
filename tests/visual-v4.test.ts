@@ -172,6 +172,35 @@ test("populated workspace retains status actions, upload validation and legible 
   expect(runtimeErrors).toEqual([]);
 });
 
+for (const width of [320, 375, 576]) {
+  for (const locale of ["en", "ja", "zh"]) {
+    test(`ongoing actions stay right-aligned on mobile (${width}px, ${locale})`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      const { runtimeErrors } = await openWorkspace(page, "list", locale, true);
+      const card = page.locator(".job-card").filter({ hasText: "Supplier terminology.xlsx" });
+      const actions = card.locator(".job-action");
+      await expect(actions.locator("button")).toHaveCount(2);
+      await page.evaluate(() => document.fonts.ready);
+      await actions.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath(`ongoing-${width}-${locale}.png`) });
+      const geometry = await card.evaluate((element) => {
+        const row = element.querySelector(".job-card-row")!.getBoundingClientRect();
+        const buttons = [...element.querySelectorAll(".job-action button")].map((button) => button.getBoundingClientRect());
+        return { row: { left: row.left, right: row.right }, buttons: buttons.map(({ left, right, top, bottom }) => ({ left, right, top, bottom })) };
+      });
+      expect(Math.abs(geometry.row.right - geometry.buttons[1].right)).toBeLessThanOrEqual(1);
+      expect(geometry.buttons[0].left).toBeGreaterThanOrEqual(geometry.row.left);
+      expect(geometry.buttons[0].right).toBeLessThan(geometry.buttons[1].left);
+      expect(Math.abs(geometry.buttons[0].top - geometry.buttons[1].top)).toBeLessThanOrEqual(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await actions.locator("button").first().focus();
+      await page.keyboard.press("Tab");
+      await expect(actions.locator("button").last()).toBeFocused();
+      expect(runtimeErrors).toEqual([]);
+    });
+  }
+}
+
 for (const locale of ["ja", "zh"]) {
   test(`localized preview stays reachable at 320px (${locale})`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });

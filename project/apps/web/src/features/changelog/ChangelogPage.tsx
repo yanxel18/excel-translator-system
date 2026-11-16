@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-mobile-ongoing-actions",
+    title: "Improve mobile translation actions",
+    details:
+      "Settings, Start and other ongoing translation actions are now aligned to the right on smaller screens.",
+    publishedAt: "2026-11-16T00:22:00.000Z",
+  },
+  {
     id: "changelog-20261116-workspace-search-localization",
     title: "Improve workspace translations and search",
     details:
