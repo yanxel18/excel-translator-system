@@ -749,8 +749,8 @@ input {
     flex: 1 1 calc(100% - 3.25rem);
   }
   .job-action {
-    margin-left: 3.25rem;
-    justify-content: flex-start;
+    margin-left: auto;
+    justify-content: flex-end;
   }
   .vocabulary-heading {
     align-items: flex-start;
