@@ -307,13 +307,39 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   cooldown, honors longer Retry-After delays, and stops before expiry. It
   reconciles after uncertain writes, detects replacement intents, and does not
   retry authentication, validation or storage failures. Paused uploads do not
-  start another attempt. Coordinated in-flight pause and cancel, completion
-  and real-server verification remain outstanding.
+  start another attempt. Cross-tab interruption and real-server verification
+  remain outstanding.
 - Partial: a sequential transfer helper sends all remaining chunks using the
   retry wrapper, binds the entire transfer to the original intent, stops on
   pause or terminal session states, and rejects repeatedly regressing progress.
   Reaching the final byte does not finalize or claim a completed job. It is not
   wired into the UI and has only been tested against intercepted responses.
+- Partial: a guarded completion primitive reconciles the saved session, sends
+  at most one completion request, and verifies an existing job receipt instead
+  of recreating a deleted job. It shares the transfer lock and bounds requests;
+  an uncertain outcome requires a new reconciled attempt. Cross-tab
+  interruption and real-server browser verification remain open.
+- Partial: a guarded cancellation primitive reconciles paused and uncertain
+  sessions, confirms server cancellation before removing the browser copy, and
+  preserves completed-job receipts for separate verification. It rejects stale
+  storage snapshots and allows a
+  known session to be cancelled after an upload-limit change. Cross-tab
+  interruption and real-server browser verification remain open.
+- Partial: completion retries use the approved backoff and reconcile each
+  uncertain attempt, stopping for pause, replacement, expiry or permanent
+  errors.
+- Partial: cancellation retries reconcile uncertain responses, work for paused
+  uploads and preserve completed-job receipts. They stop on abort, replacement,
+  expiry and permanent errors. Cross-tab interruption and
+  real-server browser verification remain open; the UI is not connected.
+- Partial: a same-tab pause helper commits the pause before aborting its active
+  request and rejects a replaced intent without interrupting it. On resume,
+  transfer reconciliation handles a chunk that may have reached the server.
+- Partial: same-tab in-flight cancellation commits a pause, interrupts and
+  settles the active request, and reconciles before cancelling. It preserves
+  completed jobs and rejects replacement intents or permanent request errors.
+  Cross-tab interruption and real-server browser verification remain open;
+  neither helper is connected to the UI.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

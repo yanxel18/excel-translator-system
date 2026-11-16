@@ -4,7 +4,7 @@ import { transferRetainedChunk, UploadRequestTimeoutError } from "./upload-trans
 
 export { UploadNetworkError, UploadRequestTimeoutError };
 
-function retryable(error: unknown): boolean {
+export function retryable(error: unknown): boolean {
   const busy = error instanceof UploadSessionApiError && error.status === 409 &&
     (error.code === "UPLOAD_BUSY" || error.code === "UPLOAD_CAPACITY_BUSY");
   const gateway = error instanceof UploadSessionApiError && error.code === null &&
@@ -28,7 +28,7 @@ export function uploadRetryDelay(error: unknown, failures: number, expiresAt: nu
   return delay;
 }
 
-function waitForRetry(delay: number, signal?: AbortSignal): Promise<void> {
+export function waitForRetry(delay: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new DOMException("Upload interrupted.", "AbortError"));
