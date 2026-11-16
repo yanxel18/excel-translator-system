@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-workspace-search-localization",
+    title: "Improve workspace translations and search",
+    details:
+      "Ongoing translation details and dates now follow your selected language. The notification preview and user search have been simplified, and user search now has a clear button.",
+    publishedAt: "2026-11-16T00:11:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-session-client-v6",
     title: "Prepare upload-session requests",
     details:

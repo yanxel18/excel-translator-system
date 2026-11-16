@@ -141,19 +141,6 @@
     text-align: left;
   }
 }
-.notification-search {
-  margin-bottom: 0.5rem;
-}
-.notification-search .mantine-Input-input {
-  min-height: 2.75rem;
-  border-radius: 0.5rem;
-  border-color: var(--visual-border);
-  background: var(--visual-inset);
-}
-.notification-search .mantine-Input-input::placeholder {
-  color: var(--visual-muted);
-  opacity: 1;
-}
 .notification-filters {
   min-height: 2.75rem;
   margin-bottom: 0.25rem;

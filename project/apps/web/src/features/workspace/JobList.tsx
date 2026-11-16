@@ -130,7 +130,7 @@ export default function JobList({
   onView,
   compact = false,
 }: JobListProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   if (!jobs.length) return <EmptyJobs compact={compact} />;
 
   if (compact)
@@ -170,7 +170,7 @@ export default function JobList({
                       {job.fileName}
                     </Text>
                     <Text c="dimmed" size="xs" mt={3} truncate>
-                      Added {new Date(job.createdAt).toLocaleString()}
+                      {t("Added")} {new Date(job.createdAt).toLocaleString(locale)}
                     </Text>
                   </Box>
                 </Group>
@@ -217,9 +217,9 @@ export default function JobList({
                 <JobBadge status={job.status} />
               </Group>
               <Text c="dimmed" size="xs" mt={4}>
-                Added {new Date(job.createdAt).toLocaleString()}{" "}
+                {t("Added")} {new Date(job.createdAt).toLocaleString(locale)}{" "}
                 {job.textCount !== undefined
-                  ? ` \u2022 ${job.textCount} text items`
+                  ? ` \u2022 ${job.textCount.toLocaleString(locale)} ${t("text items")}`
                   : ""}
               </Text>
               {job.error && (
