@@ -282,6 +282,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(creationCancellationHistory, "The upload creation cancellation changelog migration was applied.");
   for (const value of Object.values(creationCancellationHistory)) assert.ok(builtInHistory.includes(value), value);
+  const crossTabCreationCancellationHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-upload-creation-cross-tab-cancellation-v6"],
+  )).rows[0];
+  assert.ok(crossTabCreationCancellationHistory, "The cross-tab creation cancellation changelog migration was applied.");
+  for (const value of Object.values(crossTabCreationCancellationHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -645,6 +653,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const cancellationOwner = await addUser("browser-create-cancellation");
         await verifyCreationCancellation({
           page, runtime, owner: cancellationOwner, token: tokenFor(cancellationOwner), bytes,
+        });
+      });
+      await browserTest.test("cross-tab cancellation reconciles a committed in-flight creation", async () => {
+        const verifyCreationCancellation = require("./upload-session-browser-create-cancellation.cjs");
+        const cancellationOwner = await addUser("browser-cross-tab-create-cancellation");
+        await verifyCreationCancellation({
+          page, runtime, owner: cancellationOwner, token: tokenFor(cancellationOwner), bytes, crossTab: true,
         });
       });
     } finally {

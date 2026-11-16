@@ -414,6 +414,10 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   creation commits but before its response arrives. It verifies the paused
   workbook and original intent are reconciled before the server cancellation
   and browser cleanup. Other creation races and UI integration remain open.
+- Partial: a real-server browser test cancels from another tab after session
+  creation commits but before its response arrives. It verifies interruption,
+  the retained paused workbook, reconciliation of the original intent, and
+  server and browser cleanup. Other orderings and UI integration remain open.
 - Partial: upload promotion and cleanup compare exact filesystem identities,
   including inode values beyond JavaScript's safe integer range; foreign
   files remain untouched in the collision regression.
