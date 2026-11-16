@@ -1,6 +1,7 @@
 ﻿const assert = require("node:assert/strict");
 const { after, before, test } = require("node:test");
 const { Test } = require("@nestjs/testing");
+const { Readable } = require("node:stream");
 const {
   JwtAuthGuard,
 } = require("../dist/modules/authentication/jwt-auth.guard");
@@ -10,6 +11,8 @@ const {
 const {
   ProductSurfacesService,
 } = require("../dist/modules/product-surfaces/product-surfaces.service");
+const { JobManagementController } = require("../dist/modules/job-management/job-management.controller");
+const { DatabaseJobManagementService } = require("../dist/modules/job-management/database-job-management.service");
 
 let app;
 let service;
@@ -32,7 +35,8 @@ before(async () => {
     },
     previewFile: async (...args) => {
       calls.push(["previewFile", ...args]);
-      return Buffer.from("PK-preview-bytes");
+      const buffer = Buffer.from("PK-preview-bytes");
+      return { stream: Readable.from(buffer), size: buffer.length };
     },
     preview: async (...args) => {
       calls.push(["preview", ...args]);
@@ -60,8 +64,20 @@ before(async () => {
     },
   };
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProductSurfacesController],
-    providers: [{ provide: ProductSurfacesService, useValue: service }],
+    controllers: [ProductSurfacesController, JobManagementController],
+    providers: [
+      { provide: ProductSurfacesService, useValue: service },
+      {
+        provide: DatabaseJobManagementService,
+        useValue: {
+          getDownload: async (id, owner) => {
+            calls.push(["download", id, owner]);
+            const buffer = Buffer.from("PK-download-bytes");
+            return { fileName: "report-translated.xlsx", stream: Readable.from(buffer), size: buffer.length };
+          },
+        },
+      },
+    ],
   })
     .overrideGuard(JwtAuthGuard)
     .useValue({
@@ -137,11 +153,26 @@ test("binary preview requires authentication and forwards owner and selected ver
     response.headers.get("content-type"),
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
+  assert.equal(response.headers.get("content-length"), "16");
   assert.equal(await response.text(), "PK-preview-bytes");
   assert.deepEqual(calls.at(-1), [
     "previewFile",
     "d5a04720-d839-4d8c-bfc2-d6310970bca1",
     "user-1",
     "source",
+  ]);
+});
+
+test("workbook downloads stream the original bytes with the correct filename", async () => {
+  const response = await fetch(
+    `${baseUrl}/jobs/d5a04720-d839-4d8c-bfc2-d6310970bca1/download`,
+    { headers: { Authorization: "Bearer test-token" } },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-length"), "17");
+  assert.equal(response.headers.get("content-disposition"), 'attachment; filename="report-translated.xlsx"');
+  assert.equal(await response.text(), "PK-download-bytes");
+  assert.deepEqual(calls.at(-1), [
+    "download", "d5a04720-d839-4d8c-bfc2-d6310970bca1", "user-1",
   ]);
 });

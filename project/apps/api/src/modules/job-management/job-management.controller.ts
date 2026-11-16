@@ -7,11 +7,10 @@ import {
   Put,
   Patch,
   Req,
-  Res,
-  HttpStatus,
+  StreamableFile,
   UseGuards,
 } from "@nestjs/common";
-import { Request, Response } from "express";
+import { Request } from "express";
 import { DatabaseJobManagementService } from "./database-job-management.service";
 import { JwtAuthGuard } from "../authentication/jwt-auth.guard";
 import { strictObject, uuid } from "../../common/management-validation";
@@ -65,17 +64,15 @@ export class JobManagementController {
   @Get(":id/download") async download(
     @Param("id") id: string,
     @Req() req: Request,
-    @Res() res: Response,
   ) {
     const file = await this.service.getDownload(uuid(id), this.owner(req));
-    res
-      .status(HttpStatus.OK)
-      .set({
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${encodeURIComponent(file.fileName)}"`,
-        "Content-Length": file.buffer.length,
-      })
-      .send(file.buffer);
+    return new StreamableFile(file.stream, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      disposition: `attachment; filename="${encodeURIComponent(file.fileName)}"`,
+      length: file.size,
+    }).setErrorHandler((_error, response) => {
+      if (!response.headersSent) response.statusCode = 500;
+      response.end();
+    });
   }
 }

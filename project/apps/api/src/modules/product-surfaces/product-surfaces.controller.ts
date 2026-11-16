@@ -65,17 +65,22 @@ export class ProductSurfacesController {
     @Query() query: unknown,
   ) {
     const { version = "translated" } = strictObject(query, ["version"]);
+    const file = await this.service.previewFile(
+      uuid(id),
+      this.owner(req),
+      choice(version, ["source", "translated"] as const, "preview version"),
+    );
     return new StreamableFile(
-      await this.service.previewFile(
-        uuid(id),
-        this.owner(req),
-        choice(version, ["source", "translated"] as const, "preview version"),
-      ),
+      file.stream,
       {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         disposition: "inline",
+        length: file.size,
       },
-    );
+    ).setErrorHandler((_error, response) => {
+      if (!response.headersSent) response.statusCode = 500;
+      response.end();
+    });
   }
   @Delete("jobs/:id") deleteJob(@Param("id") id: string, @Req() req: Request) {
     return this.service.deleteHistoryItem(uuid(id), this.owner(req));

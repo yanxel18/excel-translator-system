@@ -75,6 +75,9 @@ Plan: [plan-v6.md](plan-v6.md). Check a task only after its verification passes.
   storage failures/expiry and crash-safe single-job finalization.
 - [ ] Support configurable limits from 1 to 200 MB end to end and update
   translations and deployment documentation. Test real boundaries and rejection.
+- [x] Stream authorized workbook preview and download responses rather than
+  buffering entire files in the API. This does not raise the upload limit or
+  bound workbook parsing.
 
 ### Resumable delivery tasks
 
