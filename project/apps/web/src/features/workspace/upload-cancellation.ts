@@ -1,5 +1,5 @@
 import { UploadSessionApiError, uploadSessionApi, type UploadSession } from "../../api/upload-sessions";
-import { pauseRetainedUpload, withRetainedUploadLock } from "./upload-coordination";
+import { pauseRetainedUpload, pauseRetainedUploadAcrossTabs, withRetainedUploadLock } from "./upload-coordination";
 import { assertMatchingUploadSession, reconcileRetainedUpload } from "./upload-reconciliation";
 import { loadRetainedUpload, removeRetainedUpload, RetentionError, updateRetainedUpload } from "./upload-retention";
 import { retryable, uploadRetryDelay, waitForRetry } from "./upload-retry";
@@ -93,5 +93,17 @@ export async function cancelActiveRetainedUpload(
   if (result.state === "rejected" &&
       !(result.error instanceof DOMException && result.error.name === "AbortError" && activeController.signal.aborted))
     throw result.error;
+  return cancelRetainedUploadWithRetry(ownerId, token, signal, clientUploadId);
+}
+
+/** Interrupts another tab best-effort, then reconciles under the shared lock. */
+export async function cancelRetainedUploadAcrossTabs(
+  ownerId: string,
+  token: string,
+  clientUploadId: string,
+  signal?: AbortSignal,
+): Promise<UploadCancellationResult> {
+  if (signal?.aborted) throw new DOMException("Upload interrupted.", "AbortError");
+  await pauseRetainedUploadAcrossTabs(ownerId, clientUploadId);
   return cancelRetainedUploadWithRetry(ownerId, token, signal, clientUploadId);
 }
