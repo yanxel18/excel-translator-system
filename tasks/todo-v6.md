@@ -375,13 +375,17 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
 - Partial: an opt-in real-server cancellation test drops a successful DELETE
   response after one chunk. It verifies the local file is retained while the
   server has cancelled and released its storage, then manually retries and
-  confirms server reconciliation precedes local cleanup. Completed-job races,
-  cross-tab cancellation and UI integration remain unverified against the
-  real server.
+  confirms server reconciliation precedes local cleanup. Other completed-job
+  races, cross-tab cancellation and UI integration remain unverified against
+  the real server.
 - Partial: a second real-server cancellation scenario drops a successful
   response during the retry loop, checks the exact saved workbook while retry
   reconciliation is blocked, then confirms reconciliation precedes cleanup.
   This does not enable automatic UI recovery or cover other cancellation races.
+- Partial: a real-server browser test completes an upload after cancellation
+  reconciles but before its DELETE reaches the server. It verifies the returned
+  completed receipt, retained workbook, exact job file and single notification.
+  Other completion races and UI integration remain unverified.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
