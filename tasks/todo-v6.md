@@ -316,6 +316,11 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   Reaching the final byte does not finalize or claim a completed job. It is not
   wired into the UI. A multi-chunk workbook transfer was verified against the
   isolated real server.
+- Partial: an orchestration helper now reports server-confirmed transfer
+  progress, finalizes the original intent, and removes the retained file only
+  after a completed job is verified. It preserves paused and failed uploads;
+  UI controls, automatic startup recovery and invalid-workbook cleanup remain
+  outstanding. The existing upload path is unchanged.
 - Partial: a guarded completion primitive reconciles the saved session, sends
   at most one completion request, and verifies an existing job receipt instead
   of recreating a deleted job. It shares the transfer lock and bounds requests;

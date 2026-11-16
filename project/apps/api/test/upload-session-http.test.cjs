@@ -290,6 +290,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(crossTabCreationCancellationHistory, "The cross-tab creation cancellation changelog migration was applied.");
   for (const value of Object.values(crossTabCreationCancellationHistory)) assert.ok(builtInHistory.includes(value), value);
+  const orchestrationHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-resumable-upload-orchestration-v6"],
+  )).rows[0];
+  assert.ok(orchestrationHistory, "The resumable upload orchestration changelog migration was applied.");
+  for (const value of Object.values(orchestrationHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -661,6 +669,39 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         await verifyCreationCancellation({
           page, runtime, owner: cancellationOwner, token: tokenFor(cancellationOwner), bytes, crossTab: true,
         });
+      });
+      await browserTest.test("upload orchestration reports confirmed progress and cleans up only after completion", async () => {
+        const orchestrationOwner = await addUser("browser-orchestration");
+        const clientUploadId = randomUUID();
+        await page.locator("input").setInputFiles({
+          name: "orchestration.xlsx",
+          mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          buffer: bytes,
+        });
+        const result = await page.evaluate(async ({ ownerId, token, clientUploadId }) => {
+          const { saveRetainedUpload, loadRetainedUpload } = await import("/src/features/workspace/upload-retention.ts");
+          const { runRetainedUpload } = await import("/src/features/workspace/upload-orchestration.ts");
+          await saveRetainedUpload({
+            ownerId, clientUploadId, file: document.querySelector("input").files[0], selectedAt: Date.now(),
+          });
+          const progress = [];
+          const result = await runRetainedUpload(ownerId, token, undefined, (event) => progress.push(event));
+          let missing;
+          try { await loadRetainedUpload(ownerId); } catch (error) { missing = error.code; }
+          return { result, progress, missing };
+        }, { ownerId: orchestrationOwner.id, token: tokenFor(orchestrationOwner), clientUploadId });
+        assert.equal(result.result.state, "completed");
+        assert.deepEqual(result.progress, [
+          { state: "transferring", confirmedBytes: 1048576, fileSize: bytes.length },
+          { state: "transferring", confirmedBytes: bytes.length, fileSize: bytes.length },
+          { state: "validating", confirmedBytes: bytes.length, fileSize: bytes.length },
+        ]);
+        assert.equal(result.missing, "UPLOAD_NOT_FOUND");
+        const job = await runtime.prisma.translationJob.findUniqueOrThrow({ where: { id: result.result.jobId } });
+        assert.equal(job.ownerId, orchestrationOwner.id);
+        assert.deepEqual(await fs.readFile(job.sourcePath), bytes);
+        assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: orchestrationOwner.id } }), 1);
+        assert.equal(await runtime.prisma.notification.count({ where: { jobId: job.id } }), 1);
       });
     } finally {
       try {
