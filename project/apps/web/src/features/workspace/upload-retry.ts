@@ -52,8 +52,11 @@ export async function transferRetainedChunkWithRetry(
   ownerId: string,
   token: string,
   signal?: AbortSignal,
+  expectedClientUploadId?: string,
 ): Promise<{ record: RetainedUpload; session: UploadSession | null }> {
   const original = await loadRetainedUpload(ownerId);
+  if (expectedClientUploadId && original.clientUploadId !== expectedClientUploadId)
+    throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed.");
   let failures = 0;
   for (;;) {
     if (signal?.aborted) throw new DOMException("Upload interrupted.", "AbortError");

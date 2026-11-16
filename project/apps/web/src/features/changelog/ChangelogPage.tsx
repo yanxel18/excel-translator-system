@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-sequential-upload-v6",
+    title: "Prepare sequential upload recovery",
+    details:
+      "The upload recovery foundation can now transfer a saved workbook in order, resume after interrupted acknowledgements and stop when an upload is paused or replaced. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:43:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-retries-v6",
     title: "Prepare upload interruption retries",
     details:
