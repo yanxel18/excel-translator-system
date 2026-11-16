@@ -290,8 +290,8 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
 
 - Partial: an authenticated API transport handles session endpoints, raw
   chunks, validated response metadata, busy codes and retry headers while
-  preserving tracked requests and session-expiry handling. Browser tests use
-  intercepted responses; no real-server transfer has been verified yet.
+  preserving tracked requests and session-expiry handling. An isolated
+  real-server browser transfer has now been verified as described below.
   The transport is not wired into the existing upload UI.
 - Partial: a reconciliation helper reuses the saved intent after an uncertain
   session-creation response, checks server file hashes and metadata, and saves
@@ -307,17 +307,19 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   cooldown, honors longer Retry-After delays, and stops before expiry. It
   reconciles after uncertain writes, detects replacement intents, and does not
   retry authentication, validation or storage failures. Paused uploads do not
-  start another attempt. Real-server verification remains outstanding.
+  start another attempt. A lost chunk acknowledgement was verified against the
+  isolated real server; other real-server retry cases remain outstanding.
 - Partial: a sequential transfer helper sends all remaining chunks using the
   retry wrapper, binds the entire transfer to the original intent, stops on
   pause or terminal session states, and rejects repeatedly regressing progress.
   Reaching the final byte does not finalize or claim a completed job. It is not
-  wired into the UI and has only been tested against intercepted responses.
+  wired into the UI. A multi-chunk workbook transfer was verified against the
+  isolated real server.
 - Partial: a guarded completion primitive reconciles the saved session, sends
   at most one completion request, and verifies an existing job receipt instead
   of recreating a deleted job. It shares the transfer lock and bounds requests;
-  an uncertain outcome requires a new reconciled attempt. Real-server browser
-  verification remains open.
+  an uncertain outcome requires a new reconciled attempt. A lost completion
+  response was verified against the isolated real server.
 - Partial: a guarded cancellation primitive reconciles paused and uncertain
   sessions, confirms server cancellation before removing the browser copy, and
   preserves completed-job receipts for separate verification. It rejects stale
@@ -348,6 +350,16 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   each cancellation attempt. It keeps the file through server contention and
   preserves completed jobs; replaced intents and aborted waits are not deleted.
   Real-server verification and UI integration remain open.
+- Partial: an opt-in browser test uses real IndexedDB, Vite, Nest and a
+  disposable PostgreSQL container. It forwards one chunk and one completion
+  request to the server, then drops their successful responses. Reconciliation
+  preserves the exact workbook and produces one job and one notification. The
+  test does not cover browser/API restarts, cancellation or UI integration.
+  With the root and web dependencies, Playwright Chromium, Docker and the
+  `postgres:16-alpine` image installed, run from the repository root after
+  building the API: `$env:V6_REAL_BROWSER_TEST='1'; node --test
+  project\apps\api\test\upload-session-http.test.cjs`. Do not set
+  `V6_UPLOAD_HTTP_TEST_DATABASE_URL` when using the owned container.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

@@ -178,6 +178,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(completionHistory, "The completion changelog migration was applied.");
   for (const value of Object.values(completionHistory)) assert.ok(builtInHistory.includes(value), value);
+  const browserHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-real-browser-recovery-v6"],
+  )).rows[0];
+  assert.ok(browserHistory, "The browser recovery changelog migration was applied.");
+  for (const value of Object.values(browserHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -187,9 +195,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   const { PrismaService } = require("../dist/modules/persistence/prisma.service");
   const { UploadAdmissionService } = require("../dist/modules/file-upload/upload-admission.service");
   const { UploadSessionService } = require("../dist/modules/file-upload/upload-session.service");
+  let browserOrigin;
   const startApp = async () => {
     const instance = await NestFactory.create(AppModule, { logger: false, bodyParser: false });
-    instance.enableCors({ origin: ["http://localhost:5173"], credentials: true });
+    instance.enableCors({
+      origin: (origin, callback) =>
+        callback(null, origin === "http://localhost:5173" || Boolean(browserOrigin && origin === browserOrigin)),
+      credentials: true,
+    });
     installRequestBodyParsers(instance);
     instance.setGlobalPrefix("api");
     await mountProductSurfacesGraphql(instance);
@@ -350,6 +363,139 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         setTimeout(() => reject(new Error(`Owned API worker ${worker.pid} did not exit.`)), 5000))]);
     ownedWorkers.delete(worker);
   };
+
+  if (process.env.V6_REAL_BROWSER_TEST === "1") await t.test("real browser reconciles lost chunk and completion acknowledgements", async () => {
+    const { chromium } = require("playwright");
+    const XLSX = require("xlsx");
+    const owner = await addUser("browser-recovery");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook,
+      XLSX.utils.aoa_to_sheet(Array.from({ length: 400 }, () => ["x".repeat(4096)])), "Sheet1");
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    assert.ok(bytes.length > MiB && bytes.length < 50 * MiB);
+
+    const port = await unusedLoopbackPort();
+    browserOrigin = `http://127.0.0.1:${port}`;
+    const webRoot = path.resolve(api, "../web");
+    const vite = spawn(process.execPath, [
+      path.join(webRoot, "node_modules/vite/bin/vite.js"),
+      "--host", "127.0.0.1", "--port", String(port), "--strictPort", "--base", "/",
+    ], {
+      cwd: webRoot,
+      env: { ...process.env, VITE_API_URL: `${runtime.baseUrl}/api` },
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let viteOutput = "";
+    vite.stderr.on("data", (chunk) => { viteOutput += chunk.toString(); });
+    let browser;
+    try {
+      let ready = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (vite.exitCode !== null) throw new Error(`Owned Vite server exited: ${viteOutput}`);
+        try {
+          if ((await fetch(browserOrigin)).ok) { ready = true; break; }
+        } catch { /* Wait for the owned server to listen. */ }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      assert.ok(ready, `Owned Vite server did not start: ${viteOutput}`);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
+      const lost = [];
+      const requests = [];
+      const failures = [];
+      const consoleErrors = [];
+      page.on("request", (request) => {
+        const url = new URL(request.url());
+        if (url.origin === runtime.baseUrl && url.pathname.startsWith("/api/upload-sessions"))
+          requests.push(`${request.method()} ${url.pathname}`);
+      });
+      page.on("console", (message) => {
+        if (message.type() === "error") consoleErrors.push(message.text());
+      });
+      page.on("requestfailed", (request) => {
+        failures.push(`${request.method()} ${new URL(request.url()).pathname}: ${request.failure()?.errorText}`);
+      });
+      await page.route("**/api/upload-sessions/**", async (route) => {
+        const request = route.request();
+        const pathname = new URL(request.url()).pathname;
+        const dropChunk = request.method() === "PUT" && pathname.endsWith("/chunks/0") &&
+          !lost.some((item) => item.kind === "chunk");
+        const dropCompletion = request.method() === "POST" && pathname.endsWith("/completion") &&
+          !lost.some((item) => item.kind === "completion");
+        if (dropChunk || dropCompletion) {
+          const response = await route.fetch();
+          lost.push({ kind: dropChunk ? "chunk" : "completion", status: response.status() });
+          await route.abort("failed");
+        } else {
+          await route.continue();
+        }
+      });
+      await page.goto(`${browserOrigin}/test/upload-retention-harness.html`);
+      await page.locator("input").setInputFiles({
+        name: "browser-recovery.xlsx",
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: bytes,
+      });
+      const evaluation = page.evaluate(async ({ ownerId, token, clientUploadId }) => {
+        const { saveRetainedUpload, loadRetainedUpload } =
+          await import("/src/features/workspace/upload-retention.ts");
+        const { transferRetainedUpload } = await import("/src/features/workspace/upload-sequential.ts");
+        const { completeRetainedUploadWithRetry } = await import("/src/features/workspace/upload-completion.ts");
+        const file = document.querySelector("input").files[0];
+        await saveRetainedUpload({ ownerId, clientUploadId, file, selectedAt: Date.now() });
+        const transfer = await transferRetainedUpload(ownerId, token);
+        const completion = await completeRetainedUploadWithRetry(ownerId, token);
+        const retained = await loadRetainedUpload(ownerId);
+        return {
+          confirmedBytes: transfer.record.confirmedBytes, status: completion.state,
+          jobId: completion.jobId, sessionId: retained.serverSessionId,
+        };
+      }, { ownerId: owner.id, token: tokenFor(owner), clientUploadId: randomUUID() });
+      let timeout;
+      const result = await Promise.race([
+        evaluation,
+        new Promise((_, reject) => {
+          timeout = setTimeout(() => reject(new Error(
+            `Browser recovery timed out. Lost: ${JSON.stringify(lost)}; requests: ${JSON.stringify(requests)}; failures: ${JSON.stringify(failures)}; console: ${JSON.stringify(consoleErrors)}`,
+          )), 20000);
+        }),
+      ]).finally(() => clearTimeout(timeout));
+      assert.deepEqual(lost, [{ kind: "chunk", status: 200 }, { kind: "completion", status: 201 }]);
+      assert.equal(result.confirmedBytes, bytes.length);
+      assert.equal(result.status, "completed");
+      assert.equal(requests.filter((item) => item.startsWith("PUT ") && item.endsWith("/chunks/0")).length, 1);
+      const firstChunk = requests.findIndex((item) => item.startsWith("PUT ") && item.endsWith("/chunks/0"));
+      const nextChunk = requests.findIndex((item) => item.startsWith("PUT ") && item.endsWith("/chunks/1"));
+      assert.ok(firstChunk >= 0 && nextChunk > firstChunk);
+      assert.ok(requests.slice(firstChunk + 1, nextChunk)
+        .some((item) => item.startsWith("GET ") && item.endsWith(result.sessionId)));
+      const completionRequests = requests
+        .map((item, index) => item.startsWith("POST ") && item.endsWith("/completion") ? index : -1)
+        .filter((index) => index >= 0);
+      assert.equal(completionRequests.length, 2);
+      assert.ok(requests.slice(completionRequests[0] + 1, completionRequests[1])
+        .some((item) => item.startsWith("GET ") && item.endsWith(result.sessionId)));
+      const receipt = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: result.sessionId } });
+      assert.equal(receipt.status, "COMPLETED");
+      assert.equal(receipt.completionJobId, result.jobId);
+      assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: owner.id } }), 1);
+      assert.equal(await runtime.prisma.notification.count({ where: { jobId: result.jobId } }), 1);
+      const job = await runtime.prisma.translationJob.findUniqueOrThrow({ where: { id: result.jobId } });
+      assert.deepEqual(await fs.readFile(job.sourcePath), bytes);
+    } finally {
+      try {
+        if (browser) await browser.close();
+      } finally {
+        if (vite.exitCode === null && vite.signalCode === null) {
+          const exited = once(vite, "exit");
+          vite.kill();
+          await exited;
+        }
+        browserOrigin = undefined;
+      }
+    }
+  });
+
   const safeFields = [
     "bytesReceived", "chunkHashes", "chunkSize", "clientUploadId", "expiresAt",
     "fileName", "fileSize", "id", "jobId", "nextChunkIndex", "status",
