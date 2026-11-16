@@ -871,3 +871,209 @@ test("a stalled request is reported as a timeout, not a user cancellation", asyn
     expect(await pending).toBe("UploadRequestTimeoutError");
   } finally { release(); }
 });
+
+test("sequential transfer reconciles lost acknowledgements and stops before completion", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let bytes = 0;
+  const requests: string[] = [];
+  const chunkLengths: number[] = [];
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    const suffix = new URL(request.url()).pathname.split("/").pop();
+    requests.push(`${request.method()} ${suffix}`);
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") {
+      const length = request.postDataBuffer()!.length;
+      chunkLengths.push(length);
+      bytes += length;
+      if (chunkLengths.length === 1) return route.abort("connectionreset");
+    }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING", bytesReceived: bytes,
+      nextChunkIndex: Math.ceil(bytes / 1048576),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const result = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+    Math.random = () => 0;
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File([new Uint8Array(2 * 1048576 + 5)], "test.xlsx"), selectedAt: Date.now() });
+    const result = await transferRetainedUpload("owner", "synthetic-token");
+    return { bytes: result.record.confirmedBytes, status: result.session?.status, jobId: result.session?.jobId };
+  }, { modulePath, intentId });
+  expect(result).toEqual({ bytes: 2097157, status: "RECEIVING", jobId: null });
+  expect(chunkLengths).toEqual([1048576, 1048576, 5]);
+  expect(requests).toEqual([
+    "POST upload-sessions", "PUT 0", `GET ${sessionId}`, "PUT 1", `GET ${sessionId}`, "PUT 2",
+  ]);
+});
+
+test("sequential transfer stops after an in-flight chunk when manually paused", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let puts = 0;
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let received = () => {};
+  const requestStarted = new Promise<void>((resolve) => { received = resolve; });
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") { puts++; received(); await gate; }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
+      bytesReceived: request.method() === "PUT" ? 1048576 : 0,
+      nextChunkIndex: request.method() === "PUT" ? 1 : 0,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File([new Uint8Array(1048581)], "test.xlsx"), selectedAt: Date.now() });
+  }, { modulePath, intentId });
+  const pending = page.evaluate(async () => {
+    const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+    const result = await transferRetainedUpload("owner", "synthetic-token");
+    return { paused: result.record.paused, bytes: result.record.confirmedBytes, session: result.session };
+  });
+  try {
+    await requestStarted;
+    await page.evaluate(async ({ modulePath, intentId }) => {
+      const { updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      await updateRetainedUpload("owner", intentId, { paused: true });
+    }, { modulePath, intentId });
+  } finally { release(); }
+  expect(await pending).toEqual({ paused: true, bytes: 1048576, session: null });
+  expect(puts).toBe(1);
+});
+
+test("sequential transfer stops if another intent replaces the saved upload", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const nextId = randomUUID();
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let puts = 0;
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let received = () => {};
+  const statusStarted = new Promise<void>((resolve) => { received = resolve; });
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") puts++;
+    if (request.method() === "GET") { received(); await gate; }
+    const bytes = puts ? 1048576 : 0;
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
+      bytesReceived: bytes, nextChunkIndex: bytes ? 1 : 0,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File([new Uint8Array(1048581)], "old.xlsx"), selectedAt: Date.now() });
+  }, { modulePath, intentId });
+  const pending = page.evaluate(async () => {
+    const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+    try { await transferRetainedUpload("owner", "synthetic-token"); return "unexpected-success"; }
+    catch (error) { return (error as { code: string }).code; }
+  });
+  try {
+    await statusStarted;
+    await page.evaluate(async ({ modulePath, intentId, nextId }) => {
+      const { removeRetainedUpload, saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      await removeRetainedUpload("owner", intentId);
+      await saveRetainedUpload({ ownerId: "owner", clientUploadId: nextId,
+        file: new File(["new"], "new.xlsx"), selectedAt: Date.now() });
+    }, { modulePath, intentId, nextId });
+  } finally { release(); }
+  expect(await pending).toBe("UPLOAD_INTENT_CONFLICT");
+  expect(puts).toBe(1);
+  const retryCode = await page.evaluate(async ({ intentId }) => {
+    const { transferRetainedChunkWithRetry } = await import(/* @vite-ignore */ "/src/features/workspace/upload-retry.ts");
+    try { await transferRetainedChunkWithRetry("owner", "synthetic-token", undefined, intentId); return "unexpected-success"; }
+    catch (error) { return (error as { code: string }).code; }
+  }, { intentId });
+  expect(retryCode).toBe("UPLOAD_INTENT_CONFLICT");
+  expect(puts).toBe(1);
+});
+
+test("sequential transfer refuses to spin when server progress repeatedly regresses", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let puts = 0;
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") puts++;
+    const bytes = request.method() === "PUT" ? 1048576 : 0;
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
+      bytesReceived: bytes, nextChunkIndex: bytes ? 1 : 0,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const code = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File([new Uint8Array(1048581)], "test.xlsx"), selectedAt: Date.now() });
+    try { await transferRetainedUpload("owner", "synthetic-token"); return "unexpected-success"; }
+    catch (error) { return (error as { code: string }).code; }
+  }, { modulePath, intentId });
+  expect(code).toBe("UPLOAD_INTENT_CONFLICT");
+  expect(puts).toBe(2);
+});
+
+test("sequential transfer returns a completed session without sending another chunk", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  const jobId = randomUUID();
+  const methods: string[] = [];
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    methods.push(request.method());
+    return route.fulfill({ headers, json: {
+      ...request.postDataJSON(), id: sessionId, chunkSize: 1048576, status: "COMPLETED",
+      bytesReceived: 5, nextChunkIndex: 1, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId,
+    } });
+  });
+  const result = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    const result = await transferRetainedUpload("owner", "synthetic-token");
+    return { status: result.session?.status, jobId: result.session?.jobId, bytes: result.record.confirmedBytes };
+  }, { modulePath, intentId });
+  expect(result).toEqual({ status: "COMPLETED", jobId, bytes: 5 });
+  expect(methods).toEqual(["POST"]);
+});

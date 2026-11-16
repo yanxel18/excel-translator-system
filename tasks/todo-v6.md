@@ -307,8 +307,13 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   cooldown, honors longer Retry-After delays, and stops before expiry. It
   reconciles after uncertain writes, detects replacement intents, and does not
   retry authentication, validation or storage failures. Paused uploads do not
-  start another attempt. Continuous transfer, coordinated in-flight pause and
-  cancel, completion and real-server verification remain outstanding.
+  start another attempt. Coordinated in-flight pause and cancel, completion
+  and real-server verification remain outstanding.
+- Partial: a sequential transfer helper sends all remaining chunks using the
+  retry wrapper, binds the entire transfer to the original intent, stops on
+  pause or terminal session states, and rejects repeatedly regressing progress.
+  Reaching the final byte does not finalize or claim a completed job. It is not
+  wired into the UI and has only been tested against intercepted responses.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
