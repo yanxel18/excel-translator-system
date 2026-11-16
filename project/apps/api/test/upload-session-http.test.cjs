@@ -242,6 +242,22 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(activeCompletionCancelHistory, "The active completion cancellation changelog migration was applied.");
   for (const value of Object.values(activeCompletionCancelHistory)) assert.ok(builtInHistory.includes(value), value);
+  const crossTabCancelHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-cross-tab-cancel-v6"],
+  )).rows[0];
+  assert.ok(crossTabCancelHistory, "The cross-tab cancellation changelog migration was applied.");
+  for (const value of Object.values(crossTabCancelHistory)) assert.ok(builtInHistory.includes(value), value);
+  const fileIdentityHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-upload-file-identity-v6"],
+  )).rows[0];
+  assert.ok(fileIdentityHistory, "The file identity safety changelog migration was applied.");
+  for (const value of Object.values(fileIdentityHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -458,7 +474,8 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
       }
       assert.ok(ready, `Owned Vite server did not start: ${viteOutput}`);
       browser = await chromium.launch({ headless: true });
-      const page = await browser.newPage();
+      const context = await browser.newContext();
+      const page = await context.newPage();
       const lost = [];
       const requests = [];
       const failures = [];
@@ -576,6 +593,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const activeOwner = await addUser("browser-active-completion");
         await verifyActiveCompletionCancellation({
           page, runtime, owner: activeOwner, token: tokenFor(activeOwner), bytes,
+        });
+      });
+      await browserTest.test("cross-tab cancellation reconciles a committed in-flight chunk", async () => {
+        const verifyCrossTabCancellation = require("./upload-session-browser-cross-tab-cancellation.cjs");
+        const crossTabOwner = await addUser("browser-cross-tab-cancellation");
+        await verifyCrossTabCancellation({
+          page, runtime, owner: crossTabOwner, token: tokenFor(crossTabOwner), bytes,
         });
       });
     } finally {
@@ -1209,6 +1233,47 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     }
     assert.equal((await request(sessionPath(runtime.baseUrl, session.id), "DELETE", token)).status, 200);
     assert.equal((await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: session.id } })).reservedBytes, 0);
+  });
+
+  await t.test("foreign file identities remain distinct above the safe integer range", async () => {
+    const XLSX = require("xlsx");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["hello"]]), "Sheet1");
+    const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const owner = await addUser("completion-unsafe-inode");
+    const token = tokenFor(owner);
+    const created = await create(runtime.baseUrl, token, {
+      clientUploadId: randomUUID(), fileName: "collision.xlsx", fileSize: bytes.length,
+      chunkHashes: [sha256(bytes)],
+    });
+    assert.equal(created.response.status, 201);
+    assert.equal((await putChunk(runtime.baseUrl, token, created.body.id, 0, bytes)).response.status, 200);
+    const session = await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: created.body.id } });
+    const foreign = path.join(process.env.DATA_DIR, `${session.completionJobId}.source.xlsx`);
+    const spool = path.join(process.env.DATA_DIR, "upload-sessions", session.id, "assembled.bin");
+    await fs.writeFile(foreign, "foreign data", { flag: "wx" });
+    const originalLstat = fs.lstat;
+    fs.lstat = async (target, options) => {
+      const info = await originalLstat(target, options);
+      if (target !== foreign && target !== spool) return info;
+      const exactInode = target === foreign ? 9007199254740993n : 9007199254740992n;
+      return new Proxy(info, {
+        get(object, property, receiver) {
+          if (property === "ino") return options?.bigint ? exactInode : Number(exactInode);
+          return Reflect.get(object, property, receiver);
+        },
+      });
+    };
+    try {
+      assert.equal((await request(`${sessionPath(runtime.baseUrl, session.id)}/completion`, "POST", token)).status, 503);
+      assert.equal((await request(sessionPath(runtime.baseUrl, session.id), "DELETE", token)).status, 503);
+      assert.equal(await fs.readFile(foreign, "utf8"), "foreign data");
+      assert.equal((await runtime.prisma.uploadSession.findUniqueOrThrow({ where: { id: session.id } })).reservedBytes, bytes.length);
+    } finally {
+      fs.lstat = originalLstat;
+      await fs.unlink(foreign);
+    }
+    assert.equal((await request(sessionPath(runtime.baseUrl, session.id), "DELETE", token)).status, 200);
   });
 
   await t.test("completion rechecks an administrator limit lowered during validation", async () => {

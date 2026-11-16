@@ -14,6 +14,20 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-file-identity-v6",
+    title: "Protect upload files from identity collisions",
+    details:
+      "Upload recovery now compares exact filesystem identities when checking or cleaning up a saved workbook, preventing another file from being mistaken for it. Automatic upload recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T03:40:00.000Z",
+  },
+  {
+    id: "changelog-20261116-cross-tab-cancel-v6",
+    title: "Verify upload cancellation across tabs",
+    details:
+      "A browser test now checks that cancellation from another tab reconciles a committed upload chunk before removing the saved workbook and releasing server storage. Automatic upload recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T03:36:00.000Z",
+  },
+  {
     id: "changelog-20261116-active-completion-cancel-v6",
     title: "Verify cancellation during upload completion",
     details:
