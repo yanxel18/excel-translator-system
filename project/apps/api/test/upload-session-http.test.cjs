@@ -234,6 +234,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(activeCancelHistory, "The active cancellation changelog migration was applied.");
   for (const value of Object.values(activeCancelHistory)) assert.ok(builtInHistory.includes(value), value);
+  const activeCompletionCancelHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-active-completion-cancel-v6"],
+  )).rows[0];
+  assert.ok(activeCompletionCancelHistory, "The active completion cancellation changelog migration was applied.");
+  for (const value of Object.values(activeCompletionCancelHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -560,6 +568,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const verifyActiveCancellation = require("./upload-session-browser-active-cancellation.cjs");
         const activeOwner = await addUser("browser-active-cancellation");
         await verifyActiveCancellation({
+          page, runtime, owner: activeOwner, token: tokenFor(activeOwner), bytes,
+        });
+      });
+      await browserTest.test("cancellation preserves a job completed during an in-flight request", async () => {
+        const verifyActiveCompletionCancellation = require("./upload-session-browser-active-completion.cjs");
+        const activeOwner = await addUser("browser-active-completion");
+        await verifyActiveCompletionCancellation({
           page, runtime, owner: activeOwner, token: tokenFor(activeOwner), bytes,
         });
       });
