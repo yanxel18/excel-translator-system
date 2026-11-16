@@ -1,5 +1,5 @@
 import { UploadSessionApiError, uploadSessionApi, type UploadSession } from "../../api/upload-sessions";
-import { withRetainedUploadLock } from "./upload-coordination";
+import { pauseRetainedUpload, withRetainedUploadLock } from "./upload-coordination";
 import { assertMatchingUploadSession, reconcileRetainedUpload } from "./upload-reconciliation";
 import { loadRetainedUpload, removeRetainedUpload, RetentionError, updateRetainedUpload } from "./upload-retention";
 import { retryable, uploadRetryDelay, waitForRetry } from "./upload-retry";
@@ -49,8 +49,11 @@ export async function cancelRetainedUploadWithRetry(
   ownerId: string,
   token: string,
   signal?: AbortSignal,
+  expectedClientUploadId?: string,
 ): Promise<UploadCancellationResult> {
   const original = await loadRetainedUpload(ownerId);
+  if (expectedClientUploadId && original.clientUploadId !== expectedClientUploadId)
+    throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed.");
   let failures = 0;
   for (;;) {
     if (signal?.aborted) throw new DOMException("Upload interrupted.", "AbortError");
@@ -69,4 +72,26 @@ export async function cancelRetainedUploadWithRetry(
       await waitForRetry(delay, signal);
     }
   }
+}
+
+/** The controller and promise must belong to this upload's active operation in this tab. */
+export async function cancelActiveRetainedUpload(
+  ownerId: string,
+  token: string,
+  clientUploadId: string,
+  activeController: AbortController,
+  activeOperation: Promise<unknown>,
+  signal?: AbortSignal,
+): Promise<UploadCancellationResult> {
+  if (signal?.aborted) throw new DOMException("Upload interrupted.", "AbortError");
+  const settled = activeOperation.then(
+    () => ({ state: "fulfilled" as const }),
+    (error: unknown) => ({ state: "rejected" as const, error }),
+  );
+  await pauseRetainedUpload(ownerId, clientUploadId, activeController);
+  const result = await settled;
+  if (result.state === "rejected" &&
+      !(result.error instanceof DOMException && result.error.name === "AbortError" && activeController.signal.aborted))
+    throw result.error;
+  return cancelRetainedUploadWithRetry(ownerId, token, signal, clientUploadId);
 }

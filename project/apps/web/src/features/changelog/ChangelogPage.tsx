@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-cancel-interrupt-v6",
+    title: "Prepare cancellation during uploads",
+    details:
+      "The upload recovery foundation can now pause and interrupt an active request in the same browser tab before checking server status and cancelling safely. Completed jobs are preserved. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T01:50:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-pause-interrupt-v6",
     title: "Prepare safer upload pause",
     details:

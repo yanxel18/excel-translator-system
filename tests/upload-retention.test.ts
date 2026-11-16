@@ -1482,6 +1482,138 @@ test("a completed response cannot be attached to a replaced saved upload", async
   expect(await pending).toBe("UPLOAD_INTENT_CONFLICT");
 });
 
+for (const operation of ["chunk", "completion"] as const) {
+  test(`in-flight cancellation reconciles an interrupted ${operation}`, async ({ context }) => {
+    const page = await openHarness(context);
+    const intentId = randomUUID();
+    const sessionId = randomUUID();
+    const jobId = randomUUID();
+    const metadata = await page.evaluate(async ({ modulePath, intentId, sessionId, operation }) => {
+      const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      const { record } = await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+        file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+      await updateRetainedUpload("owner", intentId, { serverSessionId: sessionId,
+        confirmedBytes: operation === "completion" ? 5 : 0 });
+      return { clientUploadId: intentId, fileName: record.fileName, fileSize: record.fileSize, chunkHashes: record.chunkHashes };
+    }, { modulePath, intentId, sessionId, operation });
+    let bytes = operation === "completion" ? 5 : 0;
+    let completed = false;
+    const requests: string[] = [];
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let received = () => {};
+    const started = new Promise<void>((resolve) => { received = resolve; });
+    await page.route("**/excel-convert/upload-sessions**", async (route) => {
+      const request = route.request();
+      const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "access-control-allow-headers": "authorization,content-type" };
+      if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+      requests.push(request.method());
+      if (request.method() === "PUT" || request.method() === "POST") {
+        bytes = 5;
+        completed = request.method() === "POST";
+        received();
+        await gate;
+      }
+      return route.fulfill({ headers, json: {
+        ...metadata, id: sessionId, chunkSize: 1048576,
+        status: completed ? "COMPLETED" : request.method() === "DELETE" ? "CANCELLED" : "RECEIVING",
+        bytesReceived: bytes, nextChunkIndex: bytes ? 1 : 0,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: completed ? jobId : null,
+      } });
+    });
+    await page.evaluate(async ({ operation }) => {
+      const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+      const { completeRetainedUploadWithRetry } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+      const controller = new AbortController();
+      const active = operation === "chunk"
+        ? transferRetainedUpload("owner", "synthetic-token", controller.signal)
+        : completeRetainedUploadWithRetry("owner", "synthetic-token", controller.signal);
+      active.catch(() => {});
+      Object.assign(window, { activeUpload: { controller, active } });
+    }, { operation });
+    try {
+      await started;
+      const result = await page.evaluate(async ({ modulePath, intentId }) => {
+        const { cancelActiveRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-cancellation.ts");
+        const { loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+        const { controller, active } = (window as Window & {
+          activeUpload: { controller: AbortController; active: Promise<unknown> }
+        }).activeUpload;
+        const result = await cancelActiveRetainedUpload("owner", "synthetic-token", intentId, controller, active);
+        let retained = true;
+        try { await loadRetainedUpload("owner"); } catch (error) {
+          if ((error as { code: string }).code !== "UPLOAD_NOT_FOUND") throw error;
+          retained = false;
+        }
+        return { state: result.state, jobId: result.state === "completion-detected" ? result.session.jobId : null, retained };
+      }, { modulePath, intentId });
+      expect(result).toEqual(operation === "completion"
+        ? { state: "completion-detected", jobId, retained: true }
+        : { state: "cancelled", jobId: null, retained: false });
+    } finally { release(); }
+    expect(requests).toEqual(operation === "completion" ? ["GET", "POST", "GET"] : ["GET", "PUT", "GET", "DELETE"]);
+  });
+}
+
+test("in-flight cancellation refuses an upload replaced while the old request settles", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const nextId = randomUUID();
+  await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["old"], "old.xlsx"), selectedAt: Date.now() });
+    const controller = new AbortController();
+    let finish = () => {};
+    const active = new Promise<void>((resolve) => { finish = resolve; });
+    Object.assign(window, { activeUpload: { controller, active, finish } });
+  }, { modulePath, intentId });
+  const pending = page.evaluate(async ({ intentId }) => {
+    const { cancelActiveRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-cancellation.ts");
+    const { controller, active } = (window as Window & {
+      activeUpload: { controller: AbortController; active: Promise<unknown> }
+    }).activeUpload;
+    try { await cancelActiveRetainedUpload("owner", "synthetic-token", intentId, controller, active); return "unexpected-success"; }
+    catch (error) { return (error as { code: string }).code; }
+  }, { intentId });
+  await page.waitForFunction(() => (window as Window & {
+    activeUpload: { controller: AbortController }
+  }).activeUpload.controller.signal.aborted);
+  await page.evaluate(async ({ modulePath, intentId, nextId }) => {
+    const { removeRetainedUpload, saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    await removeRetainedUpload("owner", intentId);
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: nextId,
+      file: new File(["new"], "new.xlsx"), selectedAt: Date.now() });
+    (window as Window & { activeUpload: { finish: () => void } }).activeUpload.finish();
+  }, { modulePath, intentId, nextId });
+  expect(await pending).toBe("UPLOAD_INTENT_CONFLICT");
+  expect(await page.evaluate(async ({ modulePath }) => {
+    const { loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    return (await loadRetainedUpload("owner")).fileName;
+  }, { modulePath })).toBe("new.xlsx");
+});
+
+test("in-flight cancellation surfaces an active authentication failure without deleting the workbook", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const result = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { cancelActiveRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-cancellation.ts");
+    const { SessionExpiredError } = await import(/* @vite-ignore */ "/src/api/client.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    const controller = new AbortController();
+    const active = Promise.reject(new SessionExpiredError());
+    let errorName = "";
+    try { await cancelActiveRetainedUpload("owner", "synthetic-token", intentId, controller, active); }
+    catch (error) { errorName = (error as Error).name; }
+    const record = await loadRetainedUpload("owner");
+    return { errorName, paused: record.paused, fileName: record.fileName };
+  }, { modulePath, intentId });
+  expect(result).toEqual({ errorName: "SessionExpiredError", paused: true, fileName: "test.xlsx" });
+});
+
 test("cancellation reconciles uncertain creation and a lost cancellation response", async ({ context }) => {
   const page = await openHarness(context);
   const intentId = randomUUID();
