@@ -324,15 +324,17 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   sessions, confirms server cancellation before removing the browser copy, and
   preserves completed-job receipts for separate verification. It rejects stale
   storage snapshots and allows a
-  known session to be cancelled after an upload-limit change. Real-server
-  browser verification remains open.
+  known session to be cancelled after an upload-limit change. A lost
+  cancellation response was verified against the isolated real server; other
+  real-server cancellation cases remain open.
 - Partial: completion retries use the approved backoff and reconcile each
   uncertain attempt, stopping for pause, replacement, expiry or permanent
   errors.
 - Partial: cancellation retries reconcile uncertain responses, work for paused
   uploads and preserve completed-job receipts. They stop on abort, replacement,
-  expiry and permanent errors. Real-server browser verification remains open;
-  the UI is not connected.
+  expiry and permanent errors. The isolated real-server lost-response case uses
+  a separate subsequent retry; automatic retry behavior remains unverified
+  against the real server, and the UI is not connected.
 - Partial: a same-tab pause helper commits the pause before aborting its active
   request and rejects a replaced intent without interrupting it. On resume,
   transfer reconciliation handles a chunk that may have reached the server.
@@ -354,7 +356,7 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   disposable PostgreSQL container. It forwards one chunk and one completion
   request to the server, then drops their successful responses. Reconciliation
   preserves the exact workbook and produces one job and one notification. The
-  test does not cover API restarts, cancellation or UI integration.
+  transfer scenario does not cover API restarts, cancellation or UI integration.
   With the root and web dependencies, Playwright Chromium, Docker and the
   `postgres:16-alpine` image installed, run from the repository root after
   building the API: `$env:V6_REAL_BROWSER_TEST='1'; node --test
@@ -369,7 +371,13 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   restart flow while terminating and restarting an owned API process on the
   same endpoint. It verifies reconciliation and a single intact job against
   disposable PostgreSQL. Recovery is invoked manually; automatic UI recovery,
-  cancellation and the complete runtime checkpoint remain unverified.
+  other cancellation cases and the complete runtime checkpoint remain unverified.
+- Partial: an opt-in real-server cancellation test drops a successful DELETE
+  response after one chunk. It verifies the local file is retained while the
+  server has cancelled and released its storage, then manually retries and
+  confirms server reconciliation precedes local cleanup. Completed-job races,
+  cross-tab cancellation and UI integration remain unverified against the
+  real server.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
