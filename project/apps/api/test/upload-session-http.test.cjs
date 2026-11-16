@@ -266,6 +266,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(crossTabCompletionHistory, "The cross-tab completion changelog migration was applied.");
   for (const value of Object.values(crossTabCompletionHistory)) assert.ok(builtInHistory.includes(value), value);
+  const creationRecoveryHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-upload-creation-recovery-v6"],
+  )).rows[0];
+  assert.ok(creationRecoveryHistory, "The upload creation recovery changelog migration was applied.");
+  for (const value of Object.values(creationRecoveryHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -615,6 +623,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const crossTabOwner = await addUser("browser-cross-tab-completion");
         await verifyCrossTabCompletion({
           page, runtime, owner: crossTabOwner, token: tokenFor(crossTabOwner), bytes,
+        });
+      });
+      await browserTest.test("lost creation acknowledgement replays the same upload intent", async () => {
+        const verifyCreationRecovery = require("./upload-session-browser-create-recovery.cjs");
+        const recoveryOwner = await addUser("browser-create-recovery");
+        await verifyCreationRecovery({
+          page, runtime, owner: recoveryOwner, token: tokenFor(recoveryOwner), bytes,
         });
       });
     } finally {
