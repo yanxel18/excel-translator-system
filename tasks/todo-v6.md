@@ -302,8 +302,13 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
 - Partial: a one-chunk transfer primitive reconciles before each write, uses
   a fail-closed browser lock against concurrent transfers, checks acknowledged
   progress, and bounds requests. Tests simulate lost acknowledgements and
-  competing tabs; retry scheduling, pause/cancel coordination, completion and
-  real-server verification are still outstanding. It is not wired into the UI.
+  competing tabs. It is not wired into the UI.
+- Partial: a one-chunk retry wrapper uses the approved backoff, jitter and
+  cooldown, honors longer Retry-After delays, and stops before expiry. It
+  reconciles after uncertain writes, detects replacement intents, and does not
+  retry authentication, validation or storage failures. Paused uploads do not
+  start another attempt. Continuous transfer, coordinated in-flight pause and
+  cancel, completion and real-server verification remain outstanding.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

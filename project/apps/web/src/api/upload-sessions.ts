@@ -24,6 +24,14 @@ export class UploadSessionApiError extends ApiError {
   }
 }
 
+export class UploadNetworkError extends Error {
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = "UploadNetworkError";
+    if (cause !== undefined) Object.defineProperty(this, "cause", { value: cause });
+  }
+}
+
 function retryAfter(value: string | null): number | null {
   if (!value) return null;
   if (/^\d+$/.test(value)) {
@@ -73,11 +81,20 @@ function sessionResponse(value: unknown, expected: { id?: string; input?: Upload
 async function uploadRequest(path: string, token: string, init: RequestInit): Promise<unknown> {
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${token}`);
-  const response = await trackedFetch(apiUrl(path), { ...init, headers });
+  let response: Response;
+  try {
+    response = await trackedFetch(apiUrl(path), { ...init, headers });
+  } catch (error) {
+    if (error instanceof TypeError && !init.signal?.aborted)
+      throw new UploadNetworkError("The upload server could not be reached.", error);
+    throw error;
+  }
   let body: unknown;
   try {
     body = await response.json();
-  } catch {
+  } catch (error) {
+    if (init.signal?.aborted) throw error;
+    if (error instanceof TypeError) throw new UploadNetworkError("The upload response was interrupted.", error);
     if (response.ok) throw invalidResponse();
   }
   if (!response.ok) {
