@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-active-cancel-v6",
+    title: "Verify cancellation during an upload",
+    details:
+      "A browser test now checks that cancellation reconciles a committed upload chunk before removing the saved workbook and releasing server storage. Automatic upload recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T03:19:00.000Z",
+  },
+  {
     id: "changelog-20261116-completion-cancel-race-v6",
     title: "Verify completed uploads survive cancellation",
     details:
