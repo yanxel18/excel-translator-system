@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-cross-tab-cancel-v6",
+    title: "Prepare upload cancellation across tabs",
+    details:
+      "The upload recovery foundation can now request an interruption in another browser tab and check server status before cancelling. Saved workbooks are kept until cancellation is confirmed, and completed jobs are preserved. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T02:06:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-cross-tab-pause-v6",
     title: "Prepare upload pause across tabs",
     details:
