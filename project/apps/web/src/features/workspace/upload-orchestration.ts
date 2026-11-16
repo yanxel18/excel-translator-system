@@ -3,7 +3,7 @@ import { removeRetainedUpload } from "./upload-retention";
 import { transferRetainedUpload } from "./upload-sequential";
 
 export type UploadProgress = {
-  state: "transferring" | "validating";
+  state: "transferring" | "validating" | "waiting-network" | "waiting-busy";
   confirmedBytes: number;
   fileSize: number;
 };
@@ -15,9 +15,12 @@ export async function runRetainedUpload(
   signal?: AbortSignal,
   onProgress?: (progress: UploadProgress) => void,
 ): Promise<UploadCompletionResult> {
+  const waiting = (reason: "network" | "busy", progress: { confirmedBytes: number; fileSize: number }) => {
+    onProgress?.({ state: reason === "network" ? "waiting-network" : "waiting-busy", ...progress });
+  };
   const transfer = await transferRetainedUpload(ownerId, token, signal, (progress) => {
     onProgress?.({ state: "transferring", ...progress });
-  });
+  }, waiting);
   if (!transfer.session) return { state: "paused", record: transfer.record };
   if (!["RECEIVING", "FINALIZING", "COMPLETED"].includes(transfer.session.status) ||
       transfer.record.confirmedBytes !== transfer.record.fileSize)
@@ -28,7 +31,7 @@ export async function runRetainedUpload(
     confirmedBytes: transfer.record.confirmedBytes,
     fileSize: transfer.record.fileSize,
   });
-  const completion = await completeRetainedUploadWithRetry(ownerId, token, signal, transfer.record.clientUploadId);
+  const completion = await completeRetainedUploadWithRetry(ownerId, token, signal, transfer.record.clientUploadId, waiting);
   if (completion.state !== "completed") return completion;
   if (signal?.aborted) throw new DOMException("Upload interrupted.", "AbortError");
   await removeRetainedUpload(ownerId, completion.record.clientUploadId, completion.record);

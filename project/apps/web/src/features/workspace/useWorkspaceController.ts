@@ -29,6 +29,8 @@ export function useWorkspaceController(
   );
   const fileInput = useRef<HTMLInputElement>(null);
   const hasLoaded = useRef(false);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
   const translateRef = useRef(translate);
   translateRef.current = translate;
 
@@ -57,17 +59,19 @@ export function useWorkspaceController(
       if (!token) return;
       if (!hasLoaded.current) setJobsLoading(true);
       try {
-        setJobs(await ApiService.getJobs(token, silent));
+        const loadedJobs = await ApiService.getJobs(token, silent);
+        if (tokenRef.current !== token) return;
+        setJobs(loadedJobs);
         hasLoaded.current = true;
       } catch (reason) {
-        if (!(reason instanceof SessionExpiredError))
+        if (tokenRef.current === token && !(reason instanceof SessionExpiredError))
           setError(
             reason instanceof Error
               ? reason.message
               : translate("Could not load jobs."),
           );
       } finally {
-        setJobsLoading(false);
+        if (tokenRef.current === token) setJobsLoading(false);
       }
     },
     [token, translate],
@@ -115,15 +119,6 @@ export function useWorkspaceController(
     setFile(nextFile);
   };
 
-  const upload = () => {
-    if (!file) return;
-    void run(async () => {
-      await ApiService.uploadFile(file, token);
-      setFile(null);
-      if (fileInput.current) fileInput.current.value = "";
-    });
-  };
-
   const download = (job: Job) =>
     void trackedFetch(ApiService.downloadUrl(job.id), {
       headers: { Authorization: `Bearer ${token}` },
@@ -145,6 +140,7 @@ export function useWorkspaceController(
       });
 
   const reset = () => {
+    tokenRef.current = "";
     setJobs([]);
     setError("");
     setFile(null);
@@ -165,7 +161,6 @@ export function useWorkspaceController(
     refresh,
     run,
     selectFile,
-    upload,
     download,
     dismissError: () => setError(""),
     reset,

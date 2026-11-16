@@ -2,7 +2,7 @@ import { uploadSessionApi, type UploadSession } from "../../api/upload-sessions"
 import { withRetainedUploadLock } from "./upload-coordination";
 import { reconcileRetainedUpload } from "./upload-reconciliation";
 import { loadRetainedUpload, RetentionError, updateRetainedUpload, type RetainedUpload } from "./upload-retention";
-import { retryable, uploadRetryDelay, waitForRetry } from "./upload-retry";
+import { retryable, uploadRetryDelay, waitForRetry, UploadNetworkError, UploadRequestTimeoutError } from "./upload-retry";
 
 export type UploadCompletionResult =
   | { state: "paused"; record: RetainedUpload }
@@ -40,6 +40,7 @@ export async function completeRetainedUploadWithRetry(
   token: string,
   signal?: AbortSignal,
   expectedClientUploadId?: string,
+  onRetry?: (reason: "network" | "busy", progress: { confirmedBytes: number; fileSize: number }) => void,
 ): Promise<UploadCompletionResult> {
   const original = await loadRetainedUpload(ownerId);
   if (expectedClientUploadId && original.clientUploadId !== expectedClientUploadId)
@@ -61,6 +62,10 @@ export async function completeRetainedUploadWithRetry(
       if (latest.paused) return { state: "paused", record: latest };
       const delay = uploadRetryDelay(error, ++failures, latest.expiresAt);
       if (delay === null) throw error;
+      onRetry?.(
+        error instanceof UploadNetworkError || error instanceof UploadRequestTimeoutError ? "network" : "busy",
+        { confirmedBytes: latest.confirmedBytes, fileSize: latest.fileSize },
+      );
       await waitForRetry(delay, signal);
     }
   }

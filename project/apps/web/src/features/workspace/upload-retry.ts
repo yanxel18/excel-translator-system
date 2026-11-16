@@ -53,6 +53,7 @@ export async function transferRetainedChunkWithRetry(
   token: string,
   signal?: AbortSignal,
   expectedClientUploadId?: string,
+  onRetry?: (reason: "network" | "busy", progress: { confirmedBytes: number; fileSize: number }) => void,
 ): Promise<{ record: RetainedUpload; session: UploadSession | null }> {
   const original = await loadRetainedUpload(ownerId);
   if (expectedClientUploadId && original.clientUploadId !== expectedClientUploadId)
@@ -74,6 +75,10 @@ export async function transferRetainedChunkWithRetry(
       if (latest.paused) return { record: latest, session: null };
       const delay = uploadRetryDelay(error, ++failures, latest.expiresAt);
       if (delay === null) throw error;
+      onRetry?.(
+        error instanceof UploadNetworkError || error instanceof UploadRequestTimeoutError ? "network" : "busy",
+        { confirmedBytes: latest.confirmedBytes, fileSize: latest.fileSize },
+      );
       await waitForRetry(delay, signal);
     }
   }

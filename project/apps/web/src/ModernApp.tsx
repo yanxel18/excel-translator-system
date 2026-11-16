@@ -26,6 +26,8 @@ import WorkspacePage from "./features/workspace/WorkspacePage";
 import SystemSettings from "./features/system-settings/SystemSettings";
 import { Alert, Button, Paper, Stack, Text } from "@mantine/core";
 import { useWorkspaceController } from "./features/workspace/useWorkspaceController";
+import { useRetainedUpload } from "./features/workspace/useRetainedUpload";
+import RetainedUploadPanel from "./features/workspace/RetainedUploadPanel";
 import { useLocale } from "./features/shared/LocaleProvider";
 import "./ModernApp.css";
 
@@ -42,6 +44,7 @@ export default function ModernApp() {
   const { view, page, search, navigate: setView } = useAppRoute();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileToken, setProfileToken] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState(false);
   const [settingsJob, setSettingsJob] = useState<Job | null>(null);
@@ -63,6 +66,12 @@ export default function ModernApp() {
   const keycloakRef = useRef<Keycloak | null>(null);
   const { t } = useLocale();
   const workspace = useWorkspaceController(token, t);
+  const retainedUpload = useRetainedUpload(
+    token,
+    token && profileToken === token ? profile?.id ?? null : null,
+    () => workspace.selectFile(null),
+    () => void workspace.refresh(),
+  );
   useEffect(() => {
     const expireSession = (event: Event) => {
       const expiredToken = (event as CustomEvent<{ token?: string }>).detail
@@ -74,6 +83,7 @@ export default function ModernApp() {
       )
         return;
       sessionExpiredRef.current = true;
+      retainedUpload.abort();
       preserveValidatedReturnRoute();
       localStorage.removeItem("excel-translator-token");
       workspace.reset();
@@ -96,6 +106,7 @@ export default function ModernApp() {
     let active = true;
     setIsAdmin(null);
     setProfile(null);
+    setProfileToken("");
     setProfileLoadError(false);
     if (!token) {
       setProfileLoading(false);
@@ -108,6 +119,7 @@ export default function ModernApp() {
       .then((loadedProfile) => {
         if (active) {
           setProfile(loadedProfile);
+          setProfileToken(token);
           setIsAdmin(loadedProfile.isAdmin);
           setProfileLoadError(false);
         }
@@ -305,6 +317,7 @@ export default function ModernApp() {
   };
 
   const logout = () => {
+    retainedUpload.abort();
     localStorage.removeItem("excel-translator-token");
     sessionStorage.removeItem("excel-translator-return-route");
     sessionExpiredRef.current = false;
@@ -379,6 +392,14 @@ export default function ModernApp() {
           {settingsError}
         </Alert>
       )}
+      {token && profileToken === token && (
+        <RetainedUploadPanel
+          upload={retainedUpload.view}
+          onPause={retainedUpload.pause}
+          onResume={retainedUpload.resume}
+          onCancel={retainedUpload.cancel}
+        />
+      )}
       {view?.startsWith("settings/") ? (
         isAdmin === null ? (
           <Text role="status">{t("Loading")}</Text>
@@ -416,7 +437,12 @@ export default function ModernApp() {
           token={token}
           onDismissError={workspace.dismissError}
           onSelectFile={workspace.selectFile}
-          onUpload={workspace.upload}
+          onUpload={() => {
+            if (workspace.file) retainedUpload.start(workspace.file);
+          }}
+          uploadDisabled={!profile || profileToken !== token || retainedUpload.view.phase === "checking"}
+          uploadInProgress={!["idle", "complete"].includes(retainedUpload.view.phase) &&
+            !(retainedUpload.view.phase === "error" && !retainedUpload.view.record)}
           onRefresh={() => void workspace.refresh()}
           onHistory={() => setView("history")}
           onStart={(job) => void openJobSettings(job)}
