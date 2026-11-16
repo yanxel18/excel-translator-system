@@ -354,12 +354,17 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   disposable PostgreSQL container. It forwards one chunk and one completion
   request to the server, then drops their successful responses. Reconciliation
   preserves the exact workbook and produces one job and one notification. The
-  test does not cover browser/API restarts, cancellation or UI integration.
+  test does not cover API restarts, cancellation or UI integration.
   With the root and web dependencies, Playwright Chromium, Docker and the
   `postgres:16-alpine` image installed, run from the repository root after
   building the API: `$env:V6_REAL_BROWSER_TEST='1'; node --test
   project\apps\api\test\upload-session-http.test.cjs`. Do not set
   `V6_UPLOAD_HTTP_TEST_DATABASE_URL` when using the owned container.
+- Partial: a second opt-in real-server browser test drops a committed chunk
+  response, closes Chromium, reopens the same persistent profile, and manually
+  invokes the recovery helpers without selecting the workbook again. It checks
+  server reconciliation before later chunks, exact job bytes and one job and
+  notification. This does not verify automatic UI recovery or an API restart.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

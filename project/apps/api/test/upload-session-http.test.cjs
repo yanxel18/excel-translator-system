@@ -186,6 +186,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(browserHistory, "The browser recovery changelog migration was applied.");
   for (const value of Object.values(browserHistory)) assert.ok(builtInHistory.includes(value), value);
+  const restartHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-browser-restart-recovery-v6"],
+  )).rows[0];
+  assert.ok(restartHistory, "The browser restart changelog migration was applied.");
+  for (const value of Object.values(restartHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -493,6 +501,20 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         }
         browserOrigin = undefined;
       }
+    }
+  });
+
+  if (process.env.V6_REAL_BROWSER_TEST === "1") await t.test("browser restart reconciles a committed chunk with a lost response", async () => {
+    const verifyBrowserRestart = require("./upload-session-browser-restart.cjs");
+    const owner = await addUser("browser-restart");
+    const port = await unusedLoopbackPort();
+    browserOrigin = `http://127.0.0.1:${port}`;
+    try {
+      await verifyBrowserRestart({
+        runtime, owner, token: tokenFor(owner), port, profile: path.join(scratch, "browser-restart-profile"),
+      });
+    } finally {
+      browserOrigin = undefined;
     }
   });
 

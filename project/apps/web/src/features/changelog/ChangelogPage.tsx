@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-browser-restart-recovery-v6",
+    title: "Verify upload recovery after browser restart",
+    details:
+      "A browser test now verifies that a saved workbook can continue after a browser restart and a lost upload response, without selecting the file again or creating duplicate jobs. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T02:41:00.000Z",
+  },
+  {
     id: "changelog-20261116-real-browser-recovery-v6",
     title: "Verify upload recovery against a real server",
     details:
