@@ -37,5 +37,5 @@ export async function transferRetainedChunk(
       expiresAt: Date.parse(response.expiresAt),
     }, current.record);
     return { record, session: record.paused ? null : response };
-  });
+  }, true);
 }

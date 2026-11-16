@@ -338,8 +338,13 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
 - Partial: same-tab in-flight cancellation commits a pause, interrupts and
   settles the active request, and reconciles before cancelling. It preserves
   completed jobs and rejects replacement intents or permanent request errors.
-  Cross-tab interruption and real-server browser verification remain open;
+  Cross-tab cancellation and real-server browser verification remain open;
   neither helper is connected to the UI.
+- Partial: a cross-tab pause helper commits the pause before notifying the tab
+  holding a transfer/completion lock; that tab checks the saved intent and
+  pause state before interrupting. Notifications are best-effort, and resume
+  must reconcile uncertain server outcomes. Cross-tab cancellation,
+  real-server verification and UI integration remain open.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;
