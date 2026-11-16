@@ -1,7 +1,8 @@
 import { UploadSessionApiError, uploadSessionApi, type UploadSession } from "../../api/upload-sessions";
 import { withRetainedUploadLock } from "./upload-coordination";
 import { assertMatchingUploadSession, reconcileRetainedUpload } from "./upload-reconciliation";
-import { removeRetainedUpload, RetentionError, updateRetainedUpload } from "./upload-retention";
+import { loadRetainedUpload, removeRetainedUpload, RetentionError, updateRetainedUpload } from "./upload-retention";
+import { retryable, uploadRetryDelay, waitForRetry } from "./upload-retry";
 
 export type UploadCancellationResult =
   | { state: "cancelled" }
@@ -12,8 +13,9 @@ export async function cancelRetainedUpload(
   ownerId: string,
   token: string,
   signal?: AbortSignal,
+  expectedClientUploadId?: string,
 ): Promise<UploadCancellationResult> {
-  return withRetainedUploadLock(ownerId, signal, undefined, async (saved, requestSignal, setDeadline) => {
+  return withRetainedUploadLock(ownerId, signal, expectedClientUploadId, async (saved, requestSignal, setDeadline) => {
     let record = saved;
     try {
       const current = await reconcileRetainedUpload(ownerId, token, requestSignal, saved.clientUploadId, true);
@@ -40,4 +42,31 @@ export async function cancelRetainedUpload(
     await removeRetainedUpload(ownerId, record.clientUploadId, record);
     return { state: "cancelled" };
   });
+}
+
+/** Reconciles every cancellation attempt before removing the saved file. */
+export async function cancelRetainedUploadWithRetry(
+  ownerId: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<UploadCancellationResult> {
+  const original = await loadRetainedUpload(ownerId);
+  let failures = 0;
+  for (;;) {
+    if (signal?.aborted) throw new DOMException("Upload interrupted.", "AbortError");
+    const current = await loadRetainedUpload(ownerId);
+    if (current.clientUploadId !== original.clientUploadId)
+      throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed.");
+    try {
+      return await cancelRetainedUpload(ownerId, token, signal, original.clientUploadId);
+    } catch (error) {
+      if (signal?.aborted || !retryable(error)) throw error;
+      const latest = await loadRetainedUpload(ownerId);
+      if (latest.clientUploadId !== original.clientUploadId)
+        throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed.");
+      const delay = uploadRetryDelay(error, ++failures, latest.expiresAt);
+      if (delay === null) throw error;
+      await waitForRetry(delay, signal);
+    }
+  }
 }
