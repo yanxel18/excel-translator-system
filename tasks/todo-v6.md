@@ -298,7 +298,8 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   server-confirmed progress without extending the local deadline. A guarded
   browser-storage update rejects a stale response if another tab changed the
   saved session or progress; manual pause prevents new reconciliation requests.
-  The reconciliation helper alone is not a transfer loop or cross-tab lock.
+  An uncertain creation response is verified against the real server. The
+  reconciliation helper alone is not a transfer loop or cross-tab lock.
 - Partial: a one-chunk transfer primitive reconciles before each write, uses
   a fail-closed browser lock against concurrent transfers, checks acknowledged
   progress, and bounds requests. Tests simulate lost acknowledgements and
@@ -405,6 +406,10 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   server commits completion but before its response reaches the completing
   tab. It verifies interruption and reconciliation without DELETE, preserving
   the workbook, completed job and notification. Other orderings remain open.
+- Partial: a real-server browser test drops a committed session-creation
+  response, confirms the exact saved workbook while the retry is held, and
+  verifies the same intent creates one session and one intact completed job.
+  Recovery is invoked through the helper, not the application UI.
 - Partial: upload promotion and cleanup compare exact filesystem identities,
   including inode values beyond JavaScript's safe integer range; foreign
   files remain untouched in the collision regression.

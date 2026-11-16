@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-creation-recovery-v6",
+    title: "Verify recovery after upload setup interruption",
+    details:
+      "A browser test now checks that a lost upload setup response is retried using the same saved workbook and upload intent, producing one completed job. Automatic upload recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T04:34:00.000Z",
+  },
+  {
     id: "changelog-20261116-cross-tab-completion-v6",
     title: "Verify completed uploads across tabs",
     details:
