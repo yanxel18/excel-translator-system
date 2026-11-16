@@ -1077,3 +1077,208 @@ test("sequential transfer returns a completed session without sending another ch
   expect(result).toEqual({ status: "COMPLETED", jobId, bytes: 5 });
   expect(methods).toEqual(["POST"]);
 });
+
+test("completion reconciles a lost response and confirms the existing job", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  const jobId = randomUUID();
+  const metadata = await page.evaluate(async ({ modulePath, intentId, sessionId }) => {
+    const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { record } = await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    await updateRetainedUpload("owner", intentId, { serverSessionId: sessionId, confirmedBytes: 5 });
+    return { clientUploadId: intentId, fileName: record.fileName, fileSize: record.fileSize, chunkHashes: record.chunkHashes };
+  }, { modulePath, intentId, sessionId });
+  let completed = false;
+  const requests: string[] = [];
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "authorization" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    requests.push(request.method());
+    if (request.method() === "POST") {
+      if (!completed) { completed = true; return route.abort("connectionreset"); }
+      return route.fulfill({ headers, json: { id: jobId } });
+    }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: completed ? "COMPLETED" : "RECEIVING",
+      bytesReceived: 5, nextChunkIndex: 1, expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      jobId: completed ? jobId : null,
+    } });
+  });
+  const result = await page.evaluate(async () => {
+    const { completeRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+    let failed = false;
+    try { await completeRetainedUpload("owner", "synthetic-token"); } catch { failed = true; }
+    const completed = await completeRetainedUpload("owner", "synthetic-token");
+    return { failed, state: completed.state, jobId: completed.state === "completed" ? completed.jobId : null };
+  });
+  expect(result).toEqual({ failed: true, state: "completed", jobId });
+  expect(requests).toEqual(["GET", "POST", "GET", "POST"]);
+});
+
+test("completion does not start for a paused or incomplete upload", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  const metadata = await page.evaluate(async ({ modulePath, intentId, sessionId }) => {
+    const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { record } = await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    await updateRetainedUpload("owner", intentId, { serverSessionId: sessionId, paused: true });
+    return { clientUploadId: intentId, fileName: record.fileName, fileSize: record.fileSize, chunkHashes: record.chunkHashes };
+  }, { modulePath, intentId, sessionId });
+  const methods: string[] = [];
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "authorization" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    methods.push(route.request().method());
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
+      bytesReceived: 0, nextChunkIndex: 0, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const result = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { completeRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+    const paused = await completeRetainedUpload("owner", "synthetic-token");
+    await updateRetainedUpload("owner", intentId, { paused: false });
+    const incomplete = await completeRetainedUpload("owner", "synthetic-token");
+    return { paused: paused.state, incomplete: incomplete.state };
+  }, { modulePath, intentId });
+  expect(result).toEqual({ paused: "paused", incomplete: "not-ready" });
+  expect(methods).toEqual(["GET"]);
+});
+
+test("completion does not claim a deleted or mismatched completed job", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  const jobId = randomUUID();
+  const metadata = await page.evaluate(async ({ modulePath, intentId, sessionId }) => {
+    const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { record } = await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    await updateRetainedUpload("owner", intentId, { serverSessionId: sessionId, confirmedBytes: 5 });
+    return { clientUploadId: intentId, fileName: record.fileName, fileSize: record.fileSize, chunkHashes: record.chunkHashes };
+  }, { modulePath, intentId, sessionId });
+  let deleted = true;
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "authorization" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST") {
+      if (deleted) return route.fulfill({ status: 410, headers,
+        json: { code: "UPLOAD_COMPLETED_JOB_DELETED", message: "Job was deleted" } });
+      return route.fulfill({ headers, json: { id: randomUUID() } });
+    }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "COMPLETED",
+      bytesReceived: 5, nextChunkIndex: 1, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId,
+    } });
+  });
+  const attempt = () => page.evaluate(async () => {
+    const { completeRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+    try { await completeRetainedUpload("owner", "synthetic-token"); return "unexpected-success"; }
+    catch (error) { return (error as { code: string }).code; }
+  });
+  expect(await attempt()).toBe("UPLOAD_COMPLETED_JOB_DELETED");
+  deleted = false;
+  expect(await attempt()).toBe("UPLOAD_INTENT_CONFLICT");
+});
+
+test("completion holds the same lock as chunk transfers", async ({ context }) => {
+  const first = await openHarness(context);
+  const second = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  const jobId = randomUUID();
+  const metadata = await first.evaluate(async ({ modulePath, intentId, sessionId }) => {
+    const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { record } = await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    await updateRetainedUpload("owner", intentId, { serverSessionId: sessionId, confirmedBytes: 5 });
+    return { clientUploadId: intentId, fileName: record.fileName, fileSize: record.fileSize, chunkHashes: record.chunkHashes };
+  }, { modulePath, intentId, sessionId });
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let received = () => {};
+  const requestStarted = new Promise<void>((resolve) => { received = resolve; });
+  const methods: string[] = [];
+  await context.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    methods.push(request.method());
+    if (request.method() === "POST") { received(); await gate; return route.fulfill({ headers, json: { id: jobId } }); }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "FINALIZING",
+      bytesReceived: 5, nextChunkIndex: 1, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const pending = first.evaluate(async () => {
+    const { completeRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+    const result = await completeRetainedUpload("owner", "synthetic-token");
+    return result.state === "completed" ? result.jobId : result.state;
+  });
+  try {
+    await requestStarted;
+    const code = await second.evaluate(async () => {
+      const { transferRetainedChunk } = await import(/* @vite-ignore */ "/src/features/workspace/upload-transfer.ts");
+      try { await transferRetainedChunk("owner", "synthetic-token"); return "unexpected-success"; }
+      catch (error) { return (error as { code: string }).code; }
+    });
+    expect(code).toBe("UPLOAD_TRANSFER_BUSY");
+  } finally { release(); }
+  expect(await pending).toBe(jobId);
+  expect(methods).toEqual(["GET", "POST"]);
+});
+
+test("a completed response cannot be attached to a replaced saved upload", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  const nextId = randomUUID();
+  const metadata = await page.evaluate(async ({ modulePath, intentId, sessionId }) => {
+    const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { record } = await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    await updateRetainedUpload("owner", intentId, { serverSessionId: sessionId, confirmedBytes: 5 });
+    return { clientUploadId: intentId, fileName: record.fileName, fileSize: record.fileSize, chunkHashes: record.chunkHashes };
+  }, { modulePath, intentId, sessionId });
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let received = () => {};
+  const requestStarted = new Promise<void>((resolve) => { received = resolve; });
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "authorization" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST") { received(); await gate; return route.fulfill({ headers, json: { id: randomUUID() } }); }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
+      bytesReceived: 5, nextChunkIndex: 1, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const pending = page.evaluate(async () => {
+    const { completeRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+    try { await completeRetainedUpload("owner", "synthetic-token"); return "unexpected-success"; }
+    catch (error) { return (error as { code: string }).code; }
+  });
+  try {
+    await requestStarted;
+    await page.evaluate(async ({ modulePath, intentId, nextId }) => {
+      const { removeRetainedUpload, saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      await removeRetainedUpload("owner", intentId);
+      await saveRetainedUpload({ ownerId: "owner", clientUploadId: nextId,
+        file: new File(["new"], "new.xlsx"), selectedAt: Date.now() });
+    }, { modulePath, intentId, nextId });
+  } finally { release(); }
+  expect(await pending).toBe("UPLOAD_INTENT_CONFLICT");
+});
