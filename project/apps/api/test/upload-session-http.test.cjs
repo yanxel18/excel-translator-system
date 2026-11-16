@@ -210,6 +210,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(cancellationHistory, "The cancellation recovery changelog migration was applied.");
   for (const value of Object.values(cancellationHistory)) assert.ok(builtInHistory.includes(value), value);
+  const cancellationRetryHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-cancellation-retry-v6"],
+  )).rows[0];
+  assert.ok(cancellationRetryHistory, "The cancellation retry changelog migration was applied.");
+  for (const value of Object.values(cancellationRetryHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -515,6 +523,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const cancellationOwner = await addUser("browser-cancellation");
         await verifyBrowserCancellation({
           page, runtime, owner: cancellationOwner, token: tokenFor(cancellationOwner),
+        });
+      });
+      await page.unroute("**/api/upload-sessions/**");
+      await browserTest.test("cancellation retries a lost acknowledgement after reconciliation", async () => {
+        const verifyCancellationRetry = require("./upload-session-browser-cancellation-retry.cjs");
+        const cancellationOwner = await addUser("browser-cancellation-retry");
+        await verifyCancellationRetry({
+          page, runtime, owner: cancellationOwner, token: tokenFor(cancellationOwner), bytes,
         });
       });
     } finally {
