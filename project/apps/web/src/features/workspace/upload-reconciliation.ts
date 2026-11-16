@@ -11,8 +11,11 @@ export async function reconcileRetainedUpload(
   ownerId: string,
   token: string,
   signal?: AbortSignal,
+  expectedClientUploadId?: string,
 ): Promise<{ record: RetainedUpload; session: UploadSession | null }> {
   const record = await loadRetainedUpload(ownerId);
+  if (expectedClientUploadId && record.clientUploadId !== expectedClientUploadId)
+    throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed.");
   if (record.paused) return { record, session: null };
 
   const input = {

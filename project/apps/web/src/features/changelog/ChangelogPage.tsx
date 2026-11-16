@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-retries-v6",
+    title: "Prepare upload interruption retries",
+    details:
+      "The upload recovery foundation now waits between temporary failures, checks server progress before retrying and respects saved-upload deadlines and pauses. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:39:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-transfer-v6",
     title: "Prepare safer upload transfers",
     details:
