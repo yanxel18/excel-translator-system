@@ -24,6 +24,7 @@ import { TranslationService } from "../translation/translation.service";
 import { normalizeUploadFilename } from "../../utils/filename";
 import { isSupportedLanguagePair } from "./language-pairs";
 import { ApplicationSettingsService } from "../application-settings/application-settings.service";
+import { openWorkbookFileStream } from "../../common/workbook-file-stream";
 
 const ADVISORY_LOCK_NAMESPACE = 1_163_430_226;
 const SINGLETON_LOCK_ID = 1;
@@ -781,13 +782,18 @@ export class DatabaseJobManagementService
   async getDownload(
     id: string,
     ownerId: string,
-  ): Promise<{ fileName: string; buffer: Buffer }> {
+  ) {
     const job = await this.owned(id, ownerId);
     if (job.status !== DatabaseJobStatus.COMPLETED || !job.outputPath)
       throw new BadRequestException("The translated workbook is not ready.");
-    return {
-      fileName: job.fileName.replace(/\.xlsx$/i, "") + "-translated.xlsx",
-      buffer: await readFile(job.outputPath),
-    };
+    try {
+      return {
+        fileName: job.fileName.replace(/\.xlsx$/i, "") + "-translated.xlsx",
+        ...(await openWorkbookFileStream(job.outputPath)),
+      };
+    } catch (error) {
+      console.error("Translated workbook file could not be opened.", error);
+      throw new ServiceUnavailableException("The translated workbook is unavailable.");
+    }
   }
 }

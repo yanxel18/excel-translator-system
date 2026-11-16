@@ -21,7 +21,7 @@ interpretation when adding the 200 MB ceiling.
 | OOXML archives | Reject more than 250 MiB declared uncompressed data, over 10,000 entries, or expansion above 200:1 for entries larger than 1 MiB. Reject unsupported ZIP formats, unsafe/duplicate paths and corrupt archives. |
 | Output validation | Holds original/output buffers and opens both archives; compares package parts and parses output XML. |
 | History table preview | SheetJS reads the whole file before slicing displayed rows to 50 and columns to 20. The display limit is not a parsing-memory limit. |
-| ibis preview file endpoint | Owner-authorized endpoint reads the whole file and sends its bytes. |
+| ibis preview file endpoint | Owner-authorized endpoint streams the file from storage. |
 | Parent iframe adapter | Downloads an ArrayBuffer, checks 50 MiB, then transfers it with `postMessage` rather than deliberately copying it. |
 | Preview bridge | Independently checks 50 MiB; feeds bytes into the pinned ibisOffice browser/Wasm release. Requires WebGPU and HTTPS or localhost. |
 | Legacy JSON workbook endpoints | `workbookBuffer` caps buffer arrays at 50 MiB; Nest/Express JSON parsing uses the framework's default body limit. These are not a large-file transport. |
@@ -351,9 +351,9 @@ Keep the current ceiling until the remaining safeguards and tests pass:
 3. Preserve all ZIP/CRC/package-output checks. Bound entry-verification work
    without relying on JSZip internals or removing CRC validation. Do not raise
    the 250 MiB expansion limit merely to accept more worksheet data.
-4. Stream authorized preview/download responses from files, retaining owner
-   checks, filenames and failure reporting. For table previews, avoid parsing
-   the whole workbook merely to display a bounded window, or place that parser
+4. Authorized preview/download responses now stream from open files, retaining
+   owner checks, filenames and failure reporting. The table preview still parses
+   the whole workbook: avoid that for its bounded window or place the parser
    inside the same capacity budget.
 5. Increase the settings range and transport ceiling to 200 MiB only after
    the above work is verified. Keep the default at 50 and do not rewrite

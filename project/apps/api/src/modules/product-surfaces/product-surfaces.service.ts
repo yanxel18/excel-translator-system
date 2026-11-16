@@ -13,6 +13,7 @@ import { readFile, unlink } from "node:fs/promises";
 import * as XLSX from "xlsx";
 import { normalizeBasePath, pathAtBase } from "../../config/base-path";
 import { HistoryQuery } from "./history-query";
+import { openWorkbookFileStream } from "../../common/workbook-file-stream";
 
 const CHANGELOG_PAGE_SIZE = 10;
 
@@ -181,8 +182,9 @@ export class ProductSurfacesService {
         "The requested workbook is not ready to preview.",
       );
     try {
-      return await readFile(path);
-    } catch {
+      return await openWorkbookFileStream(path);
+    } catch (error) {
+      console.error("Workbook preview file could not be opened.", error);
       throw new BadRequestException("The workbook preview is unavailable.");
     }
   }
