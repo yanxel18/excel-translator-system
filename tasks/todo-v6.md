@@ -442,6 +442,10 @@ Dependencies: `resumable-client`.
 Core files: new upload-status component, existing locale provider,
 and `tests/upload-status.test.ts`.
 
+- Partial: the workspace now exposes localized, keyboard-operable progress,
+  pause, resume and cancel controls, including connection/capacity waiting
+  states. A narrow-screen browser test exercises persistent pause and the
+  Japanese and Chinese labels. Broader theme and layout checks remain open.
 - [ ] Show saving, uploading, offline, busy, paused, validating, completed
   and failed states with acknowledged progress and localized controls.
 - [ ] Pause/Resume/Cancel and waiting-for-sign-in feedback are keyboard
@@ -457,6 +461,11 @@ Dependencies: `upload-status-ui`.
 Core files: ModernApp, workspace controller/page, and
 `tests/resumable-uploads.test.ts`.
 
+- Partial: authenticated same-owner recovery now runs on every app route,
+  sign-out aborts the active transfer, and verified completion refreshes jobs.
+  An isolated real-API browser test covers a committed chunk paused before its
+  response, reload, resume and exact completed job; invalid workbooks are
+  cleaned up. Further restart, throttling and cross-tab UI checks remain open.
 - [ ] Save before initial transfer; restore only under the authenticated
   saved owner on any app route, without reselection after refresh/restart.
 - [ ] Logout/session expiry stops transfers but retains the file for the same

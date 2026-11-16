@@ -8,11 +8,12 @@ export async function transferRetainedUpload(
   token: string,
   signal?: AbortSignal,
   onProgress?: (progress: { confirmedBytes: number; fileSize: number }) => void,
+  onRetry?: (reason: "network" | "busy", progress: { confirmedBytes: number; fileSize: number }) => void,
 ): Promise<{ record: RetainedUpload; session: UploadSession | null }> {
   const original = await loadRetainedUpload(ownerId);
   let previousBytes = -1;
   for (;;) {
-    const result = await transferRetainedChunkWithRetry(ownerId, token, signal, original.clientUploadId);
+    const result = await transferRetainedChunkWithRetry(ownerId, token, signal, original.clientUploadId, onRetry);
     if (!result.session || result.session.status !== "RECEIVING") return result;
     if (result.record.confirmedBytes !== result.record.fileSize &&
         result.record.confirmedBytes <= previousBytes)

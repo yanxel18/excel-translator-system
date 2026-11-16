@@ -703,6 +703,88 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: orchestrationOwner.id } }), 1);
         assert.equal(await runtime.prisma.notification.count({ where: { jobId: job.id } }), 1);
       });
+      await browserTest.test("workspace controls pause and recover a committed chunk against the real API", async () => {
+        const uiOwner = await addUser("browser-workspace-controls");
+        const uiContext = await browser.newContext();
+        const uiPage = await uiContext.newPage();
+        uiPage.setDefaultTimeout(10000);
+        uiPage.setDefaultNavigationTimeout(10000);
+        let releaseResponse;
+        const heldResponse = new Promise((resolve) => { releaseResponse = resolve; });
+        let committed;
+        const firstCommitted = new Promise((resolve) => { committed = resolve; });
+        let held = false;
+        try {
+          await uiPage.addInitScript((token) => localStorage.setItem("excel-translator-token", token), tokenFor(uiOwner));
+          await uiPage.route("**/api/upload-sessions/**", async (route) => {
+            if (!held && route.request().method() === "PUT") {
+              held = true;
+              const response = await route.fetch();
+              committed(response.status());
+              await heldResponse;
+              await route.abort().catch(() => undefined);
+            } else await route.continue();
+          });
+          await uiPage.goto(browserOrigin);
+          await uiPage.locator('input[type="file"]').setInputFiles({
+            name: "workspace-controls.xlsx",
+            mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            buffer: bytes,
+          });
+          await uiPage.getByRole("button", { name: "Upload workbook" }).click();
+          let timer;
+          const firstStatus = await Promise.race([
+            firstCommitted,
+            new Promise((_, reject) => {
+              timer = setTimeout(() => reject(new Error("Workspace chunk did not commit.")), 15000);
+            }),
+          ]).finally(() => clearTimeout(timer));
+          assert.equal(firstStatus, 200);
+          await uiPage.getByRole("button", { name: "Pause upload" }).click();
+          releaseResponse();
+          await uiPage.getByText("Upload paused").waitFor();
+          await uiPage.reload();
+          await uiPage.getByText("Upload paused").waitFor();
+          await uiPage.getByRole("button", { name: "Resume upload" }).click();
+          await uiPage.getByText("Upload complete").waitFor({ timeout: 30000 });
+          const jobs = await runtime.prisma.translationJob.findMany({ where: { ownerId: uiOwner.id } });
+          assert.equal(jobs.length, 1);
+          assert.deepEqual(await fs.readFile(jobs[0].sourcePath), bytes);
+          const receipt = await runtime.prisma.uploadSession.findFirstOrThrow({ where: { ownerId: uiOwner.id } });
+          assert.equal(receipt.status, "COMPLETED");
+          assert.equal(receipt.completionJobId, jobs[0].id);
+        } finally {
+          releaseResponse();
+          await uiContext.close();
+        }
+      });
+      await browserTest.test("workspace rejects and cleans up an invalid workbook", async () => {
+        const uiOwner = await addUser("browser-workspace-invalid");
+        const uiContext = await browser.newContext();
+        const uiPage = await uiContext.newPage();
+        try {
+          await uiPage.addInitScript((token) => localStorage.setItem("excel-translator-token", token), tokenFor(uiOwner));
+          await uiPage.goto(browserOrigin);
+          await uiPage.locator('input[type="file"]').setInputFiles({
+            name: "invalid.xlsx",
+            mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            buffer: Buffer.from("not a workbook"),
+          });
+          await uiPage.getByRole("button", { name: "Upload workbook" }).click();
+          await uiPage.getByText("The uploaded workbook is invalid or contains no worksheets.").waitFor({ timeout: 30000 });
+          assert.equal(await runtime.prisma.translationJob.count({ where: { ownerId: uiOwner.id } }), 0);
+          const receipt = await runtime.prisma.uploadSession.findFirstOrThrow({ where: { ownerId: uiOwner.id } });
+          assert.equal(receipt.status, "FAILED");
+          const retained = await uiPage.evaluate(async (ownerId) => {
+            const { loadRetainedUpload } = await import("/src/features/workspace/upload-retention.ts");
+            try { await loadRetainedUpload(ownerId); return "present"; }
+            catch (error) { return error.code; }
+          }, uiOwner.id);
+          assert.equal(retained, "UPLOAD_NOT_FOUND");
+        } finally {
+          await uiContext.close();
+        }
+      });
     } finally {
       try {
         if (browser) await browser.close();

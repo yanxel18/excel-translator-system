@@ -36,6 +36,8 @@ interface WorkspacePageProps {
   fileInput: RefObject<HTMLInputElement>;
   error: string;
   busy: boolean;
+  uploadDisabled: boolean;
+  uploadInProgress: boolean;
   jobs: Job[];
   jobsLoading: boolean;
   onDismissError: () => void;
@@ -61,6 +63,8 @@ export default function WorkspacePage({
   fileInput,
   error,
   busy,
+  uploadDisabled,
+  uploadInProgress,
   jobs,
   jobsLoading,
   token,
@@ -137,7 +141,7 @@ export default function WorkspacePage({
         </Paper>
       )}
 
-      <Paper
+      {!uploadInProgress && <Paper
         withBorder
         radius="lg"
         p={{ base: "lg", sm: "xl" }}
@@ -207,12 +211,13 @@ export default function WorkspacePage({
             </Button>
           )}
         </Stack>
-      </Paper>
-      {file && (
+      </Paper>}
+      {file && !uploadInProgress && (
         <Group justify="flex-end">
           <Button
             onClick={onUpload}
             loading={busy}
+            disabled={uploadDisabled}
             leftSection={<CloudUpload size={16} />}
           >
             {t("Upload workbook")}
