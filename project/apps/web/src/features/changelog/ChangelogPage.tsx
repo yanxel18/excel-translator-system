@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-upload-reconciliation-v6",
+    title: "Prepare upload recovery checks",
+    details:
+      "The upload recovery foundation can now match a saved workbook with its server session and confirmed progress, while respecting a manual pause and avoiding stale progress updates. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:29:00.000Z",
+  },
+  {
     id: "changelog-20261116-mobile-ongoing-actions",
     title: "Improve mobile translation actions",
     details:

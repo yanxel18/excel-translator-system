@@ -282,6 +282,7 @@ export async function updateRetainedUpload(
   ownerId: string,
   clientUploadId: string,
   update: RetainedUploadUpdate,
+  expected?: RetainedUpload,
 ): Promise<RetainedUpload> {
   if (!validOwner(ownerId) || typeof clientUploadId !== "string" || !UUID.test(clientUploadId) ||
       typeof update !== "object" || update === null ||
@@ -300,6 +301,19 @@ export async function updateRetainedUpload(
         if (!isRetainedUpload(current)) return abort(corrupt());
         if (current.clientUploadId !== clientUploadId.toLowerCase())
           return abort(new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload has changed."));
+        if (expected && (
+          current.ownerId !== expected.ownerId ||
+          current.clientUploadId !== expected.clientUploadId ||
+          current.fileName !== expected.fileName ||
+          current.fileSize !== expected.fileSize ||
+          current.selectedAt !== expected.selectedAt ||
+          current.serverSessionId !== expected.serverSessionId ||
+          current.confirmedBytes !== expected.confirmedBytes ||
+          current.expiresAt !== expected.expiresAt ||
+          current.chunkHashes.length !== expected.chunkHashes.length ||
+          current.chunkHashes.some((hash, index) => hash !== expected.chunkHashes[index])
+        ))
+          return abort(new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload changed during reconciliation."));
         const sessionId = update.serverSessionId?.toLowerCase() ?? current.serverSessionId;
         if (current.serverSessionId && sessionId !== current.serverSessionId)
           return abort(new RetentionError("UPLOAD_INTENT_CONFLICT", "The saved upload already belongs to another server session."));
