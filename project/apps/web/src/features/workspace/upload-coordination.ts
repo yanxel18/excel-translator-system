@@ -1,10 +1,21 @@
-import { loadRetainedUpload, RetentionError, type RetainedUpload } from "./upload-retention";
+import { loadRetainedUpload, RetentionError, updateRetainedUpload, type RetainedUpload } from "./upload-retention";
 
 export class UploadRequestTimeoutError extends Error {
   constructor() {
     super("The upload request timed out.");
     this.name = "UploadRequestTimeoutError";
   }
+}
+
+/** The controller must belong to this upload's active operation in this tab. */
+export async function pauseRetainedUpload(
+  ownerId: string,
+  clientUploadId: string,
+  activeController: AbortController,
+): Promise<RetainedUpload> {
+  const record = await updateRetainedUpload(ownerId, clientUploadId, { paused: true });
+  activeController.abort();
+  return record;
 }
 
 export async function withRetainedUploadLock<T>(

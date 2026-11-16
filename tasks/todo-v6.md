@@ -332,6 +332,11 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   uploads and preserve completed-job receipts. They stop on abort, replacement,
   expiry and permanent errors. Coordinated in-flight pause/cancel and
   real-server browser verification remain open; the UI is not connected.
+- Partial: a same-tab pause helper commits the pause before aborting its active
+  request and rejects a replaced intent without interrupting it. On resume,
+  transfer reconciliation handles a chunk that may have reached the server.
+  Cross-tab interruption, in-flight cancellation orchestration and real-server
+  browser verification remain open; the UI is not connected.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

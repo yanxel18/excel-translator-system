@@ -961,6 +961,93 @@ test("sequential transfer stops after an in-flight chunk when manually paused", 
   expect(puts).toBe(1);
 });
 
+test("manual pause persists before interrupting an in-flight chunk and reconciles on resume", async ({ context }) => {
+  const page = await openHarness(context);
+  const intentId = randomUUID();
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let bytes = 0;
+  const requests: string[] = [];
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let received = () => {};
+  const started = new Promise<void>((resolve) => { received = resolve; });
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    requests.push(request.method());
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") {
+      bytes = 5;
+      received();
+      await gate;
+    }
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING", bytesReceived: bytes,
+      nextChunkIndex: bytes ? 1 : 0, expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    Object.assign(window, { uploadController: new AbortController() });
+  }, { modulePath, intentId });
+  const pending = page.evaluate(async () => {
+    const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+    const controller = (window as Window & { uploadController: AbortController }).uploadController;
+    try { await transferRetainedUpload("owner", "synthetic-token", controller.signal); return "unexpected-success"; }
+    catch (error) { return (error as Error).name; }
+  });
+  try {
+    await started;
+    const paused = await page.evaluate(async ({ modulePath, intentId }) => {
+      const { pauseRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-coordination.ts");
+      const { loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      const controller = (window as Window & { uploadController: AbortController }).uploadController;
+      const atAbort = new Promise<boolean>((resolve, reject) => {
+        controller.signal.addEventListener("abort", () => {
+          loadRetainedUpload("owner").then((record: { paused: boolean }) => resolve(record.paused), reject);
+        }, { once: true });
+      });
+      const record = await pauseRetainedUpload("owner", intentId, controller);
+      return { paused: record.paused, aborted: controller.signal.aborted, pausedAtAbort: await atAbort };
+    }, { modulePath, intentId });
+    expect(paused).toEqual({ paused: true, aborted: true, pausedAtAbort: true });
+    expect(await pending).toBe("AbortError");
+  } finally { release(); }
+  const resumed = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+    await updateRetainedUpload("owner", intentId, { paused: false });
+    const result = await transferRetainedUpload("owner", "synthetic-token");
+    return { bytes: result.record.confirmedBytes, paused: result.record.paused };
+  }, { modulePath, intentId });
+  expect(resumed).toEqual({ bytes: 5, paused: false });
+  expect(requests).toEqual(["POST", "PUT", "GET"]);
+});
+
+test("a stale pause cannot interrupt or modify a replacement upload", async ({ context }) => {
+  const page = await openHarness(context);
+  const oldId = randomUUID();
+  const nextId = randomUUID();
+  const result = await page.evaluate(async ({ modulePath, oldId, nextId }) => {
+    const { saveRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { pauseRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-coordination.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: nextId,
+      file: new File(["new"], "new.xlsx"), selectedAt: Date.now() });
+    const controller = new AbortController();
+    let code = "";
+    try { await pauseRetainedUpload("owner", oldId, controller); }
+    catch (error) { code = (error as { code: string }).code; }
+    const record = await loadRetainedUpload("owner");
+    return { code, aborted: controller.signal.aborted, paused: record.paused, id: record.clientUploadId };
+  }, { modulePath, oldId, nextId });
+  expect(result).toEqual({ code: "UPLOAD_INTENT_CONFLICT", aborted: false, paused: false, id: nextId });
+});
+
 test("sequential transfer stops if another intent replaces the saved upload", async ({ context }) => {
   const page = await openHarness(context);
   const intentId = randomUUID();
