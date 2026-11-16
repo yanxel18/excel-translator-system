@@ -352,8 +352,8 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   interruption, and retries under the shared lock with reconciliation before
   each cancellation attempt. It keeps the file through server contention and
   preserves completed jobs; replaced intents and aborted waits are not deleted.
-  An interrupted committed-chunk case is verified against the real server;
-  other cases and UI integration remain open.
+  Interrupted committed-chunk and committed-completion cases are verified
+  against the real server; other cases and UI integration remain open.
 - Partial: an opt-in browser test uses real IndexedDB, Vite, Nest and a
   disposable PostgreSQL container. It forwards one chunk and one completion
   request to the server, then drops their successful responses. Reconciliation
@@ -401,6 +401,10 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   server commits a chunk but before its response reaches the transferring tab.
   It verifies the interrupted transfer, persisted pause and reconciled bytes
   before cancellation and cleanup. Other cross-tab cases remain open.
+- Partial: a real-server browser test cancels from a second tab after the
+  server commits completion but before its response reaches the completing
+  tab. It verifies interruption and reconciliation without DELETE, preserving
+  the workbook, completed job and notification. Other orderings remain open.
 - Partial: upload promotion and cleanup compare exact filesystem identities,
   including inode values beyond JavaScript's safe integer range; foreign
   files remain untouched in the collision regression.

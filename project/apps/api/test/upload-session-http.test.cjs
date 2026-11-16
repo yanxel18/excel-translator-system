@@ -258,6 +258,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(fileIdentityHistory, "The file identity safety changelog migration was applied.");
   for (const value of Object.values(fileIdentityHistory)) assert.ok(builtInHistory.includes(value), value);
+  const crossTabCompletionHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-cross-tab-completion-v6"],
+  )).rows[0];
+  assert.ok(crossTabCompletionHistory, "The cross-tab completion changelog migration was applied.");
+  for (const value of Object.values(crossTabCompletionHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -599,6 +607,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const verifyCrossTabCancellation = require("./upload-session-browser-cross-tab-cancellation.cjs");
         const crossTabOwner = await addUser("browser-cross-tab-cancellation");
         await verifyCrossTabCancellation({
+          page, runtime, owner: crossTabOwner, token: tokenFor(crossTabOwner), bytes,
+        });
+      });
+      await browserTest.test("cross-tab cancellation preserves a job completed during an in-flight request", async () => {
+        const verifyCrossTabCompletion = require("./upload-session-browser-cross-tab-completion.cjs");
+        const crossTabOwner = await addUser("browser-cross-tab-completion");
+        await verifyCrossTabCompletion({
           page, runtime, owner: crossTabOwner, token: tokenFor(crossTabOwner), bytes,
         });
       });
