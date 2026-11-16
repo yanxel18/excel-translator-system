@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActionIcon,
   Alert,
   Button,
   Group,
@@ -17,7 +18,7 @@ import {
 import {
   ArrowDown, ArrowUp, ArrowUpDown, Building2, Check, ChevronRight,
   CalendarClock, CircleAlert, Eye, LockKeyhole, Mail, Pencil, Plus, Save,
-  Search, Settings, ShieldCheck, SlidersHorizontal, Trash2, UserRound, Users,
+  Search, Settings, ShieldCheck, SlidersHorizontal, Trash2, UserRound, Users, X,
 } from "lucide-react";
 import type { View } from "../app-shell/types";
 import { useLocale } from "../shared/LocaleProvider";
@@ -69,6 +70,7 @@ const labels = {
     "Maintenance notices": "メンテナンス通知",
     "Configure the maintenance notice shown to signed-in users.": "サインイン中のユーザーに表示するメンテナンス通知を設定します。",
     Search: "検索",
+    "Clear search": "検索をクリア",
     "Search users or bases": "ユーザーまたは拠点を検索",
     "Search bases": "拠点を検索",
     Create: "作成",
@@ -121,6 +123,7 @@ const labels = {
     "Maintenance notices": "维护通知",
     "Configure the maintenance notice shown to signed-in users.": "配置向已登录用户显示的维护通知。",
     Search: "搜索",
+    "Clear search": "清除搜索",
     "Search users or bases": "搜索用户或据点",
     "Search bases": "搜索据点",
     Create: "创建",
@@ -220,17 +223,8 @@ export default function SystemSettings({
       ? "code"
       : "username";
   const direction = params.get("direction") === "desc" ? "desc" : "asc";
-  const rawBaseId = params.get("baseId") || "";
-  const baseId =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      rawBaseId,
-    )
-      ? rawBaseId
-      : "";
-  const enabled = ["true", "false"].includes(params.get("enabled") || "")
-    ? params.get("enabled")!
-    : "";
   const [term, setTerm] = useState(q);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<(Base | User)[]>([]);
   const [bases, setBases] = useState<Base[]>([]);
   const [knownBases, setKnownBases] = useState<Base[]>([]);
@@ -287,10 +281,6 @@ export default function SystemSettings({
       direction,
     });
     if (q) query.set("q", q);
-    if (selected === "settings/users") {
-      if (baseId) query.set("baseId", baseId);
-      if (enabled) query.set("enabled", enabled);
-    }
     const fetchPage =
       selected === "settings/bases"
         ? management.bases(token, query.toString())
@@ -321,8 +311,6 @@ export default function SystemSettings({
     sort,
     direction,
     q,
-    baseId,
-    enabled,
     revision,
   ]);
   useEffect(() => {
@@ -352,6 +340,10 @@ export default function SystemSettings({
   }, [token, selected, baseSearch, revision]);
   const change = (updates: Record<string, string>, reset = true) => {
     const next = new URLSearchParams(search);
+    if (selected === "settings/users") {
+      next.delete("baseId");
+      next.delete("enabled");
+    }
     Object.entries(updates).forEach(([key, value]) =>
       value ? next.set(key, value) : next.delete(key),
     );
@@ -428,7 +420,6 @@ export default function SystemSettings({
       setSaving(false);
     }
   };
-  const selectedBaseIds = [baseId].filter(Boolean);
   const toggleAccess = async (user: User) => {
     if (updatingUser) return;
     setUpdatingUser(user.id);
@@ -450,17 +441,10 @@ export default function SystemSettings({
     ...new Map(
       [
         ...bases,
-        ...knownBases.filter((base) => selectedBaseIds.includes(base.id) || base.code === userBase),
+        ...knownBases.filter((base) => base.code === userBase),
       ].map((base) => [base.id, base]),
     ).values(),
   ];
-  const baseOptions = optionBases.map((base) => ({
-    value: base.id,
-    label: base.code,
-  }));
-  for (const id of selectedBaseIds)
-    if (!baseOptions.some((option) => option.value === id))
-      baseOptions.push({ value: id, label: id });
   const acronymOptions = optionBases.map((base) => ({
     value: base.code,
     label: base.code,
@@ -599,8 +583,28 @@ export default function SystemSettings({
               >
                 <Group align="end" gap="sm">
                   <TextInput
+                    ref={searchInput}
                     className="settings-search"
                     leftSection={<Search size={16} aria-hidden="true" />}
+                    rightSection={
+                      selected === "settings/users" && term ? (
+                        <ActionIcon
+                          type="button"
+                          aria-label={t("Clear search")}
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          onClick={() => {
+                            setTerm("");
+                            change({ q: "" });
+                            searchInput.current?.focus();
+                          }}
+                        >
+                          <X size={18} aria-hidden="true" />
+                        </ActionIcon>
+                      ) : null
+                    }
+                    rightSectionPointerEvents="all"
                     label={t("Search")}
                     placeholder={t(
                       selected === "settings/users"
@@ -614,33 +618,6 @@ export default function SystemSettings({
                   <Button type="submit" variant="default" leftSection={<Search size={16} aria-hidden="true" />}>
                     {t("Search")}
                   </Button>
-                  {selected === "settings/users" && (
-                    <>
-                      <Select
-                        className="settings-filter"
-                        leftSection={<Building2 size={16} aria-hidden="true" />}
-                        label={t("Base")}
-                        searchable
-                        clearable
-                        data={baseOptions}
-                        value={baseId || null}
-                        onSearchChange={setBaseSearch}
-                        onChange={(v) => change({ baseId: v || "" })}
-                      />
-                      <Select
-                        className="settings-filter"
-                        leftSection={<ShieldCheck size={16} aria-hidden="true" />}
-                        label={t("Enabled")}
-                        clearable
-                        data={[
-                          { value: "true", label: t("Yes") },
-                          { value: "false", label: t("No") },
-                        ]}
-                        value={enabled || null}
-                        onChange={(v) => change({ enabled: v || "" })}
-                      />
-                    </>
-                  )}
                 </Group>
               </form>
               {notice && !dialog && (

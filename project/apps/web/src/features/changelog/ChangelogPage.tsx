@@ -14,6 +14,48 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-sequential-upload-v6",
+    title: "Prepare sequential upload recovery",
+    details:
+      "The upload recovery foundation can now transfer a saved workbook in order, resume after interrupted acknowledgements and stop when an upload is paused or replaced. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:43:00.000Z",
+  },
+  {
+    id: "changelog-20261116-upload-retries-v6",
+    title: "Prepare upload interruption retries",
+    details:
+      "The upload recovery foundation now waits between temporary failures, checks server progress before retrying and respects saved-upload deadlines and pauses. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:39:00.000Z",
+  },
+  {
+    id: "changelog-20261116-upload-transfer-v6",
+    title: "Prepare safer upload transfers",
+    details:
+      "The upload recovery foundation can now send a saved workbook one chunk at a time, checking server progress after interruptions and preventing competing tabs from sending simultaneously. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:31:00.000Z",
+  },
+  {
+    id: "changelog-20261116-upload-reconciliation-v6",
+    title: "Prepare upload recovery checks",
+    details:
+      "The upload recovery foundation can now match a saved workbook with its server session and confirmed progress, while respecting a manual pause and avoiding stale progress updates. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T00:29:00.000Z",
+  },
+  {
+    id: "changelog-20261116-mobile-ongoing-actions",
+    title: "Improve mobile translation actions",
+    details:
+      "Settings, Start and other ongoing translation actions are now aligned to the right on smaller screens.",
+    publishedAt: "2026-11-16T00:22:00.000Z",
+  },
+  {
+    id: "changelog-20261116-workspace-search-localization",
+    title: "Improve workspace translations and search",
+    details:
+      "Ongoing translation details and dates now follow your selected language. The notification preview and user search have been simplified, and user search now has a clear button.",
+    publishedAt: "2026-11-16T00:11:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-session-client-v6",
     title: "Prepare upload-session requests",
     details:

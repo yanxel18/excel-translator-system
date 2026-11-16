@@ -293,6 +293,27 @@ existing API client, and `tests/resumable-upload-client.test.ts`.
   preserving tracked requests and session-expiry handling. Browser tests use
   intercepted responses; no real-server transfer has been verified yet.
   The transport is not wired into the existing upload UI.
+- Partial: a reconciliation helper reuses the saved intent after an uncertain
+  session-creation response, checks server file hashes and metadata, and saves
+  server-confirmed progress without extending the local deadline. A guarded
+  browser-storage update rejects a stale response if another tab changed the
+  saved session or progress; manual pause prevents new reconciliation requests.
+  The reconciliation helper alone is not a transfer loop or cross-tab lock.
+- Partial: a one-chunk transfer primitive reconciles before each write, uses
+  a fail-closed browser lock against concurrent transfers, checks acknowledged
+  progress, and bounds requests. Tests simulate lost acknowledgements and
+  competing tabs. It is not wired into the UI.
+- Partial: a one-chunk retry wrapper uses the approved backoff, jitter and
+  cooldown, honors longer Retry-After delays, and stops before expiry. It
+  reconciles after uncertain writes, detects replacement intents, and does not
+  retry authentication, validation or storage failures. Paused uploads do not
+  start another attempt. Coordinated in-flight pause and cancel, completion
+  and real-server verification remain outstanding.
+- Partial: a sequential transfer helper sends all remaining chunks using the
+  retry wrapper, binds the entire transfer to the original intent, stops on
+  pause or terminal session states, and rejects repeatedly regressing progress.
+  Reaching the final byte does not finalize or claim a completed job. It is not
+  wired into the UI and has only been tested against intercepted responses.
 - [ ] Reuse stable intent/session IDs, reconcile confirmed server offsets
   before writes, and recover unknown chunk/completion outcomes safely.
 - [ ] Apply reviewed retry delays, timeouts, expiry and manual-pause state;

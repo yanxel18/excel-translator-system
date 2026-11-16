@@ -214,6 +214,10 @@ const messages: Record<Locale, Record<string, string>> = {
     "or click to browse from your computer": "またはクリックしてファイルを選択",
     "Browse files": "ファイルを選択",
     "Upload workbook": "ワークブックをアップロード",
+    Ongoing: "進行中",
+    "Translations waiting to start or currently processing.": "開始待ちまたは処理中の翻訳。",
+    Added: "追加",
+    "text items": "テキスト項目",
     "Recent translations": "最近の翻訳",
     "Check progress and download completed files.":
       "進行状況を確認し、完了したファイルをダウンロードできます。",
@@ -554,6 +558,10 @@ const messages: Record<Locale, Record<string, string>> = {
     "or click to browse from your computer": "或点击从电脑中选择",
     "Browse files": "浏览文件",
     "Upload workbook": "上传工作簿",
+    Ongoing: "进行中",
+    "Translations waiting to start or currently processing.": "等待开始或正在处理的翻译。",
+    Added: "添加时间",
+    "text items": "个文本项",
     "Recent translations": "最近的翻译",
     "Check progress and download completed files.":
       "查看进度并下载已完成的文件。",
