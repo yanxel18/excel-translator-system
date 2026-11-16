@@ -31,7 +31,7 @@ export async function completeRetainedUpload(
       throw new RetentionError("UPLOAD_INTENT_CONFLICT", "The completed upload returned a different job.");
     const record = await updateRetainedUpload(ownerId, current.record.clientUploadId, {}, current.record);
     return { state: "completed", record, jobId: job.id };
-  });
+  }, true);
 }
 
 /** Reconciles every completion attempt, including after an unknown outcome. */

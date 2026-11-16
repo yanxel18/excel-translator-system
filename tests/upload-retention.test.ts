@@ -1029,6 +1029,106 @@ test("manual pause persists before interrupting an in-flight chunk and reconcile
   expect(requests).toEqual(["POST", "PUT", "GET"]);
 });
 
+for (const operation of ["chunk", "completion"] as const) {
+  test(`another tab pauses an in-flight ${operation} and preserves its uncertain outcome`, async ({ context }) => {
+    const activePage = await openHarness(context);
+    const pausePage = await openHarness(context);
+    const intentId = randomUUID();
+    const sessionId = randomUUID();
+    const jobId = randomUUID();
+    const metadata = await activePage.evaluate(async ({ modulePath, intentId, sessionId, operation }) => {
+      const { saveRetainedUpload, updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      const { record } = await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+        file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+      await updateRetainedUpload("owner", intentId, { serverSessionId: sessionId,
+        confirmedBytes: operation === "completion" ? 5 : 0 });
+      return { clientUploadId: intentId, fileName: record.fileName, fileSize: record.fileSize, chunkHashes: record.chunkHashes };
+    }, { modulePath, intentId, sessionId, operation });
+    let bytes = operation === "completion" ? 5 : 0;
+    let completed = false;
+    const requests: string[] = [];
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let received = () => {};
+    const started = new Promise<void>((resolve) => { received = resolve; });
+    await activePage.route("**/excel-convert/upload-sessions**", async (route) => {
+      const request = route.request();
+      const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+        "access-control-allow-headers": "authorization,content-type" };
+      if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+      requests.push(request.method());
+      if (request.method() === "PUT" || request.method() === "POST") {
+        bytes = 5;
+        completed = request.method() === "POST";
+        received();
+        await gate;
+      }
+      return route.fulfill({ headers, json: {
+        ...metadata, id: sessionId, chunkSize: 1048576,
+        status: completed ? "COMPLETED" : "RECEIVING", bytesReceived: bytes,
+        nextChunkIndex: bytes ? 1 : 0, expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        jobId: completed ? jobId : null,
+      } });
+    });
+    const pending = activePage.evaluate(async ({ operation }) => {
+      const { transferRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-sequential.ts");
+      const { completeRetainedUploadWithRetry } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+      try {
+        if (operation === "chunk") await transferRetainedUpload("owner", "synthetic-token");
+        else await completeRetainedUploadWithRetry("owner", "synthetic-token");
+        return "unexpected-success";
+      } catch (error) { return (error as Error).name; }
+    }, { operation });
+    try {
+      await started;
+      const paused = await pausePage.evaluate(async ({ intentId }) => {
+        const { pauseRetainedUploadAcrossTabs } = await import(/* @vite-ignore */ "/src/features/workspace/upload-coordination.ts");
+        return (await pauseRetainedUploadAcrossTabs("owner", intentId)).paused;
+      }, { intentId });
+      expect(paused).toBe(true);
+      expect(await pending).toBe("AbortError");
+    } finally { release(); }
+    const saved = await pausePage.evaluate(async ({ modulePath }) => {
+      const { loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      const record = await loadRetainedUpload("owner");
+      return { paused: record.paused, bytes: record.confirmedBytes, fileName: record.fileName };
+    }, { modulePath });
+    expect(saved).toEqual({ paused: true, bytes: operation === "completion" ? 5 : 0, fileName: "test.xlsx" });
+    const reconciled = await activePage.evaluate(async ({ modulePath, intentId }) => {
+      const { updateRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+      const { reconcileRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-reconciliation.ts");
+      await updateRetainedUpload("owner", intentId, { paused: false });
+      const result = await reconcileRetainedUpload("owner", "synthetic-token", undefined, intentId);
+      return { bytes: result.record.confirmedBytes, status: result.session?.status, jobId: result.session?.jobId };
+    }, { modulePath, intentId });
+    expect(reconciled).toEqual({ bytes: 5, status: operation === "completion" ? "COMPLETED" : "RECEIVING",
+      jobId: operation === "completion" ? jobId : null });
+    expect(requests).toEqual(operation === "completion" ? ["GET", "POST", "GET"] : ["GET", "PUT", "GET"]);
+  });
+}
+
+test("cross-tab pause fails closed when coordination is unavailable or the intent has changed", async ({ context }) => {
+  const page = await openHarness(context);
+  const id = randomUUID();
+  const result = await page.evaluate(async ({ modulePath, id }) => {
+    const { saveRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { pauseRetainedUploadAcrossTabs } = await import(/* @vite-ignore */ "/src/features/workspace/upload-coordination.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: id,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    let stale = "";
+    try { await pauseRetainedUploadAcrossTabs("owner", crypto.randomUUID()); }
+    catch (error) { stale = (error as { code: string }).code; }
+    const channel = window.BroadcastChannel;
+    Object.defineProperty(window, "BroadcastChannel", { configurable: true, value: undefined });
+    let unavailable = "";
+    try { await pauseRetainedUploadAcrossTabs("owner", id); }
+    catch (error) { unavailable = (error as { code: string }).code; }
+    finally { Object.defineProperty(window, "BroadcastChannel", { configurable: true, value: channel }); }
+    return { stale, unavailable, paused: (await loadRetainedUpload("owner")).paused };
+  }, { modulePath, id });
+  expect(result).toEqual({ stale: "UPLOAD_INTENT_CONFLICT", unavailable: "UPLOAD_COORDINATION_UNAVAILABLE", paused: false });
+});
+
 test("a stale pause cannot interrupt or modify a replacement upload", async ({ context }) => {
   const page = await openHarness(context);
   const oldId = randomUUID();
