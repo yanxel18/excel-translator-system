@@ -218,6 +218,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(cancellationRetryHistory, "The cancellation retry changelog migration was applied.");
   for (const value of Object.values(cancellationRetryHistory)) assert.ok(builtInHistory.includes(value), value);
+  const completionCancelHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-completion-cancel-race-v6"],
+  )).rows[0];
+  assert.ok(completionCancelHistory, "The completion/cancellation race changelog migration was applied.");
+  for (const value of Object.values(completionCancelHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -531,6 +539,13 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
         const cancellationOwner = await addUser("browser-cancellation-retry");
         await verifyCancellationRetry({
           page, runtime, owner: cancellationOwner, token: tokenFor(cancellationOwner), bytes,
+        });
+      });
+      await browserTest.test("cancellation preserves a job completed after reconciliation", async () => {
+        const verifyCompletionCancellationRace = require("./upload-session-browser-completion-cancel-race.cjs");
+        const raceOwner = await addUser("browser-completion-cancellation-race");
+        await verifyCompletionCancellationRace({
+          page, runtime, owner: raceOwner, token: tokenFor(raceOwner), bytes,
         });
       });
     } finally {

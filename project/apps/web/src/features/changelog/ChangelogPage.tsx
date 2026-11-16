@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-completion-cancel-race-v6",
+    title: "Verify completed uploads survive cancellation",
+    details:
+      "A browser test now checks that a workbook and its completed job are preserved when completion wins a race with cancellation. Automatic upload recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T03:10:00.000Z",
+  },
+  {
     id: "changelog-20261116-cancellation-retry-v6",
     title: "Verify upload cancellation retry",
     details:
