@@ -202,6 +202,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
   )).rows[0];
   assert.ok(apiRestartHistory, "The API restart changelog migration was applied.");
   for (const value of Object.values(apiRestartHistory)) assert.ok(builtInHistory.includes(value), value);
+  const cancellationHistory = (await client.query(
+    `SELECT "id", "title", "details",
+      to_char("publishedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "publishedAt"
+     FROM "ChangelogEntry" WHERE "id" = $1`,
+    ["changelog-20261116-cancellation-recovery-v6"],
+  )).rows[0];
+  assert.ok(cancellationHistory, "The cancellation recovery changelog migration was applied.");
+  for (const value of Object.values(cancellationHistory)) assert.ok(builtInHistory.includes(value), value);
 
   const { NestFactory } = require("@nestjs/core");
   const { installRequestBodyParsers } = require("../dist/common/request-body-parsers");
@@ -383,7 +391,7 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
     ownedWorkers.delete(worker);
   };
 
-  if (process.env.V6_REAL_BROWSER_TEST === "1") await t.test("real browser reconciles lost chunk and completion acknowledgements", async () => {
+  if (process.env.V6_REAL_BROWSER_TEST === "1") await t.test("real browser reconciles lost chunk and completion acknowledgements", async (browserTest) => {
     const { chromium } = require("playwright");
     const XLSX = require("xlsx");
     const owner = await addUser("browser-recovery");
@@ -501,6 +509,14 @@ test("authenticated upload-session lifecycle is private, retryable and cleanup-s
       assert.equal(await runtime.prisma.notification.count({ where: { jobId: result.jobId } }), 1);
       const job = await runtime.prisma.translationJob.findUniqueOrThrow({ where: { id: result.jobId } });
       assert.deepEqual(await fs.readFile(job.sourcePath), bytes);
+      await page.unroute("**/api/upload-sessions/**");
+      await browserTest.test("lost cancellation acknowledgement retains the file until reconciliation", async () => {
+        const verifyBrowserCancellation = require("./upload-session-browser-cancellation.cjs");
+        const cancellationOwner = await addUser("browser-cancellation");
+        await verifyBrowserCancellation({
+          page, runtime, owner: cancellationOwner, token: tokenFor(cancellationOwner),
+        });
+      });
     } finally {
       try {
         if (browser) await browser.close();

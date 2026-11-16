@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-cancellation-recovery-v6",
+    title: "Verify safer upload cancellation",
+    details:
+      "A browser test now checks that a saved workbook is kept after a lost cancellation response and removed only after the server confirms cancellation. Automatic recovery and 200 MB uploads are not enabled yet; existing uploads are unchanged.",
+    publishedAt: "2026-11-16T02:54:00.000Z",
+  },
+  {
     id: "changelog-20261116-api-restart-recovery-v6",
     title: "Verify upload recovery after server restart",
     details:
