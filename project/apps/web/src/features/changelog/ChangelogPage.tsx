@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261116-resumable-upload-orchestration-v6",
+    title: "Prepare resumable upload progress and completion",
+    details:
+      "Resumable upload development now combines confirmed transfer progress with job completion and removes the saved browser copy only after success. The upload controls and automatic recovery are not connected yet, and the 200 MB limit remains disabled.",
+    publishedAt: "2026-11-16T05:50:00.000Z",
+  },
+  {
     id: "changelog-20261116-upload-creation-cross-tab-cancellation-v6",
     title: "Verify upload setup cancellation across tabs",
     details:

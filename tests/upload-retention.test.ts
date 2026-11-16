@@ -916,6 +916,86 @@ test("sequential transfer reconciles lost acknowledgements and stops before comp
   ]);
 });
 
+test("upload orchestration preserves a manually paused workbook without starting requests", async ({ context }) => {
+  const page = await openHarness(context);
+  let requests = 0;
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    requests++;
+    await route.abort();
+  });
+  const result = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload, updateRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { runRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-orchestration.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    await updateRetainedUpload("owner", intentId, { paused: true });
+    const progress: unknown[] = [];
+    const outcome = await runRetainedUpload("owner", "synthetic-token", undefined, (event: unknown) => progress.push(event));
+    const saved = await loadRetainedUpload("owner");
+    return { state: outcome.state, paused: saved.paused, bytes: await saved.file.text(), progress };
+  }, { modulePath, intentId: randomUUID() });
+  expect(result).toEqual({ state: "paused", paused: true, bytes: "bytes", progress: [] });
+  expect(requests).toBe(0);
+});
+
+test("upload orchestration retains the workbook when completion is rejected", async ({ context }) => {
+  const page = await openHarness(context);
+  const sessionId = randomUUID();
+  let metadata: Record<string, unknown> = {};
+  let received = 0;
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    const request = route.request();
+    const headers = { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+      "access-control-allow-headers": "authorization,content-type" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    if (request.method() === "POST" && request.url().endsWith("/completion"))
+      return route.fulfill({ status: 403, headers, json: { code: "FORBIDDEN", message: "Not authorized." } });
+    if (request.method() === "POST") metadata = request.postDataJSON();
+    if (request.method() === "PUT") received = request.postDataBuffer()!.length;
+    return route.fulfill({ headers, json: {
+      ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING", bytesReceived: received,
+      nextChunkIndex: Math.ceil(received / 1048576),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(), jobId: null,
+    } });
+  });
+  const result = await page.evaluate(async ({ modulePath, intentId }) => {
+    const { saveRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { runRetainedUpload } = await import(/* @vite-ignore */ "/src/features/workspace/upload-orchestration.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: intentId,
+      file: new File(["bytes"], "test.xlsx"), selectedAt: Date.now() });
+    let code;
+    try { await runRetainedUpload("owner", "synthetic-token"); }
+    catch (error) { code = (error as { code?: string }).code; }
+    const saved = await loadRetainedUpload("owner");
+    return { code, savedId: saved.clientUploadId, bytes: await saved.file.text(), confirmed: saved.confirmedBytes };
+  }, { modulePath, intentId: randomUUID() });
+  expect(result).toMatchObject({ code: "FORBIDDEN", bytes: "bytes", confirmed: 5 });
+  expect(result.savedId).toBeTruthy();
+});
+
+test("completion retry rejects a replaced intent before making any request", async ({ context }) => {
+  const page = await openHarness(context);
+  const savedId = randomUUID();
+  let requests = 0;
+  await page.route("**/excel-convert/upload-sessions**", async (route) => {
+    requests++;
+    await route.abort();
+  });
+  const result = await page.evaluate(async ({ modulePath, savedId, originalId }) => {
+    const { saveRetainedUpload, loadRetainedUpload } = await import(/* @vite-ignore */ modulePath);
+    const { completeRetainedUploadWithRetry } = await import(/* @vite-ignore */ "/src/features/workspace/upload-completion.ts");
+    await saveRetainedUpload({ ownerId: "owner", clientUploadId: savedId,
+      file: new File(["new"], "new.xlsx"), selectedAt: Date.now() });
+    let code;
+    try { await completeRetainedUploadWithRetry("owner", "synthetic-token", undefined, originalId); }
+    catch (error) { code = (error as { code?: string }).code; }
+    return { code, savedId: (await loadRetainedUpload("owner")).clientUploadId };
+  }, { modulePath, savedId, originalId: randomUUID() });
+  expect(result.code).toBe("UPLOAD_INTENT_CONFLICT");
+  expect(result.savedId).toBe(savedId);
+  expect(requests).toBe(0);
+});
+
 test("sequential transfer stops after an in-flight chunk when manually paused", async ({ context }) => {
   const page = await openHarness(context);
   const intentId = randomUUID();
