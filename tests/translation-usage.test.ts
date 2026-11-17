@@ -3,6 +3,46 @@ import { expect, test, type Route } from "@playwright/test";
 const api = process.env.API_BASE_URL || "http://localhost:3000/excel-convert";
 const web = process.env.WEB_BASE_PATH || "/excel-convert/";
 
+test("history explains token estimates in the selected language", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("excel-translator-token", "usage-test"));
+  const respond = async (route: Route) => {
+    const path = new URL(route.request().url()).pathname;
+    await route.fulfill({ json: path.endsWith("/profile")
+      ? { id: "owner", username: "alice", isAdmin: false }
+      : path.endsWith("/history")
+        ? { data: [], total: 0, page: 1, pageSize: 10 }
+        : path.endsWith("/notifications/unread-count") ? { count: 0 } : [] });
+  };
+  await page.route(`${api}/**`, respond);
+  await page.goto(`${web}history`);
+  const link = page.getByRole("button", { name: "Read more about tokens" });
+  await link.focus();
+  await page.keyboard.press("Enter");
+  let dialog = page.getByRole("dialog", { name: "Understanding tokens" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Hello");
+  await expect(dialog).toContainText("こんにちは");
+  await expect(dialog).toContainText("5 UTF-8 bytes ÷ 4, rounded up = 2");
+  await expect(dialog).toContainText("15 UTF-8 bytes ÷ 4, rounded up = 4");
+  await expect(dialog).toContainText("not actual model usage");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(link).toBeFocused();
+  await page.getByRole("button", { name: "Change language" }).click();
+  await page.getByRole("menuitem", { name: "日本語" }).click();
+  await page.getByRole("button", { name: "トークンについて詳しく" }).click();
+  dialog = page.getByRole("dialog", { name: "トークンについて" });
+  await expect(dialog).toContainText("モデルの実際の使用量ではありません");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "表示言語を変更" }).click();
+  await page.getByRole("menuitem", { name: "中文" }).click();
+  await page.setViewportSize({ width: 320, height: 600 });
+  await page.getByRole("button", { name: "了解更多令牌信息" }).click();
+  dialog = page.getByRole("dialog", { name: "了解令牌" });
+  await expect(dialog).toContainText("并非模型实际用量");
+  await expect.poll(() => dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test("history and profile show recorded usage without inventing historical values", async ({ page }, testInfo) => {
   const baseJob = {
     fileSize: 1024, progress: 100, createdAt: "2026-11-17T00:00:00.000Z",
@@ -34,7 +74,6 @@ test("history and profile show recorded usage without inventing historical value
     await route.fulfill({ json: body });
   };
   await page.route(`${api}/**`, respond);
-  await page.route("**/api/**", respond);
   await page.clock.setFixedTime(new Date("2026-11-17T12:00:00.000Z"));
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto(`${web}history`);

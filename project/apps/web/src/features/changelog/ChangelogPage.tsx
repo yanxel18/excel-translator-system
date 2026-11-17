@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-token-explanation-v7",
+    title: "Learn how token estimates work",
+    details:
+      "Translation history now includes a localized guide to tokens, language and model differences, and how the app estimates input and output usage. Examples distinguish estimates from actual model counts.",
+    publishedAt: "2026-11-17T14:53:00.000Z",
+  },
+  {
     id: "changelog-20261117-browser-title-alerts-v7",
     title: "See translation updates in the browser tab",
     details:

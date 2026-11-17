@@ -42,6 +42,7 @@ import { useLocale } from "../shared/LocaleProvider";
 import { languageName } from "../shared/language-options";
 import WorkbookIcon from "../shared/WorkbookIcon";
 import PageBreadcrumbs from "../shared/PageBreadcrumbs";
+import TokenExplanation from "./TokenExplanation";
 import "./HistoryPage.css";
 
 const pageSizes = [10, 20, 30, 40, 50] as const;
@@ -337,6 +338,7 @@ export default function HistoryPage({
           <Text size="sm" c="dimmed">
             {t("Input usage appears after extraction; output usage appears after completion. Tokens are estimates, not model usage.")}{" "}
             {t("Bars compare input and output within each file.")}
+            <TokenExplanation />
           </Text>
         </div>
       </Group>
