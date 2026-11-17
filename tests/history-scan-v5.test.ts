@@ -15,6 +15,8 @@ const locales = [
     target: "Target language",
     created: "Created",
     actions: "Actions",
+    characters: "Characters",
+    tokens: "Estimated tokens",
     placeholder: "Search by Excel filename",
   },
   {
@@ -28,6 +30,8 @@ const locales = [
     target: "翻訳先の言語",
     created: "作成日",
     actions: "操作",
+    characters: "文字数",
+    tokens: "推定トークン",
     placeholder: "Excelファイル名で検索",
   },
   {
@@ -41,6 +45,8 @@ const locales = [
     target: "目标语言",
     created: "创建时间",
     actions: "操作",
+    characters: "字符数",
+    tokens: "估算令牌数",
     placeholder: "按 Excel 文件名搜索",
   },
 ] as const;
@@ -91,7 +97,7 @@ for (const locale of locales) {
     await page.goto(`${web}history?pageSize=50`);
 
     const search = page.getByRole("searchbox", { name: locale.searchLabel });
-    await expect(page.getByText(locale.searchLabel, { exact: true })).toBeVisible();
+    await expect(search).toBeVisible();
     await expect(search).toHaveAttribute("placeholder", locale.placeholder);
     const searchIcon = page.locator(
       ".history-search-field .mantine-Input-section[data-position='left'] svg",
@@ -109,16 +115,14 @@ for (const locale of locales) {
     await expect(search).toHaveValue("");
     await expect(clearSearch).toHaveCount(0);
     await expect(page.getByRole("table")).toBeVisible();
-    await expect(
-      page.locator('[aria-label*="breadcrumb" i]'),
-    ).toHaveCount(0);
+    await expect(page.locator(".mantine-Breadcrumbs-root")).toBeVisible();
     await expect(page.getByText("51", { exact: true })).toHaveCount(0);
 
     const viewport = page.locator(
       ".history-table-scroll [role='region']",
     );
     const headers = page.locator(".history-table-scroll thead th");
-    await expect(headers).toHaveCount(7);
+    await expect(headers).toHaveCount(9);
     const headerLabels = await headers.allTextContents();
     for (const label of [
       locale.fileName,
@@ -127,6 +131,8 @@ for (const locale of locales) {
       locale.source,
       locale.target,
       locale.created,
+      locale.characters,
+      locale.tokens,
       locale.actions,
     ]) {
       expect(headerLabels.join(" ")).toContain(label);
