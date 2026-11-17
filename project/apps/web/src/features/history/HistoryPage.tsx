@@ -41,6 +41,7 @@ import IbisPreview from "./IbisPreview";
 import { useLocale } from "../shared/LocaleProvider";
 import { languageName } from "../shared/language-options";
 import WorkbookIcon from "../shared/WorkbookIcon";
+import PageBreadcrumbs from "../shared/PageBreadcrumbs";
 import "./HistoryPage.css";
 
 const pageSizes = [10, 20, 30, 40, 50] as const;
@@ -321,6 +322,10 @@ export default function HistoryPage({
 
   return (
     <Stack gap="md" className="history-page">
+      <PageBreadcrumbs items={[
+        { label: t("Translate File"), href: import.meta.env.BASE_URL },
+        { label: t("Translation history") },
+      ]} />
       <Group justify="space-between">
         <div>
           <Text component="h1" fz="h2" fw={700}>

@@ -61,6 +61,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "The upload cannot be retried before its recovery deadline.": "復旧期限までにアップロードを再試行できません。",
     "Finish or cancel the account's saved upload first.": "先にこのアカウントの保存済みアップロードを完了またはキャンセルしてください。",
     "Clear search": "検索をクリア",
+    Breadcrumb: "パンくずリスト",
     "System Settings": "システム設定",
     "Files & processing": "ファイルと処理",
     "Maintenance notices": "メンテナンス通知",
@@ -510,6 +511,7 @@ const messages: Record<Locale, Record<string, string>> = {
     End: "结束",
     "Times are shown in your browser time zone": "时间按浏览器时区显示",
     "System Settings": "系统设置",
+    Breadcrumb: "面包屑导航",
     "Files & processing": "文件与处理",
     "Manage people, bases, file limits, and sign-in preferences.":
       "管理用户、据点、文件限制和登录设置。",

@@ -27,6 +27,7 @@ import ApplicationSettingsPanel from "./ApplicationSettingsPanel";
 import MaintenanceSettingsPanel from "./MaintenanceSettingsPanel";
 import { management, type Base, type User } from "./api";
 import UserDetailPage from "./UserDetailPage";
+import PageBreadcrumbs from "../shared/PageBreadcrumbs";
 import {
   fieldLimits,
   passwordMinLength,
@@ -192,17 +193,33 @@ export default function SystemSettings({
   search,
   onNavigate,
 }: Props) {
-  const { locale } = useLocale();
+  const { locale, t: translate } = useLocale();
   const t = (s: string) =>
     locale === "en"
       ? s
       : (labels[locale] as Record<string, string>)[s] ||
         validationLabels[locale][s] ||
-        s;
+        translate(s);
   const selected: Section = section.startsWith("settings/users")
     ? "settings/users"
     : (section as Section);
   const detailId = /^settings\/users\/([0-9a-f-]{36})$/i.exec(section)?.[1];
+  const isNewUser = section === "settings/users/new";
+  const sectionLabel: Record<Section, string> = {
+    "settings/users": "Users",
+    "settings/bases": "Bases",
+    "settings/files": "Files & processing",
+    "settings/authentication": "Authentication",
+    "settings/maintenance": "Maintenance notices",
+  };
+  const breadcrumbs = (
+    <PageBreadcrumbs items={[
+      { label: t("Translate File"), href: import.meta.env.BASE_URL },
+      { label: t("System Settings") },
+      { label: t(sectionLabel[selected]), href: detailId || isNewUser ? `${import.meta.env.BASE_URL}settings/users` : undefined },
+      ...(detailId ? [{ label: t("User details") }] : isNewUser ? [{ label: t("Create user") }] : []),
+    ]} />
+  );
   const params = new URLSearchParams(search);
   const positive = (s: string | null, fallback: number, max: number) =>
     s && /^[1-9]\d*$/.test(s) && Number(s) <= max ? Number(s) : fallback;
@@ -483,14 +500,18 @@ export default function SystemSettings({
   );
   if (detailId)
     return (
-      <UserDetailPage
-        token={token}
-        userId={detailId}
-        onBack={() => onNavigate("settings/users")}
-      />
+      <Stack gap="lg">
+        {breadcrumbs}
+        <UserDetailPage
+          token={token}
+          userId={detailId}
+          onBack={() => onNavigate("settings/users")}
+        />
+      </Stack>
     );
   return (
     <Stack gap="lg" className="system-settings">
+      {breadcrumbs}
       <Group gap="md" wrap="nowrap" className="settings-page-heading">
         <span className="settings-heading-icon"><Settings size={24} aria-hidden="true" /></span>
         <div>

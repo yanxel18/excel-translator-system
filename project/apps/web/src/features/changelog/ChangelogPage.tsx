@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-page-breadcrumbs-v7",
+    title: "Find your way between pages",
+    details:
+      "Translate File, History, and System Settings now show breadcrumbs, with links back to relevant pages and localized labels.",
+    publishedAt: "2026-11-17T13:45:00.000Z",
+  },
+  {
     id: "changelog-20261117-configurable-footer-v6",
     title: "Configure the footer company name",
     details:

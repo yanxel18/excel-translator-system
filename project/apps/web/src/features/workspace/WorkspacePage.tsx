@@ -8,7 +8,6 @@ import {
   ActionIcon,
   Badge,
   Box,
-  Breadcrumbs,
   Button,
   Group,
   Modal,
@@ -21,7 +20,6 @@ import {
 import {
   ArrowRight,
   CheckCircle2,
-  ChevronRight,
   CloudUpload,
 } from "lucide-react";
 import type { Job } from "../../api";
@@ -29,6 +27,7 @@ import JobList, { LoadingJobs } from "./JobList";
 import { useLocale } from "../shared/LocaleProvider";
 import IbisPreview from "../history/IbisPreview";
 import WorkbookIcon from "../shared/WorkbookIcon";
+import PageBreadcrumbs from "../shared/PageBreadcrumbs";
 
 interface WorkspacePageProps {
   file: File | null;
@@ -107,9 +106,7 @@ export default function WorkspacePage({
 
   return (
     <Stack gap="xl">
-      <Breadcrumbs separator={<ChevronRight size={14} />}>
-        <Text size="sm">{t("Workspace")}</Text>
-      </Breadcrumbs>
+      <PageBreadcrumbs items={[{ label: t("Translate File") }]} />
       <Group justify="space-between" align="end" className="workspace-heading">
         <Box>
           <Text component="h1" fz={26} fw={600}>

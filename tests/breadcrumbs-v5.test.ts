@@ -97,7 +97,7 @@ test("localized Workspace breadcrumb is keyboard navigable and current location 
   ).toBeVisible();
 });
 
-test("History renders without breadcrumb navigation", async ({ page }) => {
+test("History shows an accessible breadcrumb back to Translate File", async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem("excel-translator-token", "breadcrumbs-test-token"),
   );
@@ -126,5 +126,54 @@ test("History renders without breadcrumb navigation", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Translation history" }),
   ).toBeVisible();
-  await expect(page.locator(".mantine-Breadcrumbs-root")).toHaveCount(0);
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(breadcrumb).toBeVisible();
+  await expect(breadcrumb.getByText("Translation history")).toHaveAttribute("aria-current", "page");
+  await page.evaluate(() => localStorage.setItem("excel-translator-locale", "ja"));
+  await page.reload();
+  await expect(page.getByRole("navigation", { name: "パンくずリスト" }))
+    .toContainText("翻訳履歴");
+  await page.evaluate(() => localStorage.setItem("excel-translator-locale", "en"));
+  await page.reload();
+  await breadcrumb.getByRole("link", { name: "Translate File" }).click();
+  await expect(page.getByRole("heading", { name: "Translate a workbook" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }))
+    .toContainText("Translate File");
+});
+
+test("settings breadcrumbs show sections and link user details to Users", async ({ page }) => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.addInitScript(() =>
+    localStorage.setItem("excel-translator-token", "breadcrumbs-test-token"),
+  );
+  await page.route(`${api}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname.replace(new URL(api).pathname, "");
+    const body = path === "/profile" ? { id: "admin", username: "admin", isAdmin: true }
+      : path === `/v2/admin/users/${userId}` ? { id: userId, username: "alice", enabled: true, hasLocalPassword: true, base: null }
+      : path === "/admin/users" || path === "/admin/bases" || path === "/v2/bases"
+        ? { data: [], total: 0, page: 1, pageSize: 10 }
+        : path === "/notifications/unread-count" ? { count: 0 }
+          : path === "/system/info" ? { year: 2026 } : [];
+    await route.fulfill({ json: body });
+  });
+  await page.goto(`${web}settings/users/${userId}`);
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(breadcrumb).toBeVisible();
+  await expect(breadcrumb.getByText("User details")).toHaveAttribute("aria-current", "page");
+  const users = breadcrumb.getByRole("link", { name: "Users" });
+  await users.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp("/settings/users$"));
+  await expect(breadcrumb.getByText("Users")).toHaveAttribute("aria-current", "page");
+  await page.evaluate(() => localStorage.setItem("excel-translator-locale", "zh"));
+  await page.reload();
+  const localized = page.getByRole("navigation", { name: "面包屑导航" });
+  await expect(localized).toContainText("翻译文件");
+  await expect(localized).toContainText("系统设置");
+  await expect(localized).toContainText("用户");
+  await page.goto(`${web}settings/users/new`);
+  const createBreadcrumb = page.getByRole("navigation", { name: "面包屑导航" });
+  await expect(createBreadcrumb.getByText("创建用户")).toHaveAttribute("aria-current", "page");
+  await expect(createBreadcrumb.getByRole("link", { name: "用户" })).toBeVisible();
 });
