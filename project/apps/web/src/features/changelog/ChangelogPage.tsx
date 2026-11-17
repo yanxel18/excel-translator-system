@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-blue-scrollbars-v7",
+    title: "Blue scrollbars match the application",
+    details:
+      "Scrollbars now use the application blue in light and dark themes, while high-contrast mode keeps system colors.",
+    publishedAt: "2026-11-17T14:00:00.000Z",
+  },
+  {
     id: "changelog-20261117-larger-status-chart-v7",
     title: "A clearer translation status chart",
     details:

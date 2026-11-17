@@ -43,6 +43,8 @@ verification pass.
     application scroll areas without causing layout overflow.
   - Verify: Inspect scrollable pages in supported browsers, themes, and
     viewport sizes; confirm keyboard and pointer scrolling still work.
+  - Implemented and checked in Chromium, including forced-colors mode; other
+    browser engines still need verification.
 
 ## Browser tab and notifications
 

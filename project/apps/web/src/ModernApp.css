@@ -10,6 +10,33 @@
   --shell-control-active: light-dark(#1d5664, #2d6177);
   --visual-radius: 0.75rem;
   --visual-focus: light-dark(#1864ab, #74c0fc);
+  scrollbar-color: var(--visual-focus) var(--visual-inset);
+}
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar-thumb {
+    background: var(--visual-focus);
+    border-radius: 0.5rem;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--visual-inset);
+  }
+}
+.mantine-ScrollArea-scrollbar {
+  background: var(--visual-inset);
+}
+.mantine-ScrollArea-thumb {
+  background: var(--visual-focus);
+}
+@media (forced-colors: active) {
+  :root {
+    scrollbar-color: auto;
+  }
+  .mantine-ScrollArea-scrollbar {
+    background: Canvas;
+  }
+  .mantine-ScrollArea-thumb {
+    background: ButtonText;
+  }
 }
 .main-content,
 .notification-popover,
