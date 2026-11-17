@@ -32,7 +32,7 @@ verification pass.
 
 ## Dashboard and shared appearance
 
-- [ ] Enlarge the Translation Status donut chart on the profile dashboard.
+- [x] Enlarge the Translation Status donut chart on the profile dashboard.
   - Acceptance: Make the chart more legible without clipping, hiding its
     labels, or breaking its accessible data representation on narrow screens.
   - Verify: Browser layout and accessibility checks in both themes and at

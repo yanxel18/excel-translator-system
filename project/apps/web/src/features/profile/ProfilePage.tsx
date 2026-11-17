@@ -461,8 +461,8 @@ export default function ProfilePage({
                     </Text>
                     <Group justify="center" gap="md" mt="md" wrap="wrap">
                       <RingProgress
-                        size={132}
-                        thickness={15}
+                        size={192}
+                        thickness={20}
                         roundCaps
                         sections={statusRows
                           .filter((row) => row.count > 0)

@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-larger-status-chart-v7",
+    title: "A clearer translation status chart",
+    details:
+      "The profile dashboard now shows a larger translation status donut, while keeping the status counts available beside it.",
+    publishedAt: "2026-11-17T13:55:00.000Z",
+  },
+  {
     id: "changelog-20261117-history-table-layout-v7",
     title: "More room for translation history",
     details:
