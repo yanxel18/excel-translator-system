@@ -120,6 +120,41 @@ test("extracts visible rich text but skips formula results and unselected worksh
   );
 });
 
+test("translates non-formula string cells while preserving formulas and other worksheets", async () => {
+  const zip = await readZip(await makeWorkbook());
+  const sheetPath = "xl/worksheets/sheet1.xml";
+  const sheet = await zip.file(sheetPath).async("string");
+  zip.file(sheetPath, sheet.replace(
+    "</row>",
+    '<c r="G1" s="0" t="str"><v>Fish &amp;lt; &amp; chips &#x41;</v></c>' +
+    '<c r="H1" t="str"><f>"Cached"</f><v>Cached</v></c>' +
+    '<c r="I1" t="str"><v>Second</v></c></row>',
+  ));
+  const otherPath = "xl/worksheets/sheet2.xml";
+  const other = (await zip.file(otherPath).async("string")).replace(
+    "</row>", '<c r="B1" t="str"><v>Keep me</v></c></row>',
+  );
+  zip.file(otherPath, other);
+  const source = await zip.generateAsync({ type: "nodebuffer" });
+  const { extraction, translation } = services();
+  const extracted = await extraction.extractTextFromXlsx(source, ["Selected"]);
+  const strings = extracted.filter(({ source }) => source === "cell");
+  assert.deepEqual(strings.map(({ value }) => value), ["Fish &lt; & chips A", "Second"]);
+  const output = await readZip(await translation.patchOOXML(source, [
+    { id: strings[0].id, translated: "  日本語 & <text>  " },
+    { id: `cell:${sheetPath}:1`, translated: "Do not replace a formula" },
+    { id: strings[1].id, translated: "Changed" },
+  ], ["Selected"]));
+  const selected = await output.file(sheetPath).async("string");
+  assert.match(selected, /<c r="G1" s="0" t="str"><v>  日本語 &amp; &lt;text&gt;  <\/v><\/c>/);
+  assert.match(selected, /<c r="H1" t="str"><f>"Cached"<\/f><v>Cached<\/v><\/c>/);
+  assert.match(selected, /<c r="I1" t="str"><v>Changed<\/v><\/c>/);
+  assert.equal(await output.file(otherPath).async("string"), other);
+  await assert.rejects(translation.patchOOXML(source, [
+    { id: strings[0].id, translated: "Invalid\u0001XML" },
+  ], ["Selected"]), /XML/);
+});
+
 test("patches selected text while preserving rich runs, formulas, number formats, and other sheets", async () => {
   const { translation } = services();
   const source = await makeWorkbook();

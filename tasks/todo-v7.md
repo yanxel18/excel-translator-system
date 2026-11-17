@@ -80,11 +80,9 @@ verification pass.
 
 ## Background translation
 
-- [ ] Support or explicitly reject non-formula `t="str"` worksheet cells.
-  - A SheetJS-generated workbook using this cell representation completed
-    without translating its text during background verification. Shared-string
-    workbook cells translated successfully. Investigate compatible OOXML
-    handling without changing formula results.
+- [x] Support non-formula `t="str"` worksheet cells.
+  - Extraction and patching now include these cells, preserve formula results
+    and unselected worksheets, and reject invalid XML in translated text.
 - [x] Verify started translations complete after sign-out and browser closure.
   - An isolated real API/database test starts a seeded workbook job in
     Chromium, calls the logout endpoint, closes the browser, then verifies

@@ -21,6 +21,13 @@ const initialHistory: ChangelogEntry[] = [
     publishedAt: "2026-11-17T15:45:00.000Z",
   },
   {
+    id: "changelog-20261118-workbook-string-cells-v7",
+    title: "Translate more workbook text cells",
+    details:
+      "Text stored in additional workbook cell formats is now translated instead of being skipped. Formulas and unselected sheets remain unchanged.",
+    publishedAt: "2026-11-17T15:41:00.000Z",
+  },
+  {
     id: "changelog-20261118-localized-notifications-v7",
     title: "Read notifications in your language",
     details:

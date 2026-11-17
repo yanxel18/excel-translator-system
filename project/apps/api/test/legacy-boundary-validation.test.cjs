@@ -208,6 +208,15 @@ test("legacy REST routes return 400 for malformed input through HTTP", async () 
       201,
     );
     assert.equal(translatedBatch[0].value, "日本語");
+    const stringCell = {
+      id: "cell:xl/worksheets/sheet1.xml:0",
+      value: "Hello",
+      source: "cell",
+      part: "xl/worksheets/sheet1.xml",
+      index: 0,
+    };
+    assert.equal((await send("/translate/send", { textBatch: [stringCell] })).status, 201);
+    assert.deepEqual(translatedBatch, [stringCell]);
     assert.equal(
       (await send("/extract", { fileBuffer: { type: "Buffer", data: [256] } }))
         .status,

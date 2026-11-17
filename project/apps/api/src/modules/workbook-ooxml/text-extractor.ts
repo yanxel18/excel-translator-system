@@ -3,12 +3,12 @@ import JSZip = require("jszip");
 import { selectWorksheets, WorksheetPart } from "./worksheet-parts";
 import { hasAttribute, sharedStringIndex } from "./worksheet-cells";
 import { drawingReferences, DRAWING_PARAGRAPH } from "./drawing-text";
-import { visibleText } from "./xml-text";
+import { visibleText, xmlText } from "./xml-text";
 
 export interface ExtractedText {
   id: string;
   value: string;
-  source: "shared" | "inline" | "drawing";
+  source: "shared" | "inline" | "drawing" | "cell";
   part: string;
   index: number;
 }
@@ -66,9 +66,25 @@ export async function extractWorkbookText(
   for (const { part } of chosen) {
     const xml = sheetXml.get(part)!;
     let index = 0;
+    let stringIndex = 0;
     for (const cell of xml.matchAll(
-      /<c\b(?![^>]*\/\s*>)[^>]*>[\s\S]*?<\/c>/g,
+      /<c\b(?![^>]*\/\s*>)([^>]*)>[\s\S]*?<\/c>/g,
     )) {
+      if (hasAttribute(cell[1], "t", "str")) {
+        const cellIndex = stringIndex++;
+        const value = /<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(cell[0])?.[1];
+        if (value !== undefined && !/<f(?:\s[^>]*)?\s*\/?\s*>/.test(cell[0])) {
+          const text = xmlText(value);
+          if (text.trim())
+            result.push({
+              id: `cell:${part}:${cellIndex}`,
+              value: text,
+              source: "cell",
+              part,
+              index: cellIndex,
+            });
+        }
+      }
       const inline = /<is(?:\s[^>]*)?>([\s\S]*?)<\/is>/.exec(cell[0]);
       if (!inline) continue;
       const cellIndex = index++;

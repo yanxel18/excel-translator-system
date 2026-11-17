@@ -1,17 +1,25 @@
 const TEXT_NODE_PATTERN =
   /<(?:[A-Za-z_][\w.-]*:)?rPh\b[^>]*>[\s\S]*?<\/(?:[A-Za-z_][\w.-]*:)?rPh\s*>|<(?:[A-Za-z_][\w.-]*:)?t(?:\s[^>]*)?>[\s\S]*?<\/(?:[A-Za-z_][\w.-]*:)?t\s*>/g;
+const XML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
 
 export function xmlText(value: string): string {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, number) => String.fromCodePoint(Number(number)))
-    .replace(/&#x([\da-f]+);/gi, (_, number) =>
-      String.fromCodePoint(parseInt(number, 16)),
-    );
+  return value.replace(
+    /&(?:amp|lt|gt|quot|apos|#\d+|#x[\da-f]+);/gi,
+    (entity) => {
+      const name = entity.slice(1, -1);
+      if (name.startsWith("#x") || name.startsWith("#X"))
+        return String.fromCodePoint(parseInt(name.slice(2), 16));
+      if (name.startsWith("#"))
+        return String.fromCodePoint(Number(name.slice(1)));
+      return XML_ENTITIES[name] ?? entity;
+    },
+  );
 }
 
 export function escapeXml(value: string): string {

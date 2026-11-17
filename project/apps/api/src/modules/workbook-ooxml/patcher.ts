@@ -7,7 +7,7 @@ import { BadRequestException } from "@nestjs/common";
 import JSZip = require("jszip");
 import { hasAttribute, sharedStringIndex } from "./worksheet-cells";
 import { selectWorksheets, WorksheetPart } from "./worksheet-parts";
-import { replaceVisibleText } from "./xml-text";
+import { escapeXml, replaceVisibleText } from "./xml-text";
 
 export interface WorkbookTranslation {
   id: string;
@@ -120,6 +120,23 @@ export async function patchWorkbook(
         },
       );
     }
+
+    let stringIndex = 0;
+    xml = xml.replace(
+      /<c\b(?![^>]*\/\s*>)([^>]*)>[\s\S]*?<\/c>/g,
+      (cell, attributes: string) => {
+        if (!hasAttribute(attributes, "t", "str")) return cell;
+        const id = `cell:${part}:${stringIndex++}`;
+        if (/<f(?:\s[^>]*)?\s*\/?\s*>/.test(cell)) return cell;
+        const translated = translatedValues.get(id);
+        if (translated === undefined) return cell;
+        return cell.replace(
+          /(<v(?:\s[^>]*)?>)[\s\S]*?(<\/v>)/,
+          (_value: string, open: string, close: string) =>
+            open + escapeXml(translated) + close,
+        );
+      },
+    );
 
     let inlineIndex = 0;
     xml = xml.replace(/<c\b(?![^>]*\/\s*>)[^>]*>[\s\S]*?<\/c>/g, (cell) => {

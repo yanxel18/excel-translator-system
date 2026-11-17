@@ -40,7 +40,7 @@ export function extractedBatch(value: unknown): ExtractedText[] {
       !text(item.value, MAX_ITEM_BYTES, true) ||
       ids.has(item.id) ||
       (item.source !== undefined &&
-        !["shared", "inline", "drawing"].includes(item.source as string)) ||
+        !["shared", "inline", "drawing", "cell"].includes(item.source as string)) ||
       (item.part !== undefined && !text(item.part, 1024)) ||
       (item.index !== undefined &&
         (!Number.isSafeInteger(item.index) || (item.index as number) < 0))

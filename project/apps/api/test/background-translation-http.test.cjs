@@ -82,7 +82,7 @@ test("a started translation completes after browser logout and closure", { timeo
   const other = await prisma.user.create({ data: { username: `other-${randomUUID()}`, passwordHash: await hashPassword("test-password") } });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["Original"]]), "Sheet1");
-  const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", bookSST: true });
+  const bytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   const sourcePath = path.join(process.env.DATA_DIR, `${randomUUID()}.xlsx`);
   await fs.writeFile(sourcePath, bytes);
   const job = await prisma.translationJob.create({ data: {
