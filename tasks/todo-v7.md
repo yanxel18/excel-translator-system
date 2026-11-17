@@ -80,10 +80,17 @@ verification pass.
 
 ## Background translation
 
-- [ ] Verify started translations complete after sign-out and browser closure.
-  - Current code starts an API-owned worker after the job is claimed; logout
-    aborts an in-progress browser upload, not a started translation. This is
-    code inspection, not yet a full end-to-end logout/close test.
+- [ ] Support or explicitly reject non-formula `t="str"` worksheet cells.
+  - A SheetJS-generated workbook using this cell representation completed
+    without translating its text during background verification. Shared-string
+    workbook cells translated successfully. Investigate compatible OOXML
+    handling without changing formula results.
+- [x] Verify started translations complete after sign-out and browser closure.
+  - An isolated real API/database test starts a seeded workbook job in
+    Chromium, calls the logout endpoint, closes the browser, then verifies
+    completion, the translated download, and notifications after a new login.
+    The translation provider is controlled by the test. Logout does not revoke
+    the existing bearer token server-side.
   - Acceptance: A started job continues without the browser or session and is
     visible to its owner after signing in again; upload recovery remains
     separate. Do not weaken cancellation or ownership.

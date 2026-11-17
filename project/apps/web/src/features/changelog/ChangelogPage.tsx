@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261118-background-translation-verification-v7",
+    title: "Started translations continue in the background",
+    details:
+      "A started translation can finish after you sign out or close your browser, while the API stays running. Sign in again to see the result and notification.",
+    publishedAt: "2026-11-17T15:45:00.000Z",
+  },
+  {
     id: "changelog-20261118-localized-notifications-v7",
     title: "Read notifications in your language",
     details:
