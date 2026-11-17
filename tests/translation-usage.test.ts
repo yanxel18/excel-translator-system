@@ -3,7 +3,7 @@ import { expect, test, type Route } from "@playwright/test";
 const api = process.env.API_BASE_URL || "http://localhost:3000/excel-convert";
 const web = process.env.WEB_BASE_PATH || "/excel-convert/";
 
-test("history explains token estimates in the selected language", async ({ page }) => {
+test("history explains token estimates in the selected language", async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.setItem("excel-translator-token", "usage-test"));
   const respond = async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
@@ -25,6 +25,8 @@ test("history explains token estimates in the selected language", async ({ page 
   await expect(dialog).toContainText("5 UTF-8 bytes ÷ 4, rounded up = 2");
   await expect(dialog).toContainText("15 UTF-8 bytes ÷ 4, rounded up = 4");
   await expect(dialog).toContainText("not actual model usage");
+  await expect(dialog.locator(".token-piece")).toHaveCount(6);
+  await dialog.screenshot({ path: testInfo.outputPath("token-examples-light.png") });
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(link).toBeFocused();
@@ -41,6 +43,8 @@ test("history explains token estimates in the selected language", async ({ page 
   dialog = page.getByRole("dialog", { name: "了解令牌" });
   await expect(dialog).toContainText("并非模型实际用量");
   await expect.poll(() => dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.evaluate(() => document.documentElement.setAttribute("data-mantine-color-scheme", "dark"));
+  await dialog.screenshot({ path: testInfo.outputPath("token-examples-mobile-dark.png") });
 });
 
 test("history and profile show recorded usage without inventing historical values", async ({ page }, testInfo) => {
@@ -127,6 +131,33 @@ test("history and profile show recorded usage without inventing historical value
   await expect(usage).toContainText("not model usage");
   const chart = usage.getByRole("img", { name: "Translation usage over the last 7 days" });
   await expect(chart).toBeVisible();
+  const day = usage.getByRole("button", { name: "Show usage for November 17, 2026" });
+  await day.hover();
+  const dayDetails = usage.getByRole("region", { name: "Daily usage details" });
+  await expect(dayDetails).toContainText("Input characters");
+  await expect(dayDetails).toContainText("Output characters");
+  await expect(dayDetails).toContainText("Estimated input tokens");
+  await expect(dayDetails).toContainText("Estimated output tokens");
+  await expect(dayDetails).toContainText("133");
+  await expect(dayDetails).toContainText("220");
+  await expect(dayDetails).toContainText("95");
+  await expect(dayDetails).toContainText("55");
+  await day.focus();
+  await expect(dayDetails).toBeVisible();
+  await page.keyboard.press("Enter");
+  await page.mouse.move(0, 0);
+  await expect(dayDetails).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dayDetails).toBeHidden();
+  await usage.getByRole("button", { name: "Show usage for November 16, 2026" }).hover();
+  await expect(dayDetails).toContainText("Not available");
+  await expect(dayDetails).toContainText("Some or all completed jobs");
+  await page.setViewportSize({ width: 375, height: 700 });
+  await usage.getByRole("button", { name: "Show usage for November 17, 2026" }).click();
+  await expect(dayDetails).toContainText("133");
+  await page.evaluate(() => document.documentElement.setAttribute("data-mantine-color-scheme", "dark"));
+  await dayDetails.screenshot({ path: testInfo.outputPath("usage-details-dark.png") });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await expect(chart.locator(".usage-bar-input")).toHaveCount(6);
   await expect(chart.locator(".usage-bar-output")).toHaveCount(6);
   await expect(chart.locator(".usage-line-input")).toHaveCount(1);

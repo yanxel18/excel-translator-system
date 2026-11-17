@@ -1,4 +1,5 @@
 import { Box, Paper, SimpleGrid, Stack, Table, Text } from "@mantine/core";
+import { useState } from "react";
 import type { Job } from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import "./TranslationUsage.css";
@@ -31,6 +32,9 @@ function addUsage(total: Usage, job: Job): void {
 
 export default function TranslationUsage({ jobs }: { jobs: Job[] }) {
   const { t, locale } = useLocale();
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  const [focusedDay, setFocusedDay] = useState<number | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const completed = jobs.filter((job) => job.status === "COMPLETED");
   const measured = completed.filter(isMeasured);
   const total = emptyUsage();
@@ -87,6 +91,11 @@ export default function TranslationUsage({ jobs }: { jobs: Job[] }) {
     notation: "compact",
     maximumFractionDigits: 1,
   });
+  const activeIndex = hoveredDay ?? focusedDay ?? selectedDay;
+  const activeDay = activeIndex === null ? null : days[activeIndex];
+  const dateLabel = (date: Date) => date.toLocaleDateString(locale, {
+    year: "numeric", month: "long", day: "numeric",
+  });
 
   return (
     <Paper component="section" aria-label={t("Translation usage")} withBorder radius="lg" p="lg">
@@ -123,6 +132,7 @@ export default function TranslationUsage({ jobs }: { jobs: Job[] }) {
             <Text size="sm">{t("Estimated tokens scale")}</Text>
           </div>
           <div className="translation-usage-scroll" role="region" aria-label={t("Translation usage chart")} tabIndex={0}>
+            <div className="translation-usage-plot">
             <svg className="translation-usage-chart" viewBox="0 0 700 225" role="img" aria-label={t("Translation usage over the last 7 days")}>
               {[0, 0.5, 1].map((fraction) => {
                 const lineY = 190 - fraction * 150;
@@ -154,6 +164,48 @@ export default function TranslationUsage({ jobs }: { jobs: Job[] }) {
                 </g>
               ))}
             </svg>
+            {days.map((day, index) => (
+              <button
+                key={day.date.toISOString()}
+                type="button"
+                className="usage-day-target"
+                style={{ left: `${((x(index) - 45) / 700) * 100}%` }}
+                aria-label={`${t("Show usage for")} ${dateLabel(day.date)}`}
+                aria-pressed={selectedDay === index}
+                onPointerEnter={(event) => {
+                  if (event.pointerType === "mouse") setHoveredDay(index);
+                }}
+                onPointerLeave={() => setHoveredDay(null)}
+                onFocus={() => setFocusedDay(index)}
+                onBlur={() => setFocusedDay(null)}
+                onClick={() => setSelectedDay((current) => current === index ? null : index)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setHoveredDay(null);
+                    setFocusedDay(null);
+                    setSelectedDay(null);
+                  }
+                }}
+              />
+            ))}
+            {activeDay && activeIndex !== null && (
+              <div
+                className="usage-day-details"
+                role="region"
+                aria-label={t("Daily usage details")}
+                style={{ left: `clamp(0px, ${(x(activeIndex) / 700) * 100}%, calc(100% - 14rem))` }}
+              >
+                <Text fw={700} size="sm">{dateLabel(activeDay.date)}{activeDay.missing ? "*" : ""}</Text>
+                {cards.map(({ key, label }) => (
+                  <div className="usage-day-detail" key={key}>
+                    <span>{label}</span>
+                    <strong>{activeDay.unavailable ? t("Not available") : format(activeDay.values[key])}</strong>
+                  </div>
+                ))}
+                {activeDay.missing && <Text size="xs">{t("* Some or all completed jobs on this day have no recorded usage.")}</Text>}
+              </div>
+            )}
+            </div>
           </div>
           <Text size="sm" c="dimmed">{t("* Some or all completed jobs on this day have no recorded usage.")}</Text>
           <details className="translation-usage-details">

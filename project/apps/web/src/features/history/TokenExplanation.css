@@ -1,0 +1,34 @@
+.token-example {
+  padding: 0.75rem;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-default-hover);
+}
+
+.token-example-line {
+  margin-top: 0.5rem;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.token-example code {
+  font-family: var(--mantine-font-family-monospace);
+}
+
+.token-piece {
+  display: inline-block;
+  padding: 0 0.25rem;
+  border-radius: var(--mantine-radius-xs);
+  color: light-dark(var(--mantine-color-blue-9), var(--mantine-color-blue-2));
+  background: var(--mantine-color-blue-light);
+  font-weight: 600;
+}
+
+.token-piece-alt {
+  color: light-dark(color-mix(in srgb, var(--mantine-color-green-9), black 25%), var(--mantine-color-green-2));
+  background: var(--mantine-color-green-light);
+}
+
+.token-calculation p + p {
+  margin-top: 0.5rem;
+}

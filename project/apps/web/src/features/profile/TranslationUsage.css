@@ -46,6 +46,55 @@
   min-width: 600px;
 }
 
+.translation-usage-plot {
+  position: relative;
+  min-width: 600px;
+}
+
+.usage-day-target {
+  position: absolute;
+  top: 17.78%;
+  width: 12.86%;
+  height: 66.67%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.usage-day-target:hover,
+.usage-day-target:focus-visible {
+  background: var(--mantine-color-default-hover);
+  opacity: 0.3;
+}
+
+.usage-day-target:focus-visible {
+  outline: 3px solid var(--visual-focus);
+  outline-offset: -3px;
+  opacity: 1;
+}
+
+.usage-day-details {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  width: 14rem;
+  padding: 0.75rem;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+  box-shadow: var(--mantine-shadow-md);
+  pointer-events: none;
+}
+
+.usage-day-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  font-size: var(--mantine-font-size-sm);
+}
+
 .translation-usage-chart text {
   fill: var(--mantine-color-text);
   font: 11px var(--mantine-font-family);

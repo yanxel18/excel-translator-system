@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261118-usage-chart-details-v7",
+    title: "Explore daily usage and token examples",
+    details:
+      "Hover, focus, or tap a day in the usage chart to see its input and output character counts and estimated tokens. The token guide now displays its examples in highlighted blocks.",
+    publishedAt: "2026-11-17T15:05:00.000Z",
+  },
+  {
     id: "changelog-20261117-token-explanation-v7",
     title: "Learn how token estimates work",
     details:

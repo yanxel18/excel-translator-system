@@ -9,6 +9,8 @@ export const LOCALE_OPTIONS = [
 const messages: Record<Locale, Record<string, string>> = {
   en: {},
   ja: {
+    "Daily usage details": "日別使用量の詳細",
+    "Show usage for": "使用量を表示",
     "Read more about tokens": "トークンについて詳しく",
     "Understanding tokens": "トークンについて",
     "Tokens are pieces of text: a character, part of a word, a word, or punctuation. Spaces and context can change the split.": "トークンは文字、単語の一部、単語、句読点などのテキストの単位です。空白や文脈によって分割方法が変わります。",
@@ -430,6 +432,8 @@ const messages: Record<Locale, Record<string, string>> = {
     "Preview version": "プレビューの種類",
   },
   zh: {
+    "Daily usage details": "每日用量详情",
+    "Show usage for": "显示用量",
     "Read more about tokens": "了解更多令牌信息",
     "Understanding tokens": "了解令牌",
     "Tokens are pieces of text: a character, part of a word, a word, or punctuation. Spaces and context can change the split.": "令牌是文本的片段，可以是字符、部分单词、整个单词或标点。空格和上下文会影响拆分。",
