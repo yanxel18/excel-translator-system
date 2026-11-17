@@ -205,12 +205,26 @@ test("storage failures are explicit and do not leak admission",
     await rm(root);
     await rename(`${root}.saved`, root);
     assert.equal((await upload(url, bytes)).status, 201);
-    settings.limit = 51;
+    settings.limit = 201;
     assert.equal((await upload(url, bytes)).status, 503);
     settings.limit = 1;
     assert.equal((await upload(url, bytes)).status, 201);
     if (process.platform !== "win32")
       assert.equal((await stat(root)).mode & 0o777, 0o700);
+  });
+
+test("accepts a 200 MiB workbook and rejects a file one byte larger",
+  { timeout: 120000 }, async (t) => {
+    const { url, rows } = await harness(t, 200);
+    const maximum = await workbook(200 * 1024 * 1024);
+    assert.equal(maximum.length, 200 * 1024 * 1024);
+    const accepted = await upload(url, maximum);
+    assert.equal(accepted.status, 201);
+    assert.equal((await accepted.json()).fileSize, maximum.length);
+    const form = new FormData();
+    form.append("file", new Blob([maximum, Buffer.alloc(1)]), "too-large.xlsx");
+    assert.equal((await fetch(url, { method: "POST", body: form })).status, 413);
+    assert.equal(rows.length, 1);
   });
 
 test("a partial receive hits its configured ceiling before the multipart body ends",

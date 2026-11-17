@@ -34,6 +34,7 @@ import { join, resolve } from "node:path";
 import { strictObject, requiredText, uuid } from "../../common/management-validation";
 import type { Prisma, UploadSession } from "../../generated/prisma/client";
 import { ApplicationSettingsService } from "../application-settings/application-settings.service";
+import { MAX_MAX_UPLOAD_SIZE_MB } from "../application-settings/application-settings.constants";
 import { PrismaService } from "../persistence/prisma.service";
 import { UploadAdmissionService } from "./upload-admission.service";
 import { FileUploadService } from "./file-upload.service";
@@ -113,8 +114,8 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       throw new BadRequestException("File name must be an XLSX filename without paths or control characters.");
     const fileSize = input.fileSize;
     if (typeof fileSize !== "number" || !Number.isSafeInteger(fileSize) ||
-        fileSize < 1 || fileSize > 50 * CHUNK_SIZE)
-      throw new BadRequestException("File size must contain 1 to 50 MiB of bytes.");
+        fileSize < 1 || fileSize > MAX_MAX_UPLOAD_SIZE_MB * CHUNK_SIZE)
+      throw new BadRequestException(`File size must contain 1 to ${MAX_MAX_UPLOAD_SIZE_MB} MiB of bytes.`);
     const chunkHashes = Array.isArray(input.chunkHashes) ? Array.from(input.chunkHashes) : null;
     if (!Array.isArray(chunkHashes) ||
         chunkHashes.length !== Math.ceil(fileSize / CHUNK_SIZE) ||
@@ -139,7 +140,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
       const { maxUploadSizeMb } = await tx.applicationSettings.findUniqueOrThrow({
         where: { id: "default" },
       });
-      if (!Number.isInteger(maxUploadSizeMb) || maxUploadSizeMb < 1 || maxUploadSizeMb > 50) {
+      if (!Number.isInteger(maxUploadSizeMb) || maxUploadSizeMb < 1 || maxUploadSizeMb > MAX_MAX_UPLOAD_SIZE_MB) {
         this.logger.error("Upload limit settings are outside the supported range.");
         throw new ServiceUnavailableException("Workbook upload limit settings are invalid.");
       }
@@ -319,7 +320,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
           SELECT "maxUploadSizeMb" FROM "ApplicationSettings" WHERE "id" = 'default' FOR SHARE
         `;
         const limit = limits[0]?.maxUploadSizeMb;
-        if (!Number.isInteger(limit) || limit < 1 || limit > 50)
+        if (!Number.isInteger(limit) || limit < 1 || limit > MAX_MAX_UPLOAD_SIZE_MB)
           throw new ServiceUnavailableException("Workbook upload limit settings are invalid.");
         if (session.fileSize > limit * CHUNK_SIZE)
           throw new PayloadTooLargeException({
@@ -788,7 +789,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
         WHERE "id" = 'default' FOR SHARE
       `;
       if (!limits[0] || !Number.isInteger(limits[0].maxUploadSizeMb) ||
-          limits[0].maxUploadSizeMb < 1 || limits[0].maxUploadSizeMb > 50)
+          limits[0].maxUploadSizeMb < 1 || limits[0].maxUploadSizeMb > MAX_MAX_UPLOAD_SIZE_MB)
         throw new ServiceUnavailableException("Workbook upload limit settings are invalid.");
       if (session.fileSize > limits[0].maxUploadSizeMb * CHUNK_SIZE)
         throw new PayloadTooLargeException({
@@ -1014,7 +1015,7 @@ export class UploadSessionService implements OnApplicationBootstrap, OnModuleDes
 
   private async assertWithinCurrentLimit(fileSize: number): Promise<void> {
     const { maxUploadSizeMb } = await this.settings.getSettings();
-    if (!Number.isInteger(maxUploadSizeMb) || maxUploadSizeMb < 1 || maxUploadSizeMb > 50) {
+    if (!Number.isInteger(maxUploadSizeMb) || maxUploadSizeMb < 1 || maxUploadSizeMb > MAX_MAX_UPLOAD_SIZE_MB) {
       this.logger.error("Upload limit settings are outside the supported range.");
       throw new ServiceUnavailableException("Workbook upload limit settings are invalid.");
     }

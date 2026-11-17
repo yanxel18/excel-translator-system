@@ -53,19 +53,17 @@ Local sign-in also requires `LOCAL_AUTH_ENABLED=true` and an enabled local-passw
 
 ## Workbook upload ingress
 
-The supplied web nginx accepts multipart requests up to 51 MiB at `/api/upload`,
-allowing a 50 MiB workbook plus multipart overhead. The API still enforces the
-administrator's 1-50 MB file setting and fixed 50 MiB ceiling; the proxy does not
-increase either setting. Other API routes retain nginx's default 1 MiB request
+The supplied web nginx accepts multipart requests up to 201 MiB at `/api/upload`,
+allowing a 200 MiB workbook plus multipart overhead. The API enforces the
+administrator's 1-200 MB file setting. Existing 50 MB settings are raised to
+200 MB; other administrator choices are preserved. Other API routes retain nginx's default 1 MiB request
 limit. Any additional reverse proxy must allow at least the same upload envelope
 on this route. Tailscale Serve uses the same nginx route privately.
 
-**Task 5 is a paused review draft, not a production rollout.** Do not deploy
-this branch as certified resumable-upload support. Storage accounting,
-error handling, production parser/CORS parity, trailing-slash proxy behavior,
-and critical crash/expiry checks remain open; see
-[the safety review](v6-upload-safety.md#paused-draft-raw-chunk-reception-task-5).
-Tasks 1-4 are the last completed upload prerequisites.
+Large workbooks can consume substantial API and browser memory. The existing
+250 MiB uncompressed archive limit and other ZIP defenses remain in effect.
+Browser preview depends on the device and WebGPU; a 200 MiB preview has not
+been certified on all devices.
 
 The saved candidate accepts authenticated raw chunk `PUT` requests at
 `/api/upload-sessions/:id/chunks/:index`. Send `application/octet-stream` with

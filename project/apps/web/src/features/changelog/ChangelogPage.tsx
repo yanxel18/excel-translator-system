@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-upload-200mb-v6",
+    title: "Upload workbooks up to 200 MB",
+    details:
+      "Workbook uploads and previews now accept files up to 200 MB. Existing 50 MB settings are raised to 200 MB; administrators can still choose a smaller limit. Large workbooks can take longer and require more memory, and archive safety limits still apply.",
+    publishedAt: "2026-11-17T11:55:00.000Z",
+  },
+  {
     id: "changelog-20261117-stream-workbook-validation-v6",
     title: "Reduce workbook validation memory use",
     details:

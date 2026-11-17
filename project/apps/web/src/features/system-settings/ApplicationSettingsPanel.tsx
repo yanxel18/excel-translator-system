@@ -68,7 +68,7 @@ export default function ApplicationSettingsPanel({
     };
   }, [token, t]);
 
-  const validUploadLimit = isIntegerBetween(uploadLimit, 1, 50);
+  const validUploadLimit = isIntegerBetween(uploadLimit, 1, 200);
   const validConcurrency = isIntegerBetween(concurrency, 1, 5);
   const changed =
     settings !== null &&
@@ -150,10 +150,10 @@ export default function ApplicationSettingsPanel({
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           <NumberInput
             label={t("Maximum workbook size (MB)")}
-            description={t("Keep uploads between 1 and 50 MB.")}
+            description={t("Keep uploads between 1 and 200 MB.")}
             value={uploadLimit}
             min={1}
-            max={50}
+            max={200}
             step={1}
             allowDecimal={false}
             allowNegative={false}

@@ -10,6 +10,7 @@ import { UploadAdmissionService } from "./upload-admission.service";
 import { UploadAdmissionInterceptor } from "./upload-admission.interceptor";
 import { UploadSessionService } from "./upload-session.service";
 import { UploadSessionController } from "./upload-session.controller";
+import { MAX_MAX_UPLOAD_SIZE_MB } from "../application-settings/application-settings.constants";
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { UploadSessionController } from "./upload-session.controller";
     AuthenticationModule,
     ApplicationSettingsModule,
     MulterModule.register({
-      limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+      limits: { fileSize: MAX_MAX_UPLOAD_SIZE_MB * 1024 * 1024, files: 1 },
     }),
   ],
   controllers: [FileUploadController, UploadSessionController],

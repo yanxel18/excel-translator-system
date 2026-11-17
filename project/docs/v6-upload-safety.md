@@ -1,5 +1,12 @@
 # V6 workbook upload limits and safety
 
+**Update 2026-11-17:** The 200 MiB upload setting is enabled at the user's
+request. Older notes below describe the previous 50 MiB rollout state. Large
+workbooks can still consume substantial memory during parsing, translation and
+browser preview; the 250 MiB uncompressed archive and other ZIP safety limits
+remain in effect. Full 200 MiB processing and browser-preview resource
+qualification remains outstanding.
+
 Date: 2026-11-15. The 200 MB setting is **not enabled yet**.
 The application currently supports administrator-configured limits from 1 to
 50 MB. Existing code uses `MB` to mean 1,048,576 bytes (MiB); retain that

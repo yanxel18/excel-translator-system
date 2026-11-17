@@ -25,7 +25,7 @@ test("a paused upload stays paused after reload, reports busy, and resumes to a 
       id: "owner-1", username: "owner", isAdmin: false, email: null, fullName: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     } });
-    if (path === "/system/info") return route.fulfill({ headers, json: { year: 2026, maxUploadSizeMb: 50 } });
+    if (path === "/system/info") return route.fulfill({ headers, json: { year: 2026, maxUploadSizeMb: 200 } });
     if (path === "/history" || path === "/jobs/history")
       return route.fulfill({ headers, json: { data: [], nextCursor: null } });
     if (path.startsWith("/upload-sessions")) {
@@ -49,6 +49,7 @@ test("a paused upload stays paused after reload, reports busy, and resumes to a 
     return route.fulfill({ headers, json: [] });
   });
   await page.goto(process.env.UPLOAD_TEST_URL || "/excel-convert/");
+  await expect(page.getByText(/Upload limit.*200 MB/)).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles({
     name: "workbook.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     buffer: Buffer.from("workbook"),

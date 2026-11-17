@@ -26,7 +26,7 @@ export const SystemInfoApi = {
       typeof maxUploadSizeMb !== "number" ||
       !Number.isInteger(maxUploadSizeMb) ||
       maxUploadSizeMb < 1 ||
-      maxUploadSizeMb > 50
+      maxUploadSizeMb > 200
     )
       throw new Error("System upload limit is invalid.");
     return { year: response.year, maxUploadSizeMb };

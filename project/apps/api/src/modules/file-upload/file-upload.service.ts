@@ -23,6 +23,7 @@ import type { Readable } from "node:stream";
 import type { StorageEngine } from "multer";
 import { TextExtractionService } from "../text-extraction/text-extraction.service";
 import { ApplicationSettingsService } from "../application-settings/application-settings.service";
+import { MAX_MAX_UPLOAD_SIZE_MB } from "../application-settings/application-settings.constants";
 
 @Injectable()
 export class FileUploadService implements OnApplicationBootstrap {
@@ -70,7 +71,7 @@ export class FileUploadService implements OnApplicationBootstrap {
     if (
       !Number.isInteger(maxUploadSizeMb) ||
       maxUploadSizeMb < 1 ||
-      maxUploadSizeMb > 50
+      maxUploadSizeMb > MAX_MAX_UPLOAD_SIZE_MB
     ) {
       this.logger.error("Workbook upload limit settings are outside the supported range.");
       throw new ServiceUnavailableException("Workbook upload limit settings are invalid.");
@@ -188,7 +189,7 @@ export class FileUploadService implements OnApplicationBootstrap {
   async validateSessionWorkbook(path: string, fileName: string, fileSize: number): Promise<string[]> {
     const sheets = await this.validateFileWithLimit(
       { path, originalname: fileName, size: fileSize, buffer: Buffer.alloc(0) },
-      50,
+      MAX_MAX_UPLOAD_SIZE_MB,
     );
     if (!sheets)
       throw new BadRequestException("Upload must be a valid XLSX workbook.");

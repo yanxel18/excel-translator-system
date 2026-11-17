@@ -159,19 +159,19 @@ test("web proxy accepts current multipart uploads and retains bounded ingress", 
     if (!ready) assert.fail(docker("logs", web));
     let overhead;
     for (const chunked of [false, true]) {
-      const result = await post(port, "/api/upload", 50 * mib, chunked);
+      const result = await post(port, "/api/upload", 200 * mib, chunked);
       assert.equal(result.status, 201, result.body);
       assert.deepEqual(JSON.parse(result.body), {
         path: "/excel-convert/upload",
         bytes: result.bytes,
       });
-      overhead = result.bytes - 50 * mib;
+      overhead = result.bytes - 200 * mib;
     }
     for (const chunked of [false, true]) {
-      const exact = await post(port, "/api/upload", 51 * mib - overhead, chunked);
+      const exact = await post(port, "/api/upload", 201 * mib - overhead, chunked);
       assert.equal(exact.status, 201, exact.body);
-      assert.equal(JSON.parse(exact.body).bytes, 51 * mib);
-      const result = await post(port, "/api/upload", 51 * mib - overhead + 1, chunked);
+      assert.equal(JSON.parse(exact.body).bytes, 201 * mib);
+      const result = await post(port, "/api/upload", 201 * mib - overhead + 1, chunked);
       assert.equal(result.status, 413, result.body);
     }
     const otherRoute = await post(port, "/api/admin/application-settings", 2 * mib);

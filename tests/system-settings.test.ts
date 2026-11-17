@@ -24,9 +24,9 @@ async function setup(page: Page, rejectUpdate = false) {
     localStorage.setItem("excel-translator-token", "settings-test-session");
     localStorage.setItem("excel-translator-locale", "en");
   });
-  await page.route("**/excel-convert/**", async (route) => {
+  await page.route(/\/(?:api|excel-convert)\//, async (route) => {
     const request = route.request();
-    const path = new URL(request.url()).pathname.replace("/excel-convert", "");
+    const path = new URL(request.url()).pathname.replace(/^\/(?:api|excel-convert)/, "");
     if (!["fetch", "xhr"].includes(request.resourceType())) return route.continue();
     if (path === "/admin/application-settings") {
       if (request.method() === "PATCH")
@@ -131,13 +131,13 @@ test("admins can update upload size and translation concurrency", async ({ page 
   });
   await expect(uploadLimit).toHaveValue("50");
   await expect(concurrency).toHaveValue("5");
-  await uploadLimit.fill("20");
+  await uploadLimit.fill("200");
   await concurrency.fill("2");
   await page.getByRole("button", { name: "Save file settings" }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "File settings saved." }),
   ).toBeVisible();
-  await expect(uploadLimit).toHaveValue("20");
+  await expect(uploadLimit).toHaveValue("200");
   await expect(concurrency).toHaveValue("2");
 });
 

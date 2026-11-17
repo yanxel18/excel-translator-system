@@ -117,7 +117,7 @@ model OidcSettings {
 
 model ApplicationSettings {
   id                        String   @id @default("default")
-  maxUploadSizeMb           Int      @default(50)
+  maxUploadSizeMb           Int      @default(200)
   maxConcurrentTranslations Int      @default(5)
   updatedAt                 DateTime @updatedAt
 }

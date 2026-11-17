@@ -81,7 +81,7 @@ export default function IbisPreview({
         if (!response.ok)
           throw new Error("Could not load the authorized workbook.");
         const bytes = await response.arrayBuffer();
-        if (bytes.byteLength > 50 * 1024 * 1024)
+        if (bytes.byteLength > 200 * 1024 * 1024)
           throw new Error("Workbook exceeds the preview size limit.");
         if (!abort.signal.aborted)
           frame.current?.contentWindow?.postMessage(

@@ -93,7 +93,7 @@ const messages: Record<Locale, Record<string, string>> = {
       "アップロードサイズと同時に実行できる翻訳数を設定します。",
     "Maximum workbook size (MB)": "最大ワークブックサイズ（MB）",
     "Concurrent translations": "同時翻訳数",
-    "Keep uploads between 1 and 50 MB.": "アップロード上限は1～50 MBです。",
+    "Keep uploads between 1 and 200 MB.": "アップロード上限は1～200 MBです。",
     "Choose between 1 and 5 concurrent translations.":
       "同時翻訳数は1～5件から選択できます。",
     "Changes apply to new job admissions and don't interrupt running translations.":
@@ -469,7 +469,7 @@ const messages: Record<Locale, Record<string, string>> = {
       "配置上传大小和可同时运行的翻译数量。",
     "Maximum workbook size (MB)": "工作簿最大大小（MB）",
     "Concurrent translations": "并发翻译数",
-    "Keep uploads between 1 and 50 MB.": "上传限制为1至50 MB。",
+    "Keep uploads between 1 and 200 MB.": "上传限制为1至200 MB。",
     "Choose between 1 and 5 concurrent translations.":
       "可设置1至5个并发翻译。",
     "Changes apply to new job admissions and don't interrupt running translations.":

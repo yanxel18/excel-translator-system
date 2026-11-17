@@ -57,7 +57,7 @@ function fixture() {
 test("application settings persist changes and write an administrator audit record", async () => {
   const { service, audits, settings } = fixture();
   assert.deepEqual(await service.getSettings(), {
-    maxUploadSizeMb: 50,
+    maxUploadSizeMb: 200,
     maxConcurrentTranslations: 5,
   });
 
@@ -90,7 +90,7 @@ test("application settings controller rejects limits outside supported bounds", 
 
   for (const input of [
     { maxUploadSizeMb: 0 },
-    { maxUploadSizeMb: 51 },
+    { maxUploadSizeMb: 201 },
     { maxUploadSizeMb: 1.5 },
     { maxConcurrentTranslations: 0 },
     { maxConcurrentTranslations: 6 },
@@ -103,6 +103,16 @@ test("application settings controller rejects limits outside supported bounds", 
       BadRequestException,
     );
   }
+});
+
+test("administrators can configure a 200 MiB upload limit", async () => {
+  const controller = new ApplicationSettingsController({
+    updateSettings: async (input) => input,
+  });
+  assert.deepEqual(
+    await controller.update({ maxUploadSizeMb: 200 }, { user: { userId: "admin-id" } }),
+    { maxUploadSizeMb: 200 },
+  );
 });
 
 test("application settings routes require administrator authorization", async () => {
