@@ -45,6 +45,8 @@ verification pass.
     viewport sizes; confirm keyboard and pointer scrolling still work.
   - Implemented and checked in Chromium, including forced-colors mode; other
     browser engines still need verification.
+  - Firefox verification is blocked by the machine's Application Control
+    policy. WebKit could not launch because Windows libraries are missing.
 
 ## Browser tab and notifications
 

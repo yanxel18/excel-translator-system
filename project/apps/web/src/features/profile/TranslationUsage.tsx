@@ -198,7 +198,7 @@ export default function TranslationUsage({ jobs }: { jobs: Job[] }) {
                 <Text fw={700} size="sm">{dateLabel(activeDay.date)}{activeDay.missing ? "*" : ""}</Text>
                 {cards.map(({ key, label }) => (
                   <div className="usage-day-detail" key={key}>
-                    <span>{label}</span>
+                    <span className="usage-day-detail-label"><i aria-hidden="true" className={`usage-legend-${key}`} />{label}</span>
                     <strong>{activeDay.unavailable ? t("Not available") : format(activeDay.values[key])}</strong>
                   </div>
                 ))}

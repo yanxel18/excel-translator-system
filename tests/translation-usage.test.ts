@@ -138,6 +138,9 @@ test("history and profile show recorded usage without inventing historical value
   await expect(dayDetails).toContainText("Output characters");
   await expect(dayDetails).toContainText("Estimated input tokens");
   await expect(dayDetails).toContainText("Estimated output tokens");
+  for (const key of ["inputCharacters", "outputCharacters", "inputTokensEstimate", "outputTokensEstimate"]) {
+    await expect(dayDetails.locator(`.usage-legend-${key}`)).toBeVisible();
+  }
   await expect(dayDetails).toContainText("133");
   await expect(dayDetails).toContainText("220");
   await expect(dayDetails).toContainText("95");

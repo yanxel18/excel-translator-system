@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261118-clear-upload-title-v7",
+    title: "Clear completed upload and tab messages",
+    details:
+      "The upload banner now disappears after a successful upload, and completed translations no longer remain in the browser tab title. Daily usage details now include matching chart color and line indicators.",
+    publishedAt: "2026-11-17T15:15:00.000Z",
+  },
+  {
     id: "changelog-20261118-usage-chart-details-v7",
     title: "Explore daily usage and token examples",
     details:

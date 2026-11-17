@@ -33,18 +33,20 @@ test("tab title follows page, job status, unread count, language and sign-out", 
   expect(await page.title()).not.toContain("private");
 
   status = "COMPLETED";
-  await expect(page).toHaveTitle("(2) Translation history · completed · Excel Translator", { timeout: 5000 });
+  await expect(page).toHaveTitle("(2) Translation history · Excel Translator", { timeout: 5000 });
+  await page.reload();
+  await expect(page).toHaveTitle("(2) Translation history · Excel Translator");
   unread = 0;
   await page.evaluate(() => window.dispatchEvent(new Event("notifications-updated")));
-  await expect(page).toHaveTitle("Translation history · completed · Excel Translator");
+  await expect(page).toHaveTitle("Translation history · Excel Translator");
   await page.getByRole("button", { name: "Vocabulary", exact: true }).click();
-  await expect(page).toHaveTitle("Vocabulary · completed · Excel Translator");
+  await expect(page).toHaveTitle("Vocabulary · Excel Translator");
   await page.getByRole("button", { name: "History", exact: true }).click();
-  await expect(page).toHaveTitle("Translation history · completed · Excel Translator");
+  await expect(page).toHaveTitle("Translation history · Excel Translator");
 
   await page.getByRole("button", { name: "Change language" }).click();
   await page.getByRole("menuitem", { name: "日本語" }).click();
-  await expect(page).toHaveTitle("翻訳履歴 · 完了 · Excel Translator");
+  await expect(page).toHaveTitle("翻訳履歴 · Excel Translator");
   await page.getByRole("button", { name: "アカウント", exact: true }).click();
   await page.getByRole("menuitem", { name: "サインアウト" }).click();
   await expect(page).toHaveTitle("サインイン · Excel Translator");
@@ -143,7 +145,7 @@ test("a delayed older job response cannot restore an obsolete title", async ({ p
   await expect.poll(() => Boolean(releaseOldResponse)).toBe(true);
   completed = true;
   await page.clock.fastForward(1200);
-  await expect(page).toHaveTitle("Translate File · completed · Excel Translator");
+  await expect(page).toHaveTitle("Translate File · Excel Translator");
   await page.evaluate(() => {
     const observed = window as Window & { observedTitles: string[] };
     observed.observedTitles = [];
@@ -160,7 +162,7 @@ test("a delayed older job response cannot restore an obsolete title", async ({ p
   expect(await page.evaluate(() =>
     (window as Window & { observedTitles: string[] }).observedTitles,
   )).not.toContain("Translate File · processing · Excel Translator");
-  await expect(page).toHaveTitle("Translate File · completed · Excel Translator");
+  await expect(page).toHaveTitle("Translate File · Excel Translator");
 });
 
 for (const reducedMotion of [false, true]) {
@@ -192,14 +194,14 @@ for (const reducedMotion of [false, true]) {
     });
     status = "COMPLETED";
     await page.clock.fastForward(1200);
-    const alertTitle = "! completed · Translate File · completed · Excel Translator";
+    const alertTitle = "! completed · Translate File · Excel Translator";
     await expect(page).toHaveTitle(alertTitle);
     await page.clock.fastForward(1000);
     await expect(page).toHaveTitle(reducedMotion
       ? alertTitle
-      : "Translate File · completed · Excel Translator");
+      : "Translate File · Excel Translator");
     await page.clock.fastForward(10000);
-    await expect(page).toHaveTitle("Translate File · completed · Excel Translator");
+    await expect(page).toHaveTitle("Translate File · Excel Translator");
   });
 }
 
@@ -241,9 +243,9 @@ test("failure attention stops when the user returns or acknowledges it", async (
   await expect(page).toHaveTitle("Translate File · processing · Excel Translator");
   status = "COMPLETED";
   await page.clock.fastForward(1200);
-  await expect(page).toHaveTitle("! completed · Translate File · completed · Excel Translator");
+  await expect(page).toHaveTitle("! completed · Translate File · Excel Translator");
   await page.evaluate(() => window.dispatchEvent(new Event("notifications-updated")));
-  await expect(page).toHaveTitle("Translate File · completed · Excel Translator");
+  await expect(page).toHaveTitle("Translate File · Excel Translator");
 
   status = "PROCESSING";
   await page.clock.fastForward(30000);

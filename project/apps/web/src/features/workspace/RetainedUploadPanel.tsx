@@ -11,7 +11,7 @@ interface Props {
 
 export default function RetainedUploadPanel({ upload, onPause, onResume, onCancel }: Props) {
   const { t } = useLocale();
-  if (upload.phase === "idle") return null;
+  if (upload.phase === "idle" || upload.phase === "complete") return null;
   const labels = {
     checking: "Checking saved uploads",
     saving: "Saving workbook for recovery",

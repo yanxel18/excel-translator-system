@@ -9,6 +9,7 @@ test("a paused upload stays paused after reload, reports busy, and resumes to a 
   let metadata: Record<string, unknown> = {};
   let bytes = 0;
   let chunks = 0;
+  let completions = 0;
   let releaseChunk: (() => void) | undefined;
   const firstChunk = new Promise<void>((resolve) => { releaseChunk = resolve; });
   await page.addInitScript(() => localStorage.setItem("excel-translator-token", "upload-ui-token"));
@@ -39,7 +40,10 @@ test("a paused upload stays paused after reload, reports busy, and resumes to a 
         if (chunks === 2) return route.fulfill({ status: 503, headers, json: { message: "busy" } });
         bytes += request.postDataBuffer()!.length;
       }
-      if (path.endsWith("/completion")) return route.fulfill({ headers, json: { id: jobId } });
+      if (path.endsWith("/completion")) {
+        completions++;
+        return route.fulfill({ headers, json: { id: jobId } });
+      }
       return route.fulfill({ headers, json: {
         ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
         bytesReceived: bytes, nextChunkIndex: Math.ceil(bytes / 1048576),
@@ -73,7 +77,9 @@ test("a paused upload stays paused after reload, reports busy, and resumes to a 
   expect(chunks).toBe(1);
   await page.getByRole("button", { name: "Resume upload" }).click();
   await expect(page.getByText("Waiting for upload capacity")).toBeVisible();
-  await expect(page.getByText("Upload complete")).toBeVisible();
+  await expect.poll(() => completions).toBe(1);
+  await expect(page.getByText("Upload complete")).toHaveCount(0);
+  await expect(page.getByRole("progressbar", { name: "Confirmed upload progress" })).toHaveCount(0);
   expect(chunks).toBe(3);
 });
 
@@ -84,6 +90,7 @@ test("an interrupted upload recovers only for its owner, including on another ro
   const jobId = randomUUID();
   let metadata: Record<string, unknown> = {};
   let bytes = 0;
+  let completions = 0;
   const uploadTokens: string[] = [];
   let releaseChunk: (() => void) | undefined;
   const firstChunk = new Promise<void>((resolve) => { releaseChunk = resolve; });
@@ -117,7 +124,10 @@ test("an interrupted upload recovers only for its owner, including on another ro
         }
         bytes += request.postDataBuffer()!.length;
       }
-      if (path.endsWith("/completion")) return route.fulfill({ headers, json: { id: jobId } });
+      if (path.endsWith("/completion")) {
+        completions++;
+        return route.fulfill({ headers, json: { id: jobId } });
+      }
       return route.fulfill({ headers, json: {
         ...metadata, id: sessionId, chunkSize: 1048576, status: "RECEIVING",
         bytesReceived: bytes, nextChunkIndex: Math.ceil(bytes / 1048576),
@@ -147,7 +157,8 @@ test("an interrupted upload recovers only for its owner, including on another ro
   expect(uploadTokens).not.toContain("owner-2");
   await page.evaluate(() => localStorage.setItem("excel-translator-token", "owner-1"));
   await page.goto(`${app.replace(/\/$/, "")}/history`);
-  await expect(page.getByText("Upload complete")).toBeVisible();
+  await expect.poll(() => completions).toBe(1);
+  await expect(page.getByText("Upload complete")).toHaveCount(0);
   expect(uploadTokens.every((token) => token === "owner-1")).toBe(true);
 });
 

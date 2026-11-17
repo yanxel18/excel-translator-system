@@ -107,7 +107,7 @@ export function useBrowserTitle(
     }, undefined);
     const status = active || latest;
     const parts = [page];
-    if (status) parts.push(t(status.status.toLowerCase()));
+    if (status && status.status !== "COMPLETED") parts.push(t(status.status.toLowerCase()));
     parts.push("Excel Translator");
     const prefix = token && unreadCount > 0
       ? `(${unreadCount.toLocaleString(locale)}) `
