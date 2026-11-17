@@ -260,6 +260,7 @@ export class DatabaseJobManagementService
         sourceLanguage: Language.JAPANESE,
         targetLanguage: Language.ENGLISH,
         selectedSheets: input.availableSheets,
+        availableSheets: input.availableSheets,
         sourcePath: this.sourcePath(input.id),
         notifications: {
           create: {
@@ -355,14 +356,26 @@ export class DatabaseJobManagementService
     const job = await this.owned(id, ownerId);
     let availableSheets: string[] = [];
     try {
-      availableSheets = await this.extraction.getSheetNames(
-        await readFile(job.sourcePath),
-      );
+      availableSheets = await this.getAvailableSheets(job);
     } catch {
       /* The job metadata remains available if file storage is unavailable. */
     }
     return { ...this.toJob(job), availableSheets };
   }
+
+  private async getAvailableSheets(job: {
+    availableSheets?: unknown;
+    sourcePath: string;
+  }): Promise<string[]> {
+    if (
+      Array.isArray(job.availableSheets) &&
+      job.availableSheets.length > 0 &&
+      job.availableSheets.every((sheet: unknown) => typeof sheet === "string")
+    )
+      return job.availableSheets;
+    return this.extraction.getSheetNames(await readFile(job.sourcePath));
+  }
+
   async getJobList(ownerId: string): Promise<Job[]> {
     return (
       await this.prisma.translationJob.findMany({
@@ -389,9 +402,7 @@ export class DatabaseJobManagementService
       throw new BadRequestException(
         "Settings can only be changed while a job is pending.",
       );
-    const availableSheets = await this.extraction.getSheetNames(
-      await readFile(job.sourcePath),
-    );
+    const availableSheets = await this.getAvailableSheets(job);
     const selectedSheets =
       input.selectedSheets === undefined
         ? Array.isArray(job.selectedSheets)

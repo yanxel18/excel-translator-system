@@ -185,6 +185,7 @@ model TranslationJob {
   sourceLanguage    Language
   targetLanguage    Language
   selectedSheets    Json
+  availableSheets   Json?
   sourcePath        String
   outputPath        String?
   vocabularyGroupId String?

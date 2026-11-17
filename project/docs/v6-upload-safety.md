@@ -65,6 +65,13 @@ Raising Multer's constant alone is unsafe:
 - Compose currently defines no API memory limit. There is no measured resource
   budget certifying 200 MiB processing or mobile preview.
 
+On 2026-11-17, new jobs began storing the worksheet names already discovered
+during upload. Opening job details or changing settings for those jobs no longer
+reads and parses the source workbook again. Older jobs without saved names
+continue to read their source files. This reduces repeated work but does not
+bound upload validation, translation, legacy job reads or preview parsing, so
+the 200 MiB setting remains disabled.
+
 ## Selected implementation strategy
 
 The user subsequently confirmed chunked transfers with a retained browser file

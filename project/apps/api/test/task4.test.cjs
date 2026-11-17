@@ -192,6 +192,74 @@ test("vocabulary groups and protected terms support owner-scoped CRUD", async ()
   );
 });
 
+test("new jobs retain all worksheet names independently of selected sheets", async () => {
+  let stored;
+  const prisma = {
+    translationJob: {
+      create: async ({ data }) => {
+        stored = { ...data, status: "PENDING", progress: 0, vocabularyGroupId: null };
+        return stored;
+      },
+      findUnique: async () => stored,
+      updateManyAndReturn: async ({ data }) => {
+        stored = { ...stored, ...data };
+        return [stored];
+      },
+    },
+  };
+  const service = new DatabaseJobManagementService(prisma, {}, {});
+  const created = await service.createSessionJob(prisma, {
+    id: "job-sheets",
+    ownerId: "owner-1",
+    fileName: "book.xlsx",
+    fileSize: 1,
+    availableSheets: ["First", "Second"],
+  });
+  assert.deepEqual(created.availableSheets, ["First", "Second"]);
+  const updated = await service.updateJobSettings("job-sheets", "owner-1", {
+    selectedSheets: ["First"],
+  });
+  assert.deepEqual(updated.availableSheets, ["First", "Second"]);
+  assert.deepEqual((await service.getJob("job-sheets", "owner-1")).availableSheets, [
+    "First",
+    "Second",
+  ]);
+  await assert.rejects(
+    service.updateJobSettings("job-sheets", "owner-1", { selectedSheets: ["Missing"] }),
+    (error) => error.status === 400,
+  );
+  assert.deepEqual((await service.updateJobSettings("job-sheets", "owner-1", {
+    selectedSheets: ["Second"],
+  })).selectedSheets, ["Second"]);
+});
+
+test("legacy jobs without saved worksheet names still read the source workbook", async (context) => {
+  const sourcePath = join(tmpdir(), `task4-${randomUUID()}.xlsx`);
+  await writeFile(sourcePath, "fixture");
+  context.after(() => unlink(sourcePath).catch(() => undefined));
+  const job = {
+    id: "legacy-job",
+    ownerId: "owner-1",
+    status: "PENDING",
+    sourcePath,
+    selectedSheets: ["First"],
+    sourceLanguage: "JAPANESE",
+    targetLanguage: "ENGLISH",
+  };
+  const service = new DatabaseJobManagementService(
+    { translationJob: { findUnique: async () => job } },
+    { getSheetNames: async (bytes) => {
+      assert.equal(bytes.toString(), "fixture");
+      return ["First", "Second"];
+    } },
+    {},
+  );
+  assert.deepEqual((await service.getJob(job.id, job.ownerId)).availableSheets, [
+    "First",
+    "Second",
+  ]);
+});
+
 test("job settings reject vocabulary groups for a different language pair", async (context) => {
   const sourcePath = join(tmpdir(), `task4-${randomUUID()}.xlsx`);
   await writeFile(sourcePath, "fixture");
