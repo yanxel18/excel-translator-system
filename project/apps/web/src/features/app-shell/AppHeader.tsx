@@ -10,7 +10,6 @@ import {
 } from "@mantine/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Bell } from "lucide-react";
-import ApiService from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import NotificationPreview from "../notifications/NotificationPreview";
 import {
@@ -20,12 +19,14 @@ import {
 
 export default function AppHeader({
   token,
+  unreadCount,
   navigationOpen,
   onToggleNavigation,
   onOpenNotifications,
   onHome,
 }: {
   token: string;
+  unreadCount: number;
   navigationOpen: boolean;
   onToggleNavigation: () => void;
   onOpenNotifications: (id?: string) => void;
@@ -40,7 +41,6 @@ export default function AppHeader({
   const [showProgress, setShowProgress] = useState(false);
   const [opened, setOpened] = useState(false);
   const [restoreFocus, setRestoreFocus] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
   useEffect(() => {
     if (!requestsActive) {
       setShowProgress(false);
@@ -49,24 +49,6 @@ export default function AppHeader({
     const timer = window.setTimeout(() => setShowProgress(true), 180);
     return () => window.clearTimeout(timer);
   }, [requestsActive]);
-  useEffect(() => {
-    let active = true;
-    const refresh = () => {
-      void ApiService.getUnreadNotificationCount(token)
-        .then((value) => {
-          if (active) setUnreadCount(value.count);
-        })
-        .catch(() => {});
-    };
-    refresh();
-    const timer = window.setInterval(refresh, 30000);
-    window.addEventListener("notifications-updated", refresh);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-      window.removeEventListener("notifications-updated", refresh);
-    };
-  }, [token]);
   return (
     <>
       <Group h="100%" px="lg" justify="space-between" className="app-header-content">

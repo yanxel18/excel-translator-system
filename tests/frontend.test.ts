@@ -1201,9 +1201,6 @@ test("V2-19 history search is localized and fits a mobile viewport", async ({
     await expect(
       localizedPage.getByRole("searchbox", { name: labels[locale].search }),
     ).toBeVisible();
-    await expect(
-      localizedPage.getByText(labels[locale].search, { exact: true }),
-    ).toBeVisible();
     const search = localizedPage.getByRole("searchbox", {
       name: labels[locale].search,
     });

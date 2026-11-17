@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-browser-title-alerts-v7",
+    title: "See translation updates in the browser tab",
+    details:
+      "The browser tab now shows the current page, translation status, and unread notification count in your selected language. While the tab is away, completed or failed translations can briefly draw attention; reduced-motion settings are respected.",
+    publishedAt: "2026-11-17T14:20:00.000Z",
+  },
+  {
     id: "changelog-20261117-blue-scrollbars-v7",
     title: "Blue scrollbars match the application",
     details:

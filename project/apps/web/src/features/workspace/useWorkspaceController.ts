@@ -29,6 +29,7 @@ export function useWorkspaceController(
   );
   const fileInput = useRef<HTMLInputElement>(null);
   const hasLoaded = useRef(false);
+  const refreshSequence = useRef(0);
   const tokenRef = useRef(token);
   tokenRef.current = token;
   const translateRef = useRef(translate);
@@ -57,21 +58,22 @@ export function useWorkspaceController(
   const refresh = useCallback(
     async (silent = false) => {
       if (!token) return;
+      const request = ++refreshSequence.current;
       if (!hasLoaded.current) setJobsLoading(true);
       try {
         const loadedJobs = await ApiService.getJobs(token, silent);
-        if (tokenRef.current !== token) return;
+        if (tokenRef.current !== token || request !== refreshSequence.current) return;
         setJobs(loadedJobs);
         hasLoaded.current = true;
       } catch (reason) {
-        if (tokenRef.current === token && !(reason instanceof SessionExpiredError))
+        if (tokenRef.current === token && request === refreshSequence.current && !(reason instanceof SessionExpiredError))
           setError(
             reason instanceof Error
               ? reason.message
               : translate("Could not load jobs."),
           );
       } finally {
-        if (tokenRef.current === token) setJobsLoading(false);
+        if (tokenRef.current === token && request === refreshSequence.current) setJobsLoading(false);
       }
     },
     [token, translate],
@@ -81,10 +83,11 @@ export function useWorkspaceController(
     void refresh();
   }, [refresh]);
   useEffect(() => {
-    if (!jobs.some((job) => job.status === "PROCESSING")) return;
-    const timer = window.setInterval(() => void refresh(true), 1200);
+    if (!token) return;
+    const interval = jobs.some((job) => job.status === "PROCESSING") ? 1200 : 30000;
+    const timer = window.setInterval(() => void refresh(true), interval);
     return () => window.clearInterval(timer);
-  }, [jobs, refresh]);
+  }, [token, jobs, refresh]);
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -141,6 +144,7 @@ export function useWorkspaceController(
 
   const reset = () => {
     tokenRef.current = "";
+    refreshSequence.current += 1;
     setJobs([]);
     setError("");
     setFile(null);

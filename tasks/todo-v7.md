@@ -48,14 +48,14 @@ verification pass.
 
 ## Browser tab and notifications
 
-- [ ] Update the browser tab title when the current page, translation status,
+- [x] Update the browser tab title when the current page, translation status,
   or unread notification state changes.
   - Acceptance: Titles identify the current page and relevant state, use the
     selected language, and restore the appropriate title after state changes.
     Do not expose workbook names or other private data in the title.
   - Verify: Browser tests for navigation, job state transitions, unread counts,
     locale changes, and sign-out.
-- [ ] Signal completed and failed translations in the browser tab when
+- [x] Signal completed and failed translations in the browser tab when
   possible.
   - Acceptance: Use a browser-supported title or favicon attention indicator;
     respect reduced-motion preferences, stop the indicator when the user
@@ -63,6 +63,8 @@ verification pass.
     promise attention effects when the browser suspends or closes the page.
   - Verify: Browser tests for completion, failure, focus/visibility,
     acknowledgement, cleanup, and reduced motion.
+  - Browser tests simulate visibility changes; effects may be delayed when
+    the browser suspends a background tab.
   - Dependency: Dynamic tab title and notification state.
 - [ ] Localize notification titles and messages dynamically using structured
   event templates and data.

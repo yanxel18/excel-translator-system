@@ -98,7 +98,9 @@ test("notification preview retries a failed initial request", async ({
   await page.goto("/excel-convert/");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("button", { name: "Open notifications" }).click();
-  await expect(page.getByRole("alert")).toContainText("Temporary feed failure");
+  await expect(
+    page.getByRole("dialog", { name: "Notifications" }).getByRole("alert"),
+  ).toContainText("Temporary feed failure");
   fail = false;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(

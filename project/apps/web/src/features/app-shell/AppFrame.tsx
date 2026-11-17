@@ -21,6 +21,7 @@ export default function AppFrame({
   onCloseMobile,
   children,
   token,
+  unreadCount,
   onOpenNotification,
   profile,
   profileLoading,
@@ -32,6 +33,7 @@ export default function AppFrame({
   profileLoadError: boolean;
   onOpenNotification: (id?: string) => void;
   token: string;
+  unreadCount: number;
   view: View;
   onNavigate: (view: View) => void;
   onSignOut: () => void;
@@ -84,6 +86,7 @@ export default function AppFrame({
             onCloseMobile();
           }}
           token={token}
+          unreadCount={unreadCount}
           navigationOpen={mobileOpen}
           onToggleNavigation={onToggleMobile}
           onOpenNotifications={(id) => {

@@ -29,6 +29,8 @@ import { useWorkspaceController } from "./features/workspace/useWorkspaceControl
 import { useRetainedUpload } from "./features/workspace/useRetainedUpload";
 import RetainedUploadPanel from "./features/workspace/RetainedUploadPanel";
 import { useLocale } from "./features/shared/LocaleProvider";
+import { useBrowserTitle } from "./features/app-shell/useBrowserTitle";
+import { useUnreadNotificationCount } from "./features/notifications/useUnreadNotificationCount";
 import "./ModernApp.css";
 
 export default function ModernApp() {
@@ -66,6 +68,8 @@ export default function ModernApp() {
   const keycloakRef = useRef<Keycloak | null>(null);
   const { t } = useLocale();
   const workspace = useWorkspaceController(token, t);
+  const unreadCount = useUnreadNotificationCount(token);
+  useBrowserTitle(token, view, workspace.jobs, workspace.jobsLoading, unreadCount);
   const retainedUpload = useRetainedUpload(
     token,
     token && profileToken === token ? profile?.id ?? null : null,
@@ -375,6 +379,7 @@ export default function ModernApp() {
         setView("notifications");
       }}
       token={token}
+      unreadCount={unreadCount}
       view={view ?? "workspace"}
       onNavigate={setView}
       onSignOut={logout}
