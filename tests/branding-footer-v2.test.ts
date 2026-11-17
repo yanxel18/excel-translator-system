@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 const apiBaseUrl =
   process.env.API_BASE_URL || "http://localhost:3000/excel-convert";
 const webBasePath = process.env.WEB_BASE_PATH || "/excel-convert/";
+const companyName = process.env.FOOTER_TEST_COMPANY || "Rimuru Company";
 
 async function openWorkspace(
   page: import("@playwright/test").Page,
@@ -80,7 +81,7 @@ test(
     await openWorkspace(page, { status: 200, body: { year: 2026 } });
     const footer = page.getByRole("contentinfo");
     await expect(footer).toHaveText(
-      "Translation System Taiyo Yuden Co. Ltd © 2026",
+      `Translation System ${companyName} © 2026`,
     );
 
     for (const width of [320, 768, 1024, 1440]) {
@@ -127,7 +128,7 @@ test("footer clearly indicates when backend year metadata is unavailable", async
     body: { message: "Unavailable" },
   });
   await expect(page.getByRole("contentinfo")).toHaveText(
-    "Translation System Taiyo Yuden Co. Ltd © Year unavailable",
+    `Translation System ${companyName} © Year unavailable`,
   );
 });
 
@@ -139,13 +140,13 @@ test("footer content is localized in Japanese and Chinese", async ({ page }) => 
     localStorage.setItem("excel-translator-locale", "ja"),
   );
   await page.reload();
-  await expect(footer).toHaveText("翻訳システム Taiyo Yuden Co. Ltd © 2026");
+  await expect(footer).toHaveText(`翻訳システム ${companyName} © 2026`);
 
   await page.evaluate(() =>
     localStorage.setItem("excel-translator-locale", "zh"),
   );
   await page.reload();
-  await expect(footer).toHaveText("翻译系统 Taiyo Yuden Co. Ltd © 2026");
+  await expect(footer).toHaveText(`翻译系统 ${companyName} © 2026`);
 });
 
 test("footer falls back when the system-info response has an invalid year", async ({
@@ -156,6 +157,6 @@ test("footer falls back when the system-info response has an invalid year", asyn
     body: { year: "2026" },
   });
   await expect(page.getByRole("contentinfo")).toHaveText(
-    "Translation System Taiyo Yuden Co. Ltd © Year unavailable",
+    `Translation System ${companyName} © Year unavailable`,
   );
 });

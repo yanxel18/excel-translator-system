@@ -223,9 +223,9 @@ test("bottom-right language menu opens upward, persists each locale, and dismiss
   await expect(languageMenu).toBeHidden();
 
   for (const [label, locale, localizedFooter] of [
-    ["日本語", "ja", "翻訳システム Taiyo Yuden Co. Ltd © 2026"],
-    ["中文", "zh", "翻译系统 Taiyo Yuden Co. Ltd © 2026"],
-    ["English", "en", "Translation System Taiyo Yuden Co. Ltd © 2026"],
+    ["日本語", "ja", "翻訳システム Rimuru Company © 2026"],
+    ["中文", "zh", "翻译系统 Rimuru Company © 2026"],
+    ["English", "en", "Translation System Rimuru Company © 2026"],
   ] as const) {
     await languageButton.click();
     await page.getByRole("menuitem", { name: label }).click();
@@ -238,13 +238,13 @@ test("bottom-right language menu opens upward, persists each locale, and dismiss
     await expect(page.getByRole("contentinfo")).toContainText(localizedFooter);
   }
   await expect(page.getByRole("contentinfo")).toContainText(
-    "Translation System Taiyo Yuden Co. Ltd © 2026",
+    "Translation System Rimuru Company © 2026",
   );
   await languageButton.click();
   await page.getByRole("menuitem", { name: "中文" }).click();
   await page.reload();
   await expect(page.getByRole("contentinfo")).toContainText(
-    "翻译系统 Taiyo Yuden Co. Ltd © 2026",
+    "翻译系统 Rimuru Company © 2026",
   );
 
   const navigationToggle = page.locator(".mantine-Burger-root");

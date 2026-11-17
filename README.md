@@ -44,6 +44,8 @@ Open `http://localhost:5173/excel-convert/`. Docker-served browser API traffic u
 
 Keep `BASE_PATH=/excel-convert` and `VITE_BASE_PATH=/excel-convert/` with the supplied nginx configuration and health check. Docker uses same-origin API and preview proxies so browser requests also work through private tailnet access. Vite settings are embedded at build time, so rebuild the web image after changing them. When bootstrap is enabled, the local account is created on first successful login; changing its environment password does not overwrite an existing account.
 
+Set `VITE_FOOTER_COMPANY` in `.env` to change the footer company name; its default is `Rimuru Company`. This is public browser-visible text, not a secret. Rebuild the web image after changing it.
+
 Administrators can change the workbook upload limit (1–50 MB) and the maximum number of concurrent translations (1–5) under **System Settings → Files & processing**. The API enforces the upload setting below its fixed 50 MB memory-safety ceiling, and changing concurrency applies to new job admissions without stopping jobs already in progress.
 
 ### Private Tailscale access
