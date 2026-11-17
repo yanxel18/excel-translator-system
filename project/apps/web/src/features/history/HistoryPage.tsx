@@ -66,6 +66,36 @@ function isPageSize(value: number): value is (typeof pageSizes)[number] {
   return pageSizes.includes(value as (typeof pageSizes)[number]);
 }
 
+function UsageBars({
+  input,
+  output,
+}: {
+  input?: number | null;
+  output?: number | null;
+}) {
+  const { t, locale } = useLocale();
+  const maximum = Math.max(input ?? 0, output ?? 0, 1);
+  return (
+    <Stack gap="xs" className="history-usage">
+      {[
+        { label: t("Input"), value: input },
+        { label: t("Output"), value: output },
+      ].map(({ label, value }) => (
+        <Box key={label}>
+          <Text size="sm">
+            {label}: {value?.toLocaleString(locale) ?? t("Not available")}
+          </Text>
+          {value != null && (
+            <Box className="history-usage-track" aria-hidden="true">
+              <Box className="history-usage-fill" style={{ width: `${(value / maximum) * 100}%` }} />
+            </Box>
+          )}
+        </Box>
+      ))}
+    </Stack>
+  );
+}
+
 export default function HistoryPage({
   token,
   page,
@@ -299,6 +329,12 @@ export default function HistoryPage({
           <Text size="sm" c="dimmed">
             {t("Review, preview, download, or remove your workbooks.")}
           </Text>
+          <Text size="sm" c="dimmed">
+            {t("Input usage appears after extraction; output usage appears after completion. Tokens are estimates, not model usage.")}
+          </Text>
+          <Text size="sm" c="dimmed">
+            {t("Bars compare input and output within each file.")}
+          </Text>
         </div>
       </Group>
 
@@ -399,6 +435,8 @@ export default function HistoryPage({
                   {sortHeader("status", "Status")}
                   {sortHeader("sourceLanguage", "Source language")}
                   {sortHeader("targetLanguage", "Target language")}
+                  <Table.Th><Text size="sm" fw={600}>{t("Characters")}</Text></Table.Th>
+                  <Table.Th><Text size="sm" fw={600}>{t("Estimated tokens")}</Text></Table.Th>
                   {sortHeader("createdAt", "Created")}
                   <Table.Th>{t("Actions")}</Table.Th>
                 </Table.Tr>
@@ -456,6 +494,12 @@ export default function HistoryPage({
                       <Text size="sm">
                         {t(languageName(job.targetLanguage))}
                       </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <UsageBars input={job.inputCharacters} output={job.outputCharacters} />
+                    </Table.Td>
+                    <Table.Td>
+                      <UsageBars input={job.inputTokensEstimate} output={job.outputTokensEstimate} />
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">

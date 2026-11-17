@@ -29,6 +29,7 @@ import { useLocale } from "../shared/LocaleProvider";
 import GidIdenticon from "../shared/GidIdenticon";
 import AdminKeycloakSettings from "./AdminKeycloakSettings";
 import WorkbookIcon from "../shared/WorkbookIcon";
+import TranslationUsage from "./TranslationUsage";
 
 export default function ProfilePage({
   token,
@@ -409,6 +410,7 @@ export default function ProfilePage({
                     </Paper>
                   ))}
                 </SimpleGrid>
+                <TranslationUsage jobs={jobs} />
                 <SimpleGrid cols={{ base: 1, md: 2 }}>
                   <Paper withBorder radius="lg" p="lg">
                     <Text fw={700} size="sm">

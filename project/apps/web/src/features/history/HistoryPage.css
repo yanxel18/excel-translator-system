@@ -21,6 +21,23 @@
   min-height: 0;
 }
 
+.history-usage {
+  min-width: 10rem;
+}
+
+.history-usage-track {
+  height: 0.375rem;
+  margin-top: 0.25rem;
+  border-radius: 0.25rem;
+  background: var(--mantine-color-default-hover);
+}
+
+.history-usage-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mantine-color-blue-filled);
+}
+
 @media (max-height: 36em) {
   /* Use the page as the only scroll container when controls cannot fit. */
   .mantine-AppShell-root .main-content:has(> .history-page) {

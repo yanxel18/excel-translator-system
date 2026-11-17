@@ -12,6 +12,10 @@ export interface Job {
   elapsedMs?: number;
   error?: string;
   textCount?: number;
+  inputCharacters?: number | null;
+  outputCharacters?: number | null;
+  inputTokensEstimate?: number | null;
+  outputTokensEstimate?: number | null;
   selectedSheets: string[];
   availableSheets: string[];
   sourceLanguage: Language;

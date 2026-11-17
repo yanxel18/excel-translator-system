@@ -1,0 +1,111 @@
+import { expect, test, type Route } from "@playwright/test";
+
+const api = process.env.API_BASE_URL || "http://localhost:3000/excel-convert";
+const web = process.env.WEB_BASE_PATH || "/excel-convert/";
+
+test("history and profile show recorded usage without inventing historical values", async ({ page }, testInfo) => {
+  const baseJob = {
+    fileSize: 1024, progress: 100, createdAt: "2026-11-17T00:00:00.000Z",
+    updatedAt: "2026-11-17T00:00:00.000Z", sourceLanguage: "JAPANESE",
+    targetLanguage: "ENGLISH", selectedSheets: [], availableSheets: [],
+    vocabularyGroupId: null,
+  };
+  const jobs = [
+    { ...baseJob, id: "new", fileName: "new.xlsx", status: "COMPLETED", completedAt: "2026-11-17T12:00:00.000Z",
+      inputCharacters: 123, outputCharacters: 200, inputTokensEstimate: 92, outputTokensEstimate: 50 },
+    { ...baseJob, id: "old", fileName: "old.xlsx", status: "COMPLETED", completedAt: "2026-11-16T12:00:00.000Z" },
+    { ...baseJob, id: "prior", fileName: "prior.xlsx", status: "COMPLETED", completedAt: "2026-11-15T12:00:00.000Z",
+      inputCharacters: 40, outputCharacters: 80, inputTokensEstimate: 10, outputTokensEstimate: 20 },
+    { ...baseJob, id: "same-day", fileName: "same-day.xlsx", status: "COMPLETED", completedAt: "2026-11-17T13:00:00.000Z",
+      inputCharacters: 10, outputCharacters: 20, inputTokensEstimate: 3, outputTokensEstimate: 5 },
+    { ...baseJob, id: "earlier", fileName: "earlier.xlsx", status: "COMPLETED", completedAt: "2026-11-01T12:00:00.000Z",
+      inputCharacters: 1, outputCharacters: 2, inputTokensEstimate: 1, outputTokensEstimate: 1 },
+    { ...baseJob, id: "running", fileName: "running.xlsx", status: "PROCESSING",
+      inputCharacters: 999, inputTokensEstimate: 750 },
+  ];
+  await page.addInitScript(() => localStorage.setItem("excel-translator-token", "usage-test"));
+  const respond = async (route: Route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(url.pathname.startsWith("/api/") ? "/api" : new URL(api).pathname, "");
+    const body = path === "/profile" ? { id: "owner", username: "alice", isAdmin: false, createdAt: "2026-01-01T00:00:00.000Z" }
+      : path === "/history" ? { data: jobs, total: jobs.length, page: 1, pageSize: 10, nextCursor: null }
+      : path === "/jobs" ? jobs
+      : path === "/notifications/unread-count" ? { count: 0 } : [];
+    await route.fulfill({ json: body });
+  };
+  await page.route(`${api}/**`, respond);
+  await page.route("**/api/**", respond);
+  await page.clock.setFixedTime(new Date("2026-11-17T12:00:00.000Z"));
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(`${web}history`);
+  const newRow = page.getByRole("row").filter({ hasText: "new.xlsx" });
+  await expect(page.getByRole("columnheader", { name: "Characters", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Estimated tokens", exact: true })).toBeVisible();
+  const headerStyle = async (index: number) => page.locator("thead th").nth(index).locator("p").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { font: style.fontFamily, size: style.fontSize, color: style.color, weight: style.fontWeight };
+  });
+  expect(await headerStyle(5)).toEqual(await headerStyle(0));
+  expect(await headerStyle(6)).toEqual(await headerStyle(0));
+  const characterCell = newRow.getByRole("cell").nth(5);
+  const tokenCell = newRow.getByRole("cell").nth(6);
+  await expect(characterCell).toContainText("Input: 123");
+  await expect(characterCell).toContainText("Output: 200");
+  await expect(tokenCell).toContainText("Input: 92");
+  await expect(tokenCell).toContainText("Output: 50");
+  await expect(characterCell.locator(".history-usage-fill")).toHaveCount(2);
+  await expect(tokenCell.locator(".history-usage-fill")).toHaveCount(2);
+  const widths = await characterCell.locator(".history-usage-fill").evaluateAll((bars) =>
+    bars.map((bar) => bar.getBoundingClientRect().width),
+  );
+  expect(widths[0] / widths[1]).toBeCloseTo(123 / 200, 1);
+  const textStyle = async (selector: string) => newRow.locator(selector).first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { font: style.fontFamily, size: style.fontSize, color: style.color };
+  });
+  expect(await textStyle("td:nth-child(6) p")).toEqual(await textStyle("td:nth-child(2) p"));
+  await expect(page.getByRole("row").filter({ hasText: "old.xlsx" })).toContainText("Not available");
+  const runningRow = page.getByRole("row").filter({ hasText: "running.xlsx" });
+  await expect(runningRow.getByRole("cell").nth(5)).toContainText("Input: 999");
+  await expect(runningRow.getByRole("cell").nth(5)).toContainText("Output: Not available");
+  await expect(runningRow.getByRole("cell").nth(5).locator(".history-usage-fill")).toHaveCount(1);
+  await page.locator(".history-table-card").screenshot({
+    path: testInfo.outputPath("history-usage.png"),
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 375, height: 700 });
+  await tokenCell.scrollIntoViewIfNeeded();
+  await expect(tokenCell).toContainText("Output: 50");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${web}profile`);
+  const usage = page.getByRole("region", { name: "Translation usage", exact: true });
+  await expect(usage).toContainText("Input characters");
+  await expect(usage.locator(".translation-usage-cards")).toContainText("174");
+  await expect(usage.locator(".translation-usage-cards")).toContainText("302");
+  await expect(usage.locator(".translation-usage-cards")).toContainText("106");
+  await expect(usage.locator(".translation-usage-cards")).toContainText("76");
+  await expect(usage).not.toContainText("999");
+  await expect(usage).toContainText("not model usage");
+  const chart = usage.getByRole("img", { name: "Translation usage over the last 7 days" });
+  await expect(chart).toBeVisible();
+  await expect(chart.locator(".usage-bar-input")).toHaveCount(6);
+  await expect(chart.locator(".usage-bar-output")).toHaveCount(6);
+  await expect(chart.locator(".usage-line-input")).toHaveCount(1);
+  await expect(chart.locator(".usage-line-output")).toHaveCount(1);
+  await expect(usage.getByText("Characters scale", { exact: true })).toBeVisible();
+  await expect(usage.getByText("Estimated tokens scale", { exact: true })).toBeVisible();
+  await usage.screenshot({ path: testInfo.outputPath("usage-dashboard.png"), animations: "disabled" });
+  await usage.getByText("Show daily usage data", { exact: true }).click();
+  const dailyTable = usage.getByRole("table", { name: "Usage by completion date" });
+  await expect(dailyTable.getByRole("row")).toHaveCount(8);
+  await expect(dailyTable.getByRole("row").last()).toContainText("133");
+  await expect(dailyTable.getByRole("row").last()).toContainText("220");
+  await expect(dailyTable.getByRole("row").last()).toContainText("95");
+  await expect(dailyTable.getByRole("row").last()).toContainText("55");
+  await expect(dailyTable.getByRole("row").nth(6)).toContainText("Not available");
+  await expect(dailyTable.getByRole("row").nth(5)).toContainText("40");
+  await expect(dailyTable.getByRole("row").nth(5)).toContainText("80");
+  jobs.splice(0, jobs.length, jobs.find((job) => job.id === "old")!);
+  await page.reload();
+  await expect(usage.locator(".translation-usage-cards").getByText("Not available", { exact: true })).toHaveCount(4);
+});

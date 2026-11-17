@@ -14,6 +14,27 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-usage-trends-v6",
+    title: "Track translation usage over seven days",
+    details:
+      "The profile dashboard now combines daily character bars and estimated token lines in one seven-day chart, with four all-time usage cards and accessible daily details. History usage column headings now match the other headings.",
+    publishedAt: "2026-11-17T12:50:00.000Z",
+  },
+  {
+    id: "changelog-20261117-history-usage-bars-v6",
+    title: "Compare translation usage in history",
+    details:
+      "History now shows characters and estimated tokens in separate columns, with labeled input and output bars for each file. The usage text matches the rest of the table.",
+    publishedAt: "2026-11-17T12:30:00.000Z",
+  },
+  {
+    id: "changelog-20261117-translation-usage-v6",
+    title: "See translation character and token estimates",
+    details:
+      "Translation history now shows input and output character counts and estimated token equivalents. The profile dashboard summarizes completed translations. Estimates are based on text size, not actual model token usage. Older jobs do not have these measurements.",
+    publishedAt: "2026-11-17T12:10:00.000Z",
+  },
+  {
     id: "changelog-20261117-upload-200mb-v6",
     title: "Upload workbooks up to 200 MB",
     details:

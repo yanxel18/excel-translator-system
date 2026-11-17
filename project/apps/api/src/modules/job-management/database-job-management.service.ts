@@ -21,6 +21,7 @@ import {
 import { PrismaService } from "../persistence/prisma.service";
 import { TextExtractionService } from "../text-extraction/text-extraction.service";
 import { TranslationService } from "../translation/translation.service";
+import { measureTranslationUsage } from "../translation/translation-usage";
 import { normalizeUploadFilename } from "../../utils/filename";
 import { isSupportedLanguagePair } from "./language-pairs";
 import { ApplicationSettingsService } from "../application-settings/application-settings.service";
@@ -56,6 +57,10 @@ export interface Job {
   elapsedMs?: number;
   error?: string;
   textCount?: number;
+  inputCharacters: number | null;
+  outputCharacters: number | null;
+  inputTokensEstimate: number | null;
+  outputTokensEstimate: number | null;
   selectedSheets: string[];
   availableSheets: string[];
   sourceLanguage: Language;
@@ -228,6 +233,10 @@ export class DatabaseJobManagementService
       elapsedMs: job.elapsedMs ?? undefined,
       error: job.error ?? undefined,
       textCount: job.textCount ?? undefined,
+      inputCharacters: job.inputCharacters ?? null,
+      outputCharacters: job.outputCharacters ?? null,
+      inputTokensEstimate: job.inputTokensEstimate ?? null,
+      outputTokensEstimate: job.outputTokensEstimate ?? null,
       selectedSheets: Array.isArray(job.selectedSheets)
         ? job.selectedSheets
         : [],
@@ -571,6 +580,10 @@ export class DatabaseJobManagementService
           error: null,
           completedAt: null,
           elapsedMs: null,
+          inputCharacters: null,
+          outputCharacters: null,
+          inputTokensEstimate: null,
+          outputTokensEstimate: null,
         },
       });
       if (claimed.length)
@@ -620,9 +633,10 @@ export class DatabaseJobManagementService
         selectedSheets,
       );
       this.ensureNotCancelled(id);
+      const { inputCharacters, inputTokensEstimate } = measureTranslationUsage(extracted, []);
       await this.prisma.translationJob.updateMany({
         where: { id, status: DatabaseJobStatus.PROCESSING },
-        data: { textCount: extracted.length, progress: 10 },
+        data: { textCount: extracted.length, progress: 10, inputCharacters, inputTokensEstimate },
       });
       const translated = await this.translation.sendTextForTranslation(
         extracted,
@@ -645,6 +659,7 @@ export class DatabaseJobManagementService
       );
       await progressWrites;
       this.ensureNotCancelled(id);
+      const { outputCharacters, outputTokensEstimate } = measureTranslationUsage([], translated);
       await this.prisma.translationJob.updateMany({
         where: { id, status: DatabaseJobStatus.PROCESSING },
         data: { progress: 90 },
@@ -667,6 +682,10 @@ export class DatabaseJobManagementService
               status: DatabaseJobStatus.COMPLETED,
               progress: 100,
               outputPath,
+              inputCharacters,
+              inputTokensEstimate,
+              outputCharacters,
+              outputTokensEstimate,
               completedAt: new Date(),
               elapsedMs: Date.now() - startedAt,
             },

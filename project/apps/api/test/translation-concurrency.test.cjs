@@ -110,6 +110,15 @@ const { DatabaseJobManagementService } = loadTypescriptModule(serviceSource, {
   "../translation/translation.service": {
     TranslationService: class TranslationService {},
   },
+  "../translation/translation-usage": loadTypescriptModule(
+    join(apiSource, "modules", "translation", "translation-usage.ts"),
+  ),
+  "../application-settings/application-settings.service": {
+    ApplicationSettingsService: class ApplicationSettingsService {},
+  },
+  "../../common/workbook-file-stream": {
+    openWorkbookFileStream: () => { throw new Error("Not used by this test."); },
+  },
   "../../utils/filename": { normalizeUploadFilename: (name) => name },
   "./language-pairs": { isSupportedLanguagePair: () => true },
   "../../config/translation-concurrency": config,
@@ -219,6 +228,7 @@ function makeHarness(limit, translation) {
       sendTextForTranslation: async () => [],
       patchOOXML: async () => Buffer.from("translated"),
     },
+    { getSettings: async () => ({ maxConcurrentTranslations: limit }) },
   );
   return {
     dataDir,
@@ -226,6 +236,7 @@ function makeHarness(limit, translation) {
     notifications,
     prisma,
     service,
+    extraction,
     async addJob(id, status = "PENDING", ownerId = "owner-1") {
       jobs.set(id, {
         id,
@@ -284,6 +295,37 @@ test("translation concurrency rejects values outside the supported integer range
       () => getMaxConcurrentTranslations(value),
       /MAX_CONCURRENT_TRANSLATIONS must be an integer from 1 to 5/,
     );
+});
+
+test("usage reflects the current attempt and publishes output only after completion", async (context) => {
+  const releaseTranslation = deferred();
+  const harness = makeHarness(1, {
+    sendTextForTranslation: async () => releaseTranslation.promise,
+    patchOOXML: async () => Buffer.from("translated"),
+  });
+  context.after(() => harness.cleanup());
+  harness.extraction.extractTextFromXlsx = async () => [{ id: "1", value: "日本😀" }];
+  await harness.addJob("usage", "FAILED");
+  Object.assign(harness.jobs.get("usage"), {
+    inputCharacters: 999, outputCharacters: 999,
+    inputTokensEstimate: 999, outputTokensEstimate: 999,
+  });
+  await harness.initialize();
+  await harness.service.retryJob("usage", "owner-1");
+  await waitFor(() => harness.jobs.get("usage").inputCharacters === 3);
+  const row = harness.jobs.get("usage");
+  assert.equal(row.inputTokensEstimate, 3);
+  assert.equal(row.outputCharacters, null);
+  assert.equal(row.outputTokensEstimate, null);
+  releaseTranslation.resolve([{ id: "1", translated: "Hi" }]);
+  await waitFor(() => row.status === "COMPLETED");
+  assert.equal(row.inputCharacters, 3);
+  assert.equal(row.outputCharacters, 2);
+  assert.equal(row.outputTokensEstimate, 1);
+  const job = await harness.service.getJob("usage", "owner-1");
+  assert.equal(job.inputCharacters, 3);
+  assert.equal(job.outputCharacters, 2);
+  assert.equal(job.outputTokensEstimate, 1);
 });
 
 test("simultaneous start and retry reject at capacity, then reuse a completed slot", async (context) => {

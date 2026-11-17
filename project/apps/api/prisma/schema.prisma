@@ -191,6 +191,10 @@ model TranslationJob {
   vocabularyGroupId String?
   progress          Int               @default(0)
   textCount         Int?
+  inputCharacters   Int?
+  outputCharacters  Int?
+  inputTokensEstimate Int?
+  outputTokensEstimate Int?
   error             String?
   startedAt         DateTime?
   completedAt       DateTime?

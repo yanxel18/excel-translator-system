@@ -94,3 +94,19 @@ Focused verification: `npm run test:maintenance`.
 ## Docker and operations
 
 From the repository root, `docker compose up --build -d translator-api` starts the API and healthy PostgreSQL dependency. Migrations run before the API starts. Configure an Ollama address reachable from the container. Use `docker compose logs -f translator-api` for startup and migration output. Back up both named volumes because database records refer to workbook files. See the [deployment guide](../../docs/DEPLOYMENT.md) for authentication, preview and operations.
+
+## Translation usage
+
+Job history shows input text usage after extraction and output usage after a
+successful translation. Counts are Unicode code points in extracted strings,
+not cells: shared strings referenced more than once are counted once. Estimates
+are the total UTF-8 bytes divided by four, rounded up; they are rough text
+equivalents, not Ollama's actual prompt or completion token counts, and accuracy
+varies by language and model. Vocabulary markers, prompt instructions, retries,
+and protocol overhead are excluded. The profile dashboard sums measured
+completed jobs owned by the signed-in user. Failed attempts are not included;
+older jobs without measurements remain unavailable rather than being treated
+as measured zero. Deleting a job removes it from the dashboard totals.
+The dashboard chart groups completed jobs by their completion date in the
+viewer’s local time over the last seven calendar days; its cards show all-time
+totals. Days containing jobs without recorded usage are marked as incomplete.

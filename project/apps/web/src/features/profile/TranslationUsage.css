@@ -1,0 +1,64 @@
+.translation-usage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 1rem 0;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.translation-usage-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.translation-usage-legend i {
+  display: inline-block;
+  width: 1rem;
+  height: 0.5rem;
+  border-radius: 0.125rem;
+}
+
+.usage-legend-inputCharacters, .usage-bar-input { background: var(--mantine-color-blue-6); fill: var(--mantine-color-blue-6); }
+.usage-legend-outputCharacters, .usage-bar-output { background: var(--mantine-color-green-6); fill: var(--mantine-color-green-6); }
+.usage-legend-inputTokensEstimate { border-top: 3px solid var(--mantine-color-orange-7); }
+.usage-legend-outputTokensEstimate { border-top: 3px dashed var(--mantine-color-grape-6); }
+
+.translation-usage-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.translation-usage-scroll {
+  overflow-x: auto;
+}
+
+.translation-usage-scroll:focus-visible,
+.translation-usage-details summary:focus-visible {
+  outline: 2px solid var(--visual-focus);
+  outline-offset: 2px;
+}
+
+.translation-usage-chart {
+  display: block;
+  width: 100%;
+  min-width: 600px;
+}
+
+.translation-usage-chart text {
+  fill: var(--mantine-color-text);
+  font: 11px var(--mantine-font-family);
+}
+
+.usage-gridline { stroke: var(--mantine-color-default-border); }
+.usage-line-input, .usage-line-output { fill: none; stroke-width: 2.5; }
+.usage-line-input { stroke: var(--mantine-color-orange-7); }
+.usage-line-output { stroke: var(--mantine-color-grape-6); stroke-dasharray: 6 4; }
+.usage-point-input { fill: var(--mantine-color-orange-7); }
+.usage-point-output { fill: var(--mantine-color-grape-6); }
+
+.translation-usage-details summary {
+  cursor: pointer;
+  margin-top: 0.75rem;
+}
