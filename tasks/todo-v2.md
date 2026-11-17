@@ -188,7 +188,7 @@ Implementation evidence (2026-11-12): PostgreSQL 16.15 with `pg_trgm` 1.6 availa
   Implementation evidence (2026-11-13): Added the original 38×38 workbook translation SVG to the header and favicon. The focused browser suite verified its asset response from `/excel-convert/workspace`, the accessible Home label, native dimensions, and visibility after toggling the light/dark theme; the fixed dark-teal canvas, warm-white workbook, and teal/ochre strokes do not depend on the shell theme.
 
 - [x] **V2-22 — Add backend-year footer (M)**
-  - Expose safe system display metadata and render `Translation System Taiyo Yuden Co. Ltd © {year}` below page content.
+  - Expose safe system display metadata and render `Translation System {company} © {year}` below page content.
   - Acceptance: year supplied by backend under agreed timezone policy; year rollover/cache behavior defined; footer works on short and long pages without covering controls.
   - Verify: backend year-boundary checks, unavailable API behavior, mobile layout.
   - Dependencies: 05. Files: system info endpoint/client, app shell footer/locales/CSS.

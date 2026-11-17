@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-configurable-footer-v6",
+    title: "Configure the footer company name",
+    details:
+      "The footer now uses Rimuru Company by default. Operators can change the displayed company name through the frontend environment configuration.",
+    publishedAt: "2026-11-17T13:15:00.000Z",
+  },
+  {
     id: "changelog-20261117-usage-trends-v6",
     title: "Track translation usage over seven days",
     details:

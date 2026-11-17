@@ -107,7 +107,7 @@ On expired/invalid app credentials, a shared session handler clears state once, 
 
 OIDC mode changes require validated configuration and a recovery procedure to prevent administrator lockout. Issuer/discovery endpoints need URL validation and controlled server-side fetching; do not turn settings validation into an unrestricted URL fetcher. Provider claims do not override a disabled local user. Audit management changes without sensitive values.
 
-The footer reads `Translation System Taiyo Yuden Co. Ltd © {year}`. GET `/system/info` supplies the current year from the backend with an explicit calendar/timezone policy (proposed Asia/Tokyo); use caching and a defined unavailable-state strategy. Use original SVG artwork for favicon and header branding, with light/dark legibility and accessible labeling.
+The footer reads `Translation System {company} © {year}`. GET `/system/info` supplies the current year from the backend with an explicit calendar/timezone policy (proposed Asia/Tokyo); use caching and a defined unavailable-state strategy. Use original SVG artwork for favicon and header branding, with light/dark legibility and accessible labeling.
 
 ## Delivery sequence and completion
 

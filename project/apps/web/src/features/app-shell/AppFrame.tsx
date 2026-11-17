@@ -9,6 +9,8 @@ import ApiService from "../../api";
 import { useLocale } from "../shared/LocaleProvider";
 import type { UserProfile } from "../../api";
 
+const footerCompany = import.meta.env.VITE_FOOTER_COMPANY?.trim() || "Rimuru Company";
+
 export default function AppFrame({
   isAdmin,
   view,
@@ -116,7 +118,7 @@ export default function AppFrame({
           {children}
         </Box>
         <footer className="app-footer" role="contentinfo">
-          {t("Translation System Taiyo Yuden Co. Ltd")} ©{" "}
+          {t("Translation System")} {footerCompany} ©{" "}
           {year ?? (yearUnavailable ? t("Year unavailable") : "…")}
         </footer>
       </AppShell.Main>
