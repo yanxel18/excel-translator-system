@@ -21,6 +21,14 @@
   min-height: 0;
 }
 
+.history-search-field {
+  width: min(100%, 22rem);
+}
+
+.history-table-footer {
+  flex: 0 0 auto;
+}
+
 .history-usage {
   min-width: 10rem;
 }
@@ -36,6 +44,21 @@
   height: 100%;
   border-radius: inherit;
   background: var(--mantine-color-blue-filled);
+}
+
+@media (max-width: 48em) and (min-height: 36.01em) and (max-height: 42em) {
+  .mantine-AppShell-root .main-content:has(> .history-page) {
+    overflow: auto;
+  }
+
+  .history-page {
+    flex: none;
+  }
+
+  .history-table-scroll {
+    flex: none;
+    height: 12rem;
+  }
 }
 
 @media (max-height: 36em) {

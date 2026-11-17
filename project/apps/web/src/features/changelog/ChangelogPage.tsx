@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261117-history-table-layout-v7",
+    title: "More room for translation history",
+    details:
+      "Search is now inside the history table, with the result count beside the pagination controls. The table has more room and remains usable on small screens.",
+    publishedAt: "2026-11-17T13:50:00.000Z",
+  },
+  {
     id: "changelog-20261117-page-breadcrumbs-v7",
     title: "Find your way between pages",
     details:

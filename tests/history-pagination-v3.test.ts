@@ -137,6 +137,9 @@ test("history page size stays with pagination and preserves URL state", async ({
 
   await page.goto(`${webBasePath}history?q=empty`);
   await expect(page.getByText("No matching workbooks.")).toBeVisible();
+  const card = page.locator(".history-table-card");
+  await expect(card.getByRole("searchbox", { name: "Search workbooks" })).toBeVisible();
+  await expect(card.getByText("Results: 0")).toBeVisible();
   await expect(rows).toBeVisible();
   await expect(pagination).toHaveCount(0);
 });

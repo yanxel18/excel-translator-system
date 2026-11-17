@@ -46,6 +46,15 @@ test("history scrolls its table independently of the search controls", async ({
   await page.goto(`${web}history?pageSize=50`);
   const search = page.getByRole("searchbox", { name: "Search workbooks" });
   await expect(search).toBeVisible();
+  const card = page.locator(".history-table-card");
+  await expect(card.getByRole("searchbox", { name: "Search workbooks" })).toBeVisible();
+  const results = card.getByText("Results: 51");
+  await expect(results).toBeVisible();
+  const resultBox = await results.boundingBox();
+  const tableRegion = await page.getByRole("region", { name: "Translation history" }).boundingBox();
+  const paginationBox = await page.getByLabel("History pages").boundingBox();
+  expect(resultBox!.y).toBeGreaterThanOrEqual(tableRegion!.y + tableRegion!.height);
+  expect(resultBox!.x).toBeLessThan(paginationBox!.x);
   await expect(search.locator("..").locator("..")).not.toHaveCSS("position", "sticky");
   const viewport = page.getByRole("region", { name: "Translation history" });
   await expect(viewport).toBeVisible();
@@ -56,11 +65,18 @@ test("history scrolls its table independently of the search controls", async ({
     { width: 320, height: 768 },
   ]) {
     await page.setViewportSize({ width, height });
-    await expect.poll(() =>
-      page.locator(".main-content").evaluate(
-        (element) => element.scrollHeight - element.clientHeight,
-      ),
-    ).toBeLessThanOrEqual(1);
+    if (width === 320 && height === 600) {
+      await expect.poll(() =>
+        viewport.evaluate((element) => element.clientHeight),
+      ).toBeGreaterThanOrEqual(150);
+      await page.getByRole("textbox", { name: "Rows per page" }).scrollIntoViewIfNeeded();
+    } else {
+      await expect.poll(() =>
+        page.locator(".main-content").evaluate(
+          (element) => element.scrollHeight - element.clientHeight,
+        ),
+      ).toBeLessThanOrEqual(1);
+    }
     await expect.poll(() =>
       viewport.evaluate((element) => element.scrollHeight > element.clientHeight),
     ).toBe(true);

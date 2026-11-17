@@ -16,13 +16,13 @@ verification pass.
 
 ## History layout
 
-- [ ] Remove the separate Search Workbooks card and place the search input at
+- [x] Remove the separate Search Workbooks card and place the search input at
   the upper right of the Translation History table card.
   - Acceptance: Retain the search icon, accessible label and clear action,
     debounce, URL state, filters, and pagination reset; stack controls on
     narrow screens without horizontal page overflow.
   - Verify: Existing history search/filter tests and responsive browser checks.
-- [ ] Increase the space available to the history data table and move the
+- [x] Increase the space available to the history data table and move the
   Results value to the bottom left of the table card, before pagination.
   - Acceptance: Keep results, pagination, and page-size controls accessible
     in loading, empty, filtered, and populated states. Preserve table sorting,

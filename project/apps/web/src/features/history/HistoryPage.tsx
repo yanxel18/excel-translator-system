@@ -335,59 +335,60 @@ export default function HistoryPage({
             {t("Review, preview, download, or remove your workbooks.")}
           </Text>
           <Text size="sm" c="dimmed">
-            {t("Input usage appears after extraction; output usage appears after completion. Tokens are estimates, not model usage.")}
-          </Text>
-          <Text size="sm" c="dimmed">
+            {t("Input usage appears after extraction; output usage appears after completion. Tokens are estimates, not model usage.")}{" "}
             {t("Bars compare input and output within each file.")}
           </Text>
         </div>
       </Group>
 
-      <Paper withBorder p="md" radius="md">
-        <TextInput
-          className="history-search-field"
-          type="search"
-          label={t("Search workbooks")}
-          placeholder={t("Search by Excel filename")}
-          leftSection={<Search size={18} />}
-          rightSection={
-            searchValue ? (
-              <ActionIcon
-                aria-label={t("Clear search")}
-                variant="subtle"
-                color="gray"
-                size="sm"
-                onClick={() => setSearchValue("")}
-              >
-                <X size={18} />
-              </ActionIcon>
-            ) : null
-          }
-          rightSectionPointerEvents="all"
-          maxLength={200}
-          value={searchValue}
-          onChange={(event) => setSearchValue(event.currentTarget.value)}
-          style={{ maxWidth: 420 }}
-        />
-      </Paper>
+      <Paper
+        className="history-table-card"
+        withBorder
+        radius="lg"
+        shadow="sm"
+        style={{ overflow: "hidden" }}
+      >
+        <Group justify="space-between" p="md" className="history-table-toolbar">
+          <Text fw={700}>{t("Translation history")}</Text>
+          <TextInput
+            className="history-search-field"
+            type="search"
+            aria-label={t("Search workbooks")}
+            placeholder={t("Search by Excel filename")}
+            leftSection={<Search size={18} />}
+            rightSection={
+              searchValue ? (
+                <ActionIcon
+                  aria-label={t("Clear search")}
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  onClick={() => setSearchValue("")}
+                >
+                  <X size={18} />
+                </ActionIcon>
+              ) : null
+            }
+            rightSectionPointerEvents="all"
+            maxLength={200}
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.currentTarget.value)}
+          />
+        </Group>
 
-      {error && (
-        <Text c="red" role="alert">
-          {error}
-        </Text>
-      )}
-      <Text size="sm" c="dimmed" role="status" aria-live="polite">
-        {t("Results")}: {total}
-      </Text>
-      {loading && !jobs.length ? (
-        <Stack aria-label={t("Loading history")} aria-busy="true">
-          <Skeleton height={58} />
-          <Skeleton height={58} />
-          <Skeleton height={58} />
-        </Stack>
-      ) : !jobs.length ? (
-        <Paper withBorder radius="lg" p="xl">
-          <Stack align="center" gap="xs">
+        {error && (
+          <Text c="red" role="alert" px="md">
+            {error}
+          </Text>
+        )}
+        {loading && !jobs.length ? (
+          <Stack aria-label={t("Loading history")} aria-busy="true" p="md">
+            <Skeleton height={58} />
+            <Skeleton height={58} />
+            <Skeleton height={58} />
+          </Stack>
+        ) : !jobs.length ? (
+          <Stack align="center" gap="xs" p="xl">
             <ThemeIcon size={52} radius="xl" variant="light" color="blue">
               <WorkbookIcon size={24} />
             </ThemeIcon>
@@ -402,23 +403,7 @@ export default function HistoryPage({
               </Text>
             )}
           </Stack>
-        </Paper>
-      ) : (
-        <Paper
-          className="history-table-card"
-          withBorder
-          radius="lg"
-          shadow="sm"
-          style={{ overflow: "hidden" }}
-        >
-          <Group justify="space-between" p="lg">
-            <Box>
-              <Text fw={700}>{t("Translation history")}</Text>
-              <Text size="sm" c="dimmed">
-                {t("Review, preview, download, or remove your workbooks.")}
-              </Text>
-            </Box>
-          </Group>
+        ) : (
           <ScrollArea
             className="history-table-scroll"
             viewportProps={{
@@ -563,41 +548,46 @@ export default function HistoryPage({
               </Table.Tbody>
             </Table>
           </ScrollArea>
-        </Paper>
-      )}
-
-      <Group justify="center" align="end" gap="xs" wrap="nowrap">
-        {totalPages > 1 && (
-          <Pagination
-            aria-label={t("History pages")}
-            className="history-pagination"
-            value={Math.min(page, totalPages)}
-            onChange={changePage}
-            total={totalPages}
-            disabled={loading}
-            size="xs"
-            gap={4}
-            siblings={0}
-          />
         )}
-        <Select
-          label={t("Rows per page")}
-          aria-label={t("Rows per page")}
-          title={t("Rows per page")}
-          size="xs"
-          className="history-page-size"
-          classNames={{ label: "history-page-size-label" }}
-          data={pageSizes.map((size) => ({
-            value: String(size),
-            label: String(size),
-          }))}
-          value={String(pageSize)}
-          onChange={(value) => {
-            if (value && isPageSize(Number(value)))
-              updateQuery({ pageSize: value === "10" ? undefined : value });
-          }}
-        />
-      </Group>
+
+        <Group justify="space-between" align="end" gap="xs" p="md" className="history-table-footer">
+          <Text size="sm" c="dimmed" role="status" aria-live="polite">
+            {t("Results")}: {total}
+          </Text>
+          <Group align="end" gap="xs" wrap="nowrap">
+            {totalPages > 1 && (
+              <Pagination
+                aria-label={t("History pages")}
+                className="history-pagination"
+                value={Math.min(page, totalPages)}
+                onChange={changePage}
+                total={totalPages}
+                disabled={loading}
+                size="xs"
+                gap={4}
+                siblings={0}
+              />
+            )}
+            <Select
+              label={t("Rows per page")}
+              aria-label={t("Rows per page")}
+              title={t("Rows per page")}
+              size="xs"
+              className="history-page-size"
+              classNames={{ label: "history-page-size-label" }}
+              data={pageSizes.map((size) => ({
+                value: String(size),
+                label: String(size),
+              }))}
+              value={String(pageSize)}
+              onChange={(value) => {
+                if (value && isPageSize(Number(value)))
+                  updateQuery({ pageSize: value === "10" ? undefined : value });
+              }}
+            />
+          </Group>
+        </Group>
+      </Paper>
 
       <Modal
         opened={Boolean(previewJob)}
