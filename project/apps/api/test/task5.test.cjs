@@ -7,6 +7,9 @@ const {
 const {
   TranslationService,
 } = require("../dist/modules/translation/translation.service");
+const {
+  validateWorkbookOutput,
+} = require("../dist/modules/workbook-ooxml/validator");
 
 const contentTypes = `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -80,6 +83,27 @@ function services() {
 async function readZip(buffer) {
   return JSZip.loadAsync(buffer);
 }
+
+test("workbook validation rejects altered or truncated unmodified binary parts", async () => {
+  const zip = await readZip(await makeWorkbook());
+  zip.file("[Content_Types].xml", contentTypes.replace(
+    "</Types>",
+    '<Default Extension="bin" ContentType="application/octet-stream"/></Types>',
+  ));
+  zip.file("xl/media/example.bin", Buffer.alloc(65537, 42));
+  const source = await zip.generateAsync({ type: "nodebuffer" });
+  await validateWorkbookOutput(source, source, ["Selected"]);
+
+  for (const bytes of [Buffer.alloc(65537, 43), Buffer.alloc(65536, 42)]) {
+    const changed = await readZip(source);
+    changed.file("xl/media/example.bin", bytes);
+    const output = await changed.generateAsync({ type: "nodebuffer" });
+    await assert.rejects(
+      validateWorkbookOutput(source, output, ["Selected"]),
+      /unexpected changes in xl\/media\/example.bin/,
+    );
+  }
+});
 
 test("extracts visible rich text but skips formula results and unselected worksheets", async () => {
   const { extraction } = services();

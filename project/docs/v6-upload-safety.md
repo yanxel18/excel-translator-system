@@ -72,6 +72,13 @@ continue to read their source files. This reduces repeated work but does not
 bound upload validation, translation, legacy job reads or preview parsing, so
 the 200 MiB setting remains disabled.
 
+Output validation also compares unchanged package parts using exact streamed
+byte comparisons, rather than materializing both complete parts at once. In
+two isolated host measurements with a 64 MiB stored ZIP part, peak RSS growth
+during comparison fell from 130.5-130.6 MiB to 4.1-4.3 MiB, with elapsed time
+of 57-61 ms versus 55-62 ms. These measurements cover only part comparison,
+not peak memory for complete translation or preview.
+
 ## Selected implementation strategy
 
 The user subsequently confirmed chunked transfers with a retained browser file

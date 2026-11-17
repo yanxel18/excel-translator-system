@@ -2,6 +2,10 @@ import { drawingReferences } from "./drawing-text";
 import { XMLValidator } from "fast-xml-parser";
 import JSZip = require("jszip");
 import { openWorkbookArchive } from "./archive";
+import {
+  equalWorkbookPartStreams,
+  wrapWorkbookPartStream,
+} from "./part-comparison";
 import { hasAttribute, sharedStringIndex } from "./worksheet-cells";
 import {
   getWorksheetParts,
@@ -126,12 +130,11 @@ export async function validateWorkbookOutput(
         allowedChanges.has(part)
       )
         continue;
-      const [originalContent, outputContent] = await Promise.all([
-        originalZip.file(part)!.async("nodebuffer"),
-        outputZip.file(part)!.async("nodebuffer"),
-      ]);
       assert(
-        originalContent.equals(outputContent),
+        await equalWorkbookPartStreams(
+          wrapWorkbookPartStream(originalZip.file(part)!.nodeStream()),
+          wrapWorkbookPartStream(outputZip.file(part)!.nodeStream()),
+        ),
         `unexpected changes in ${part}`,
       );
     }
