@@ -68,7 +68,7 @@ verification pass.
   - Browser tests simulate visibility changes; effects may be delayed when
     the browser suspends a background tab.
   - Dependency: Dynamic tab title and notification state.
-- [ ] Localize notification titles and messages dynamically using structured
+- [x] Localize notification titles and messages dynamically using structured
   event templates and data.
   - Acceptance: Existing and new notifications render in the currently
     selected language in both the preview and full list; changing language

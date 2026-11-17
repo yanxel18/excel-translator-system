@@ -58,7 +58,17 @@ test("GraphQL HTTP authenticates, forwards owner and validates inputs", async ()
     providers: [
       ProductSurfacesResolver,
       { provide: ProductSurfacesService, useValue: surfaces },
-      { provide: NotificationsService, useValue: {} },
+      { provide: NotificationsService, useValue: {
+        list: async (owner) => {
+          observed = owner;
+          return { data: [{
+            id: "notification-id", jobId: "job-id", type: "JOB_PROGRESS",
+            eventKey: "job.started", eventFileName: "report.xlsx",
+            title: "Translation started", message: "report.xlsx is being translated.",
+            isRead: false, createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          }], total: 1, nextCursor: null };
+        },
+      } },
       {
         provide: AuthenticationService,
         useValue: {
@@ -127,6 +137,14 @@ test("GraphQL HTTP authenticates, forwards owner and validates inputs", async ()
     ).json();
     assert.equal(valid.errors, undefined, JSON.stringify(valid));
     assert.deepEqual(observed, ["owner-id", undefined]);
+    const notifications = await (
+      await request("{ notifications { data { eventKey eventFileName } } }", "valid")
+    ).json();
+    assert.equal(notifications.errors, undefined, JSON.stringify(notifications));
+    assert.equal(observed, "owner-id");
+    assert.deepEqual(notifications.data.notifications.data, [
+      { eventKey: "job.started", eventFileName: "report.xlsx" },
+    ]);
     const unknownTransportField = await fetch(url, {
       method: "POST",
       headers: {

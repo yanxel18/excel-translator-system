@@ -109,6 +109,7 @@ export class DatabaseJobManagementService
               userId: job.ownerId,
               jobId: job.id,
               type: NotificationType.JOB_FAILED,
+              eventKey: "job.interrupted",
               title: "Translation interrupted",
               message: `${job.fileName} can be retried after an API restart.`,
             })),
@@ -275,6 +276,7 @@ export class DatabaseJobManagementService
           create: {
             userId: input.ownerId,
             type: NotificationType.JOB_QUEUED,
+            eventKey: "job.queued",
             title: "Translation queued",
             message: "Your workbook is ready to start.",
           },
@@ -592,6 +594,7 @@ export class DatabaseJobManagementService
             userId: ownerId,
             jobId: id,
             type: NotificationType.JOB_PROGRESS,
+            eventKey: "job.started",
             title: "Translation started",
             message: `${claimed[0].fileName} is being translated.`,
           },
@@ -696,6 +699,7 @@ export class DatabaseJobManagementService
                 userId: changed[0].ownerId,
                 jobId: id,
                 type: NotificationType.JOB_COMPLETED,
+                eventKey: "job.completed",
                 title: "Translation complete",
                 message: "Your translated workbook is ready to download.",
               },
@@ -733,6 +737,7 @@ export class DatabaseJobManagementService
               type: wasCancelled
                 ? NotificationType.JOB_CANCELLED
                 : NotificationType.JOB_FAILED,
+              eventKey: wasCancelled ? "job.cancelled" : "job.failed",
               title: wasCancelled
                 ? "Translation cancelled"
                 : "Translation failed",
@@ -794,6 +799,7 @@ export class DatabaseJobManagementService
               userId: ownerId,
               jobId: id,
               type: NotificationType.JOB_CANCELLED,
+              eventKey: "job.cancelled",
               title: "Translation cancelled",
               message: `${result[0].fileName} was cancelled.`,
             },

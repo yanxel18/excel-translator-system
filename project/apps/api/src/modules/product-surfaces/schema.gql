@@ -22,6 +22,8 @@ type NotificationRecord {
   id: ID!
   jobId: String
   type: String!
+  eventKey: String
+  eventFileName: String
   title: String!
   message: String!
   isRead: Boolean!

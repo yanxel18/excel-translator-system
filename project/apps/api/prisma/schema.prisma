@@ -260,6 +260,7 @@ model Notification {
   userId    String
   jobId     String?
   type      NotificationType
+  eventKey  String?
   title     String
   message   String
   isRead    Boolean          @default(false)

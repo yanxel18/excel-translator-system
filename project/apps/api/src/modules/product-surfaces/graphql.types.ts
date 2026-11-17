@@ -21,6 +21,8 @@ export class NotificationRecord {
   @Field(() => ID) id: string;
   @Field({ nullable: true }) jobId: string | null;
   @Field() type: string;
+  @Field({ nullable: true }) eventKey: string | null;
+  @Field({ nullable: true }) eventFileName: string | null;
   @Field() title: string;
   @Field() message: string;
   @Field() isRead: boolean;

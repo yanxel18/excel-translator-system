@@ -47,6 +47,8 @@ export interface JobNotification {
   id: string;
   jobId: string | null;
   type: string;
+  eventKey?: string | null;
+  eventFileName?: string | null;
   title: string;
   message: string;
   isRead: boolean;

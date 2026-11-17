@@ -14,6 +14,13 @@ import { useLocale } from "../shared/LocaleProvider";
 
 const initialHistory: ChangelogEntry[] = [
   {
+    id: "changelog-20261118-localized-notifications-v7",
+    title: "Read notifications in your language",
+    details:
+      "Translation notifications now update when you switch between English, Japanese, and Chinese. Existing recognized notifications are included, while unfamiliar older messages remain readable.",
+    publishedAt: "2026-11-17T15:20:00.000Z",
+  },
+  {
     id: "changelog-20261118-clear-upload-title-v7",
     title: "Clear completed upload and tab messages",
     details:

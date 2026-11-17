@@ -6,6 +6,7 @@ import {
 import { PrismaService } from "../persistence/prisma.service";
 
 const PAGE_SIZE = 10;
+const FILE_EVENTS = new Set(["job.started", "job.failed", "job.interrupted", "job.cancelled"]);
 
 @Injectable()
 export class NotificationsService {
@@ -32,6 +33,8 @@ export class NotificationsService {
           id: true,
           jobId: true,
           type: true,
+          eventKey: true,
+          job: { select: { ownerId: true, fileName: true } },
           title: true,
           message: true,
           isRead: true,
@@ -41,7 +44,11 @@ export class NotificationsService {
       this.prisma.notification.count({ where }),
     ]);
     const hasMore = items.length > PAGE_SIZE;
-    const data = items.slice(0, PAGE_SIZE);
+    const data = items.slice(0, PAGE_SIZE).map(({ job, ...item }) => ({
+      ...item,
+      eventFileName: item.eventKey && FILE_EVENTS.has(item.eventKey) && job?.ownerId === ownerId
+        ? job.fileName : null,
+    }));
     return {
       data,
       total,

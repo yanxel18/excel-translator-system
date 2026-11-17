@@ -12,6 +12,7 @@ import {
 import type { JobNotification } from "../../api";
 import NotificationIcon from "./NotificationIcon";
 import { useLocale } from "../shared/LocaleProvider";
+import { notificationText } from "./notificationText";
 import "./notifications.css";
 
 export default function NotificationFeed({
@@ -91,7 +92,7 @@ export default function NotificationFeed({
       gap="sm"
       className={`notification-feed${compact ? " notification-feed-compact" : ""}`}
     >
-      {items.map((item, index) => (
+      {items.map((item) => ({ item, content: notificationText(item, t) })).map(({ item, content }, index) => (
         <Box key={item.id}>
           {(index === 0 ||
             label(item.createdAt) !== label(items[index - 1].createdAt)) && (
@@ -125,9 +126,9 @@ export default function NotificationFeed({
                     size="sm"
                     fw={650}
                     className="notification-title"
-                    title={item.title}
+                    title={content.title}
                   >
-                    {item.title}
+                    {content.title}
                   </Text>
                   <Text size="xs" c="dimmed" className="notification-time">
                     {timeLabel(item.createdAt)}
@@ -139,7 +140,7 @@ export default function NotificationFeed({
                   mt={4}
                   className="notification-message"
                 >
-                  {item.message}
+                  {content.message}
                 </Text>
                 {!item.isRead && (
                   <Badge size="xs" variant="light" mt={6}>

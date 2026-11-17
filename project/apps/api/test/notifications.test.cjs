@@ -87,3 +87,21 @@ test("unread count is scoped to the signed-in owner", async () => {
   );
   assert.deepEqual(calls[0], { where: { userId: "user-1", isRead: false } });
 });
+
+test("notification template metadata never exposes another owner's job filename", async () => {
+  const rows = [
+    { id: "own", userId: "user-1", eventKey: "job.started", job: { ownerId: "user-1", fileName: "report.xlsx" } },
+    { id: "foreign", userId: "user-1", eventKey: "job.failed", job: { ownerId: "user-2", fileName: "private.xlsx" } },
+    { id: "missing", userId: "user-1", eventKey: "job.cancelled", job: null },
+    { id: "legacy", userId: "user-1", eventKey: null, job: null },
+  ];
+  let query;
+  const prisma = { notification: {
+    findMany: async (value) => { query = value; return rows; },
+    count: async () => rows.length,
+  } };
+  const result = await new NotificationsService(prisma).list("user-1");
+  assert.deepEqual(query.where, { userId: "user-1" });
+  assert.deepEqual(result.data.map((item) => item.eventFileName), ["report.xlsx", null, null, null]);
+  assert.ok(result.data.every((item) => !("job" in item)));
+});
